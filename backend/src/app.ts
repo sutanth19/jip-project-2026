@@ -3,15 +3,14 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
+import authRoutes from "./routes/auth.routes.js";
+import { errorHandler } from "./middleware/error.middleware.js";
+
 const app = express();
 
-// Security
 app.use(helmet());
-
-// CORS
 app.use(cors());
 
-// Rate Limiter
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -19,16 +18,25 @@ app.use(
   })
 );
 
-// Body Parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Test Route
-app.get("/", (req, res) => {
+app.use("/api/auth", authRoutes);
+
+app.get("/", (_req, res) => {
   res.json({
     success: true,
     message: "School Literacy System API is running 🚀",
   });
 });
+
+app.use((_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found.",
+  });
+});
+
+app.use(errorHandler);
 
 export default app;
