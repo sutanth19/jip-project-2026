@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum AccountStatus {
+  ACTIVE
+  PENDING
+  LOCKED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ParentRelationship {
+  FATHER
+  MOTHER
+  GUARDIAN
+}
+
+model User {
+  id                 String         @id @default(uuid()) @db.Uuid
+
+  role               UserRole
+
+  email              String?        @unique
+  passwordHash       String?
+
+  accountStatus      AccountStatus  @default(ACTIVE)
+
+  mustChangePassword Boolean        @default(false)
+  isFirstLogin       Boolean        @default(true)
+
+  lastLogin          DateTime?
+  passwordResetToken String?
+  passwordResetExpiry DateTime?
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  admin              Admin?
+  teacher            Teacher?
+  student            Student?
+  parent             Parent?
+
+  @@map("users")
+}
+
+model School {
+
+  id              String         @id @default(uuid()) @db.Uuid
+
+  schoolCode      String         @unique
+
+  schoolName      String
+
+  logo            String?
+
+  principalName   String?
+
+  address         String
+
+  phone           String
+
+  email           String?
+
+  accountStatus   AccountStatus  @default(ACTIVE)
+
+  createdAt       DateTime       @default(now())
+
+  updatedAt       DateTime       @updatedAt
+
+  teachers        Teacher[]
+
+  classes         SchoolClass[]
+
+  students        Student[]
+  parents         Parent[]
+
+  @@map("schools")
+
+}
+
+model Teacher {
+  id                 String         @id @default(uuid()) @db.Uuid
+
+  userId             String         @unique @db.Uuid
+  schoolId           String         @db.Uuid
+
+  teacherId          String         @unique
+
+  fullName           String
+
+  gender             Gender
+
+  phone              String?
+
+  position           String?
+
+ avatar              String?
+
+  accountStatus      AccountStatus  @default(ACTIVE)
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school             School         @relation(fields: [schoolId], references: [id])
+
+  classes            SchoolClass[]
+
+  @@index([schoolId])
+  @@index([teacherId])
+  @@map("teachers")
+}
+
+model SchoolClass {
+  id                 String         @id @default(uuid()) @db.Uuid
+
+  schoolId           String         @db.Uuid
+  teacherId          String         @db.Uuid
+
+  className          String
+  yearLevel          Int
+
+  academicYear       Int
+
+  accountStatus      AccountStatus  @default(ACTIVE)
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  school             School         @relation(fields: [schoolId], references: [id])
+  teacher            Teacher        @relation(fields: [teacherId], references: [id])
+
+  students           Student[]
+
+  @@index([schoolId])
+  @@index([teacherId])
+  @@unique([schoolId, className, academicYear])
+
+  @@map("school_classes")
+}
+
+model Student {
+  id                 String         @id @default(uuid()) @db.Uuid
+
+  userId             String         @unique @db.Uuid
+  schoolId           String         @db.Uuid
+  classId            String         @db.Uuid
+
+  studentId          String         @unique
+
+  fullName           String
+
+  gender             Gender
+
+  birthDate          DateTime?
+
+  pinHash            String
+
+  avatar       String?
+
+  accountStatus      AccountStatus  @default(ACTIVE)
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school             School         @relation(fields: [schoolId], references: [id])
+  class              SchoolClass    @relation(fields: [classId], references: [id])
+
+  parents            ParentStudent[]
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([studentId])
+
+  @@map("students")
+}
+
+model Parent {
+  id                 String         @id @default(uuid()) @db.Uuid
+
+  userId             String         @unique @db.Uuid
+  schoolId           String         @db.Uuid
+
+  fullName           String
+
+  phone              String
+
+  occupation         String?
+
+  address            String?
+
+  avatar             String?
+
+  accountStatus      AccountStatus  @default(ACTIVE)
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school             School         @relation(fields: [schoolId], references: [id])
+
+  students           ParentStudent[]
+
+  @@index([schoolId])
+  @@map("parents")
+}
+
+model ParentStudent {
+  id            String              @id @default(uuid()) @db.Uuid
+
+  parentId      String              @db.Uuid
+  studentId     String              @db.Uuid
+
+  relationship  ParentRelationship
+
+  createdAt     DateTime            @default(now())
+
+  parent         Parent             @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student        Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+
+  @@map("parent_students")
+}
+
+model Admin {
+  id                 String         @id @default(uuid()) @db.Uuid
+
+  userId             String         @unique @db.Uuid
+
+  fullName           String
+
+  phone              String?
+
+  position           String?
+
+  avatar             String?
+
+  accountStatus      AccountStatus  @default(ACTIVE)
+
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
