@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
 
 export interface JwtPayload {
@@ -7,6 +7,8 @@ export interface JwtPayload {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_EXPIRES_IN: SignOptions["expiresIn"] =
+  (process.env.JWT_EXPIRES_IN as SignOptions["expiresIn"]) ?? "7d";
 
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is missing in .env");
@@ -17,7 +19,7 @@ if (!JWT_SECRET) {
  */
 export function generateAccessToken(payload: JwtPayload): string {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: "7d",
+    expiresIn: JWT_EXPIRES_IN,
   });
 }
 

@@ -1,0 +1,18 @@
+:root {
+  /* Brand */
+  --primary: #2563eb;
+  --secondary: #10b981;
+  --accent: #f59e0b;
+  --info: #0ea5e9;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Surface */
+  --background: #f8fafc;
+  --surface: #ffffff;
+
+  /* Text */
+  --text: #1e293b;
+  --border: #e2e8f0;
+}

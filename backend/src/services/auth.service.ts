@@ -1,8 +1,9 @@
-
-
 import { AccountStatus } from "@prisma/client";
 import { prisma } from "../config/prisma.js";
-import { verifyPassword } from "../utils/bcrypt.js";
+import {
+  verifyPassword,
+  hashPassword,
+} from "../utils/bcrypt.js";
 import { generateAccessToken } from "../utils/jwt.js";
 
 export interface LoginInput {
@@ -43,5 +44,50 @@ export async function login({ email, password }: LoginInput) {
   return {
     token,
     user,
+  };
+}
+
+export interface SetupPasswordInput {
+  token: string;
+  password: string;
+}
+
+export async function setupPassword(
+  data: SetupPasswordInput
+) {
+const user = await prisma.user.findUnique({
+  where: {
+    setupToken: data.token,
+  },
+});
+
+  if (!user) {
+    throw new Error("Invalid setup link.");
+  }
+
+  if (
+    !user.setupTokenExpiry ||
+    user.setupTokenExpiry < new Date()
+  ) {
+    throw new Error("Setup link has expired.");
+  }
+
+  const passwordHash = await hashPassword(data.password);
+
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      passwordHash,
+      accountStatus: AccountStatus.ACTIVE,
+      isFirstLogin: false,
+      setupToken: null,
+      setupTokenExpiry: null,
+    },
+  });
+
+  return {
+    message: "Password has been set successfully.",
   };
 }

@@ -1,6 +1,17 @@
 import type { Request, Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import { login } from "../services/auth.service.js";
+
+import {
+  login,
+  setupPassword,
+} from "../services/auth.service.js";
+
+import {
+  loginSchema,
+  setupPasswordSchema,
+} from "../validators/auth.validator.js";
+
+import { successResponse } from "../helpers/response.helper.js";
 
 export async function loginController(
   req: Request,
@@ -8,18 +19,41 @@ export async function loginController(
   next: NextFunction
 ) {
   try {
-    const { email, password } = req.body;
+    const data = loginSchema.parse(req.body);
 
-    const result = await login({
-      email,
+    const result = await login(data);
+
+    return successResponse(
+      res,
+      200,
+      "Login successful.",
+      result
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function setupPasswordController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const data = setupPasswordSchema.parse(req.body);
+
+    const { token, password } = data;
+
+    await setupPassword({
+      token,
       password,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Login successful.",
-      data: result,
-    });
+    return successResponse(
+      res,
+      200,
+      "Password has been set successfully."
+    );
   } catch (error) {
     next(error);
   }
@@ -29,8 +63,10 @@ export async function meController(
   req: AuthenticatedRequest,
   res: Response
 ) {
-  return res.status(200).json({
-    success: true,
-    data: req.user,
-  });
+  return successResponse(
+    res,
+    200,
+    "User profile retrieved successfully.",
+    req.user
+  );
 }
