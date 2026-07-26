@@ -13,7 +13,25 @@ export type AuditAction =
   | "TEACHER_STATUS_CHANGED"
   | "TEACHER_SETUP_RESENT"
   | "TEACHER_PERMISSION_GRANTED"
-  | "TEACHER_PERMISSION_REVOKED";
+  | "TEACHER_PERMISSION_REVOKED"
+  | "PARENT_CREATED"
+  | "PARENT_UPDATED"
+  | "PARENT_STATUS_CHANGED"
+  | "PARENT_SETUP_RESENT"
+  | "PARENT_STUDENT_LINKED"
+  | "PARENT_STUDENT_UNLINKED"
+  | "STUDENT_CREATED"
+  | "STUDENT_UPDATED"
+  | "STUDENT_STATUS_CHANGED"
+  | "STUDENT_PIN_RESET"
+  | "STUDENT_CLASS_CHANGED"
+  | "STUDENT_PARENT_LINKED"
+  | "STUDENT_PARENT_UNLINKED"
+  | "CLASS_CREATED"
+  | "CLASS_UPDATED"
+  | "CLASS_STATUS_CHANGED"
+  | "CLASS_TEACHER_CHANGED"
+  | "CLASS_STUDENT_ASSIGNED";
 
 export interface AuditEvent {
   actorUserId: string;
@@ -21,7 +39,16 @@ export interface AuditEvent {
   actorRole: UserRole;
   actorName: string | null;
   action: AuditAction;
-  resourceType: "SCHOOL" | "ADMIN" | "TEACHER" | "TEACHER_PERMISSION_GRANT";
+  resourceType:
+    | "SCHOOL"
+    | "ADMIN"
+    | "TEACHER"
+    | "TEACHER_PERMISSION_GRANT"
+    | "PARENT"
+    | "PARENT_STUDENT"
+    | "STUDENT"
+    | "STUDENT_PARENT"
+    | "CLASS";
   resourceId: string;
   schoolId: string | null;
   before: unknown;

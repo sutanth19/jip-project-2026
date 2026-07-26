@@ -1,42 +1,29 @@
+import { UserRole } from "@prisma/client";
+import rateLimit from "express-rate-limit";
 import { Router } from "express";
 
 import {
-  createParentController,
-  getParentsController,
-  getParentByIdController,
-  updateParentController,
+  createParentController, getParentByIdController, getParentStudentsController, linkParentStudentController,
+  listParentsController, resendParentSetupController, unlinkParentStudentController, updateParentController,
   updateParentStatusController,
-  resendParentSetupLinkController,
 } from "../controllers/parent.controller.js";
-
-import {
-  getStudentsByParentController,
-} from "../controllers/parentStudent.controller.js";
+import { authenticate, requirePasswordChanged } from "../middleware/auth.middleware.js";
+import { requireRole } from "../middleware/role.middleware.js";
 
 const router = Router();
+const resendSetupRateLimiter = rateLimit({ windowMs: 15 * 60 * 1_000, limit: 5, standardHeaders: true, legacyHeaders: false });
 
-router.post("/", createParentController);
+router.use(authenticate, requirePasswordChanged);
 
-router.get("/", getParentsController);
+router.get("/", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), listParentsController);
+router.get("/:parentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), getParentByIdController);
+router.get("/:parentId/students", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), getParentStudentsController);
 
-// Get all children for a parent
-router.get(
-  "/:id/students",
-  getStudentsByParentController
-);
-
-router.get("/:id", getParentByIdController);
-
-router.put("/:id", updateParentController);
-
-router.patch(
-  "/:id/status",
-  updateParentStatusController
-);
-
-router.post(
-  "/:id/resend-setup-link",
-  resendParentSetupLinkController
-);
+router.post("/", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), createParentController);
+router.patch("/:parentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), updateParentController);
+router.patch("/:parentId/status", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), updateParentStatusController);
+router.post("/:parentId/resend-setup", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), resendSetupRateLimiter, resendParentSetupController);
+router.post("/:parentId/students/:studentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), linkParentStudentController);
+router.delete("/:parentId/students/:studentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), unlinkParentStudentController);
 
 export default router;

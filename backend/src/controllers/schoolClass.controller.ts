@@ -1,151 +1,47 @@
-import type {
-  Request,
-  Response,
-  NextFunction,
-} from "express";
+import type { NextFunction, Request, Response } from "express";
 
+import { AppError } from "../errors/app-error.js";
 import { successResponse } from "../helpers/response.helper.js";
-
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import {
-  createSchoolClass,
-  getSchoolClasses,
-  getSchoolClassById,
-  updateSchoolClass,
-  updateSchoolClassStatus,
+  assignSchoolClassTeacher, assignStudentToSchoolClass, createSchoolClass, getSchoolClassById,
+  getSchoolClasses, getSchoolClassStudents, removeStudentFromSchoolClass, updateSchoolClass,
+  updateSchoolClassStatus, type SchoolClassAuditContext,
 } from "../services/schoolClass.service.js";
-
 import {
-  createSchoolClassSchema,
-  updateSchoolClassSchema,
-  updateSchoolClassStatusSchema,
+  assignSchoolClassTeacherSchema, classIdParamsSchema, classStudentParamsSchema, createSchoolClassSchema,
+  listClassStudentsQuerySchema, listSchoolClassesQuerySchema, updateSchoolClassSchema, updateSchoolClassStatusSchema,
 } from "../validators/schoolClass.validator.js";
 
-export async function createSchoolClassController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const data =
-      createSchoolClassSchema.parse(req.body);
-
-    const result =
-      await createSchoolClass(data);
-
-    return successResponse(
-      res,
-      201,
-      "Class created successfully.",
-      result
-    );
-  } catch (error) {
-    next(error);
-  }
+function auditContext(req: AuthenticatedRequest): SchoolClassAuditContext {
+  if (!req.auth) throw new AppError("AUTH_INVALID_TOKEN", 401, "Invalid or expired token.");
+  return { actor: req.auth, requestIp: req.ip || null, userAgent: req.get("user-agent") || null };
 }
 
-export async function getSchoolClassesController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const classes = await getSchoolClasses();
-
-    return successResponse(
-      res,
-      200,
-      "Classes retrieved successfully.",
-      classes
-    );
-  } catch (error) {
-    next(error);
-  }
+export async function createSchoolClassController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { successResponse(res, 201, "Kelas berjaya diwujudkan.", { class: await createSchoolClass(createSchoolClassSchema.parse(req.body), auditContext(req as AuthenticatedRequest)) }); } catch (caught) { next(caught); }
 }
-
-export async function getSchoolClassByIdController(
-
-  req: Request,
-
-  res: Response,
-
-  next: NextFunction
-
-) {
-
-  try {
-
-    const schoolClass = await getSchoolClassById(
-
-      req.params.id as string
-
-    );
-
-    return successResponse(
-
-      res,
-
-      200,
-
-      "Class retrieved successfully.",
-
-      schoolClass
-
-    );
-
-  } catch (error) {
-
-    next(error);
-
-  }
-
+export async function getSchoolClassesController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { successResponse(res, 200, "Senarai kelas berjaya diperoleh.", await getSchoolClasses(listSchoolClassesQuerySchema.parse(req.query), auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }
 }
-
-export async function updateSchoolClassController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const data = updateSchoolClassSchema.parse(req.body);
-
-    const schoolClass = await updateSchoolClass(
-      req.params.id as string,
-      data
-    );
-
-    return successResponse(
-      res,
-      200,
-      "Class updated successfully.",
-      schoolClass
-    );
-  } catch (error) {
-    next(error);
-  }
+export async function getSchoolClassByIdController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId } = classIdParamsSchema.parse(req.params); successResponse(res, 200, "Maklumat kelas berjaya diperoleh.", await getSchoolClassById(classId, auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }
 }
-
-export async function updateSchoolClassStatusController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const data = updateSchoolClassStatusSchema.parse(req.body);
-    // If you created a dedicated schema instead:
-    // const data = updateSchoolClassStatusSchema.parse(req.body);
-
-    const schoolClass = await updateSchoolClassStatus(
-      req.params.id as string,
-      data
-    );
-
-    return successResponse(
-      res,
-      200,
-      "Class status updated successfully.",
-      schoolClass
-    );
-  } catch (error) {
-    next(error);
-  }
+export async function updateSchoolClassController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId } = classIdParamsSchema.parse(req.params); successResponse(res, 200, "Maklumat kelas berjaya dikemas kini.", { class: await updateSchoolClass(classId, updateSchoolClassSchema.parse(req.body), auditContext(req as AuthenticatedRequest)) }); } catch (caught) { next(caught); }
+}
+export async function updateSchoolClassStatusController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId } = classIdParamsSchema.parse(req.params); const { status } = updateSchoolClassStatusSchema.parse(req.body); successResponse(res, 200, "Status kelas berjaya dikemas kini.", { class: await updateSchoolClassStatus(classId, status, auditContext(req as AuthenticatedRequest)) }); } catch (caught) { next(caught); }
+}
+export async function assignSchoolClassTeacherController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId } = classIdParamsSchema.parse(req.params); const { teacherId } = assignSchoolClassTeacherSchema.parse(req.body); successResponse(res, 200, "Guru kelas berjaya dikemas kini.", { class: await assignSchoolClassTeacher(classId, teacherId, auditContext(req as AuthenticatedRequest)) }); } catch (caught) { next(caught); }
+}
+export async function getSchoolClassStudentsController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId } = classIdParamsSchema.parse(req.params); successResponse(res, 200, "Senarai murid kelas berjaya diperoleh.", await getSchoolClassStudents(classId, listClassStudentsQuerySchema.parse(req.query), auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }
+}
+export async function assignStudentToSchoolClassController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId, studentId } = classStudentParamsSchema.parse(req.params); successResponse(res, 200, "Murid berjaya ditempatkan ke dalam kelas.", await assignStudentToSchoolClass(classId, studentId, auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }
+}
+export async function removeStudentFromSchoolClassController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try { const { classId, studentId } = classStudentParamsSchema.parse(req.params); await removeStudentFromSchoolClass(classId, studentId, auditContext(req as AuthenticatedRequest)); } catch (caught) { next(caught); }
 }

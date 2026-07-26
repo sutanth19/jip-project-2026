@@ -1,40 +1,42 @@
+import { UserRole } from "@prisma/client";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { Router } from "express";
 
 import {
-  createStudentController,
-  getStudentsController,
-  getStudentByIdController,
-  updateStudentController,
-  updateStudentStatusController,
-  resetStudentPinController,
+  createStudentController, getStudentByIdController, getStudentParentsController, getStudentsController,
+  linkStudentParentController, resetStudentPinController, transferStudentClassController,
+  unlinkStudentParentController, updateStudentController, updateStudentStatusController,
 } from "../controllers/student.controller.js";
-
-import {
-  getParentsByStudentController,
-} from "../controllers/parentStudent.controller.js";
+import { authenticate, requirePasswordChanged, type AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import { requireRole, requireTeacherStudentAccess } from "../middleware/role.middleware.js";
 
 const router = Router();
-router.get("/", getStudentsController);
+const resetPinRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1_000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const authenticated = req as AuthenticatedRequest;
+    return `${authenticated.auth?.userId ?? "unauthenticated"}:${ipKeyGenerator(req.ip ?? "")}`;
+  },
+});
+const managementRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
+const readRoles = [...managementRoles, UserRole.TEACHER];
+const teacherStudentAccess = requireTeacherStudentAccess({ key: "studentProfileId", bypassRoles: managementRoles });
 
-router.get(
-  "/:id/parents",
-  getParentsByStudentController
-);
+router.use(authenticate, requirePasswordChanged);
 
-router.get("/:id", getStudentByIdController);
+router.post("/", requireRole(...managementRoles), createStudentController);
+router.get("/", requireRole(...readRoles), getStudentsController);
 
-router.post("/", createStudentController);
-
-router.post(
-  "/:id/reset-pin",
-  resetStudentPinController
-);
-
-router.put("/:id", updateStudentController);
-
-router.patch(
-  "/:id/status",
-  updateStudentStatusController
-);
+router.get("/:studentProfileId/parents", requireRole(...readRoles), teacherStudentAccess, getStudentParentsController);
+router.post("/:studentProfileId/parents/:parentId", requireRole(...managementRoles), linkStudentParentController);
+router.delete("/:studentProfileId/parents/:parentId", requireRole(...managementRoles), unlinkStudentParentController);
+router.post("/:studentProfileId/reset-pin", requireRole(...readRoles), teacherStudentAccess, resetPinRateLimiter, resetStudentPinController);
+router.patch("/:studentProfileId/class", requireRole(...managementRoles), transferStudentClassController);
+router.patch("/:studentProfileId/status", requireRole(...managementRoles), updateStudentStatusController);
+router.get("/:studentProfileId", requireRole(...readRoles), teacherStudentAccess, getStudentByIdController);
+router.patch("/:studentProfileId", requireRole(...readRoles), teacherStudentAccess, updateStudentController);
 
 export default router;
