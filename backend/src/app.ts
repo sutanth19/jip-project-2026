@@ -13,6 +13,10 @@ import studentRoutes from "./routes/student.routes.js";
 import schoolClassRoutes from "./routes/schoolClass.routes.js";
 import parentStudentRoutes from "./routes/parentStudent.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import mediaRoutes from "./routes/media.routes.js";
+import auditRoutes from "./routes/audit.routes.js";
+import profileRoutes from "./routes/profile.routes.js";
+import curriculumRoutes from "./routes/curriculum.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -39,6 +43,10 @@ app.use("/api/students", studentRoutes);
 app.use("/api/classes", schoolClassRoutes);
 app.use("/api/parent-students", parentStudentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/media", mediaRoutes);
+app.use("/api/audit-logs", auditRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/curriculum", curriculumRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

@@ -452,7 +452,7 @@ function pinPolicyFailed(): AppError {
   );
 }
 
-function isStrongPassword(value: string): boolean {
+export function isStrongPassword(value: string): boolean {
   return (
     value.length >= 8 &&
     value.length <= 128 &&
@@ -487,7 +487,7 @@ function isSequentialPin(value: string): boolean {
   return ascending || descending;
 }
 
-function isWeakPin(value: string): boolean {
+export function isWeakPin(value: string): boolean {
   return /^(\d)\1{3}$/.test(value) || isSequentialPin(value);
 }
 

@@ -24,6 +24,7 @@ model User {
   parent              Parent?
   student             Student?
   teacher             Teacher?
+  auditLogs           AuditLog[]
 
   @@map("users")
 }
@@ -44,6 +45,7 @@ model School {
   classes       SchoolClass[]
   students      Student[]
   teachers      Teacher[]
+  auditLogs     AuditLog[]
 
   @@map("schools")
 }
@@ -185,6 +187,262 @@ model TeacherPermissionGrant {
   @@map("teacher_permission_grants")
 }
 
+model AuditLog {
+  id                     String    @id @default(uuid()) @db.Uuid
+  actorUserId            String?   @db.Uuid
+  actorProfileId         String?   @db.Uuid
+  actorRole              UserRole?
+  actorName              String?
+  action                 String
+  resourceType           String
+  resourceId             String?
+  schoolId               String?   @db.Uuid
+  beforeData             Json?
+  afterData              Json?
+  metadata               Json?
+  ipAddress              String?
+  userAgent              String?
+  requestId              String?
+  restrictedToSuperAdmin Boolean   @default(false)
+  createdAt              DateTime  @default(now())
+
+  actorUser User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  school    School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([actorRole])
+  @@index([action])
+  @@index([resourceType])
+  @@index([resourceId])
+  @@index([schoolId])
+  @@index([createdAt])
+  @@index([resourceType, action])
+  @@index([schoolId, createdAt])
+  @@index([restrictedToSuperAdmin, createdAt])
+  @@map("audit_logs")
+}
+
+model CurriculumVersion {
+  id            String           @id @default(uuid()) @db.Uuid
+  code          String           @unique
+  name          String
+  description   String?
+  sourceYear    Int?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  status        CurriculumStatus @default(DRAFT)
+  publishedAt   DateTime?
+  archivedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  programmes CurriculumProgramme[]
+
+  @@index([status])
+  @@index([sourceYear])
+  @@map("curriculum_versions")
+}
+
+model Subject {
+  id          String                 @id @default(uuid()) @db.Uuid
+  code        String                 @unique
+  name        String                 @unique
+  description String?
+  status      CurriculumRecordStatus @default(ACTIVE)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  programmes CurriculumProgramme[]
+
+  @@index([status])
+  @@map("subjects")
+}
+
+model CurriculumProgramme {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  curriculumVersionId String                 @db.Uuid
+  subjectId           String                 @db.Uuid
+  code                String
+  name                String
+  description         String?
+  status              CurriculumRecordStatus @default(ACTIVE)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  curriculumVersion  CurriculumVersion   @relation(fields: [curriculumVersionId], references: [id], onDelete: Restrict)
+  subject            Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  years              CurriculumYear[]
+  languageStructures LanguageStructure[]
+  remedialSkills     RemedialSkill[]
+  contentStandards   ContentStandard[]
+
+  @@unique([curriculumVersionId, code])
+  @@index([subjectId])
+  @@index([status])
+  @@map("curriculum_programmes")
+}
+
+model CurriculumYear {
+  id          String                 @id @default(uuid()) @db.Uuid
+  programmeId String                 @db.Uuid
+  yearLevel   Int
+  name        String
+  sequence    Int
+  status      CurriculumRecordStatus @default(ACTIVE)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  programme        CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  contentStandards ContentStandard[]
+
+  @@unique([programmeId, yearLevel])
+  @@unique([programmeId, sequence])
+  @@index([status])
+  @@map("curriculum_years")
+}
+
+model LanguageStructure {
+  id          String                 @id @default(uuid()) @db.Uuid
+  programmeId String                 @db.Uuid
+  code        String
+  name        String
+  description String?
+  sequence    Int
+  status      CurriculumRecordStatus @default(ACTIVE)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  programme      CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  remedialSkills RemedialSkill[]
+
+  @@unique([programmeId, code])
+  @@unique([programmeId, sequence])
+  @@index([status])
+  @@map("language_structures")
+}
+
+model RemedialSkill {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  programmeId         String                 @db.Uuid
+  languageStructureId String                 @db.Uuid
+  code                String
+  sequence            Int
+  name                String
+  description         String?
+  isPreparatory       Boolean                @default(false)
+  status              CurriculumRecordStatus @default(ACTIVE)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  programme           CurriculumProgramme            @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  languageStructure   LanguageStructure              @relation(fields: [languageStructureId], references: [id], onDelete: Restrict)
+  standardMappings    RemedialSkillStandardMapping[]
+  learningObjectives  LearningObjective[]
+  suggestedActivities SuggestedTeachingActivity[]
+
+  @@unique([programmeId, code])
+  @@unique([programmeId, sequence])
+  @@index([languageStructureId])
+  @@index([status])
+  @@map("remedial_skills")
+}
+
+model ContentStandard {
+  id               String                 @id @default(uuid()) @db.Uuid
+  programmeId      String                 @db.Uuid
+  curriculumYearId String                 @db.Uuid
+  code             String
+  title            String
+  description      String?
+  domain           CurriculumDomain
+  sequence         Int?
+  status           CurriculumRecordStatus @default(ACTIVE)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  programme         CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  curriculumYear    CurriculumYear      @relation(fields: [curriculumYearId], references: [id], onDelete: Restrict)
+  learningStandards LearningStandard[]
+
+  @@unique([programmeId, curriculumYearId, code])
+  @@index([domain])
+  @@index([status])
+  @@map("content_standards")
+}
+
+model LearningStandard {
+  id                String                 @id @default(uuid()) @db.Uuid
+  contentStandardId String                 @db.Uuid
+  code              String
+  description       String
+  sequence          Int?
+  status            CurriculumRecordStatus @default(ACTIVE)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  contentStandard  ContentStandard                @relation(fields: [contentStandardId], references: [id], onDelete: Restrict)
+  remedialMappings RemedialSkillStandardMapping[]
+
+  @@unique([contentStandardId, code])
+  @@index([status])
+  @@map("learning_standards")
+}
+
+model RemedialSkillStandardMapping {
+  id                 String   @id @default(uuid()) @db.Uuid
+  remedialSkillId    String   @db.Uuid
+  learningStandardId String   @db.Uuid
+  isPrimary          Boolean  @default(false)
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  remedialSkill    RemedialSkill    @relation(fields: [remedialSkillId], references: [id], onDelete: Cascade)
+  learningStandard LearningStandard @relation(fields: [learningStandardId], references: [id], onDelete: Cascade)
+
+  @@unique([remedialSkillId, learningStandardId])
+  @@index([learningStandardId])
+  @@map("remedial_skill_standard_mappings")
+}
+
+model LearningObjective {
+  id              String                 @id @default(uuid()) @db.Uuid
+  remedialSkillId String                 @db.Uuid
+  code            String?
+  description     String
+  sequence        Int
+  status          CurriculumRecordStatus @default(ACTIVE)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  remedialSkill       RemedialSkill               @relation(fields: [remedialSkillId], references: [id], onDelete: Cascade)
+  suggestedActivities SuggestedTeachingActivity[]
+
+  @@unique([remedialSkillId, sequence])
+  @@index([status])
+  @@map("learning_objectives")
+}
+
+model SuggestedTeachingActivity {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  remedialSkillId     String                 @db.Uuid
+  learningObjectiveId String?                @db.Uuid
+  title               String?
+  description         String
+  sequence            Int
+  sourceReference     String?
+  status              CurriculumRecordStatus @default(ACTIVE)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  remedialSkill     RemedialSkill      @relation(fields: [remedialSkillId], references: [id], onDelete: Cascade)
+  learningObjective LearningObjective? @relation(fields: [learningObjectiveId], references: [id], onDelete: SetNull)
+
+  @@unique([remedialSkillId, sequence])
+  @@index([learningObjectiveId])
+  @@index([status])
+  @@map("suggested_teaching_activities")
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -214,4 +472,24 @@ enum ParentRelationship {
 
 enum TeacherPermission {
   CREATE_TEACHER
+}
+
+enum CurriculumStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CurriculumDomain {
+  LISTENING_SPEAKING
+  READING
+  WRITING
+  LANGUAGE_ARTS
+  GRAMMAR
+}
+
+enum CurriculumRecordStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
 }

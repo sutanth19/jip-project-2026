@@ -1,0 +1,256 @@
+import { CurriculumRecordStatus, CurriculumStatus } from "@prisma/client";
+
+import { bmPemulihan2019SeedData, type BmPemulihanSeedData } from "../data/curriculum/bm-pemulihan-2019.js";
+import { prisma } from "../config/prisma.js";
+import { AppError } from "../errors/app-error.js";
+import { dispatchAuditEvent } from "../services/audit.service.js";
+
+export interface CurriculumSeedIssue {
+  code: string;
+  path: string;
+  message: string;
+}
+
+export interface CurriculumSeedResult {
+  dryRun: boolean;
+  versionCode: string;
+  created: {
+    subjects: number;
+    versions: number;
+    programmes: number;
+    years: number;
+    languageStructures: number;
+    remedialSkills: number;
+  };
+}
+
+export interface CurriculumSeedOptions {
+  dryRun?: boolean;
+}
+
+function issue(code: string, path: string, message: string): CurriculumSeedIssue {
+  return { code, path, message };
+}
+
+export function validateBmPemulihanSeedData(data: BmPemulihanSeedData = bmPemulihan2019SeedData): CurriculumSeedIssue[] {
+  const issues: CurriculumSeedIssue[] = [];
+  const expectedStructures = ["PRA", "ABJAD", "SUKU_KATA", "PERKATAAN", "AYAT"];
+  const codes = new Set<string>();
+  const sequences = new Set<number>();
+  const structureCodes = new Set(data.languageStructures.map((structure) => structure.code));
+
+  if (data.version.code !== data.version.code.toUpperCase()) issues.push(issue("INVALID_VERSION_CODE", "version.code", "Kod versi mesti huruf besar."));
+  if (data.subject.code !== "BM") issues.push(issue("INVALID_SUBJECT", "subject.code", "Kod subjek asas mestilah BM."));
+  if (data.programme.code !== "BM-PEMULIHAN") issues.push(issue("INVALID_PROGRAMME", "programme.code", "Kod program asas mestilah BM-PEMULIHAN."));
+  if (data.years.length !== 3 || ![1, 2, 3].every((yearLevel) => data.years.some((year) => year.yearLevel === yearLevel && year.sequence === yearLevel))) {
+    issues.push(issue("INVALID_YEARS", "years", "Data asas mesti mengandungi Tahun 1 hingga Tahun 3 dengan turutan yang sah."));
+  }
+  if (data.languageStructures.length !== expectedStructures.length || !expectedStructures.every((code) => structureCodes.has(code))) {
+    issues.push(issue("INVALID_STRUCTURES", "languageStructures", "Lima struktur bahasa BM Pemulihan mesti lengkap."));
+  }
+  if (new Set(data.languageStructures.map((structure) => structure.sequence)).size !== data.languageStructures.length) {
+    issues.push(issue("DUPLICATE_STRUCTURE_SEQUENCE", "languageStructures", "Turutan struktur bahasa mesti unik."));
+  }
+
+  for (const skill of data.remedialSkills) {
+    if (codes.has(skill.code)) issues.push(issue("DUPLICATE_SKILL_CODE", `remedialSkills.${skill.code}`, "Kod kemahiran berulang."));
+    if (sequences.has(skill.sequence)) issues.push(issue("DUPLICATE_SKILL_SEQUENCE", `remedialSkills.${skill.sequence}`, "Turutan kemahiran berulang."));
+    if (!structureCodes.has(skill.languageStructureCode)) issues.push(issue("UNKNOWN_STRUCTURE", `remedialSkills.${skill.code}`, "Struktur bahasa kemahiran tidak wujud."));
+    codes.add(skill.code);
+    sequences.add(skill.sequence);
+  }
+
+  const expectedSkillCodes = ["KP-PRA", ...Array.from({ length: 32 }, (_value, index) => `KP${String(index + 1).padStart(2, "0")}`)];
+  for (const code of expectedSkillCodes) {
+    if (!codes.has(code)) issues.push(issue("MISSING_SKILL", `remedialSkills.${code}`, `Kemahiran ${code} belum diwujudkan.`));
+  }
+  if (data.remedialSkills.length !== expectedSkillCodes.length) issues.push(issue("INVALID_SKILL_COUNT", "remedialSkills", "Data asas mesti mengandungi KP-PRA dan KP01 hingga KP32 sahaja."));
+
+  const expectedStructureForSkill = (code: string): string => {
+    if (code === "KP-PRA") return "PRA";
+    const number = Number(code.slice(2));
+    if (number >= 1 && number <= 3) return "ABJAD";
+    if ([4, 9, 17].includes(number)) return "SUKU_KATA";
+    if (number >= 5 && number <= 30) return "PERKATAAN";
+    return "AYAT";
+  };
+  for (const skill of data.remedialSkills) {
+    const expectedStructure = expectedStructureForSkill(skill.code);
+    if (skill.languageStructureCode !== expectedStructure) {
+      issues.push(issue("INVALID_SKILL_STRUCTURE", `remedialSkills.${skill.code}.languageStructureCode`, `${skill.code} mesti dipautkan kepada ${expectedStructure}.`));
+    }
+    if (skill.code === "KP-PRA" && (!skill.isPreparatory || skill.sequence !== 0)) {
+      issues.push(issue("INVALID_PREPARATORY_SKILL", "remedialSkills.KP-PRA", "KP-PRA mesti merupakan kemahiran persediaan dengan turutan 0."));
+    }
+    if (skill.code !== "KP-PRA") {
+      const number = Number(skill.code.slice(2));
+      if (!Number.isInteger(number) || skill.sequence !== number || skill.isPreparatory) {
+        issues.push(issue("INVALID_SKILL_SEQUENCE", `remedialSkills.${skill.code}`, "KP01 hingga KP32 mesti menggunakan turutan nombor kod dan bukan persediaan."));
+      }
+    }
+  }
+  return issues;
+}
+
+function invalidImport(issues: CurriculumSeedIssue[]): AppError {
+  return new AppError("CURRICULUM_IMPORT_INVALID", 400, "Data import kurikulum tidak sah.", { issues });
+}
+
+function ensureSame(value: unknown, expected: unknown, path: string): void {
+  if (value !== expected) throw invalidImport([issue("SEED_CONFLICT", path, "Rekod sedia ada berbeza dan tidak akan ditulis ganti.")]);
+}
+
+export async function seedBmPemulihanCurriculum(options: CurriculumSeedOptions = {}): Promise<CurriculumSeedResult> {
+  const data = bmPemulihan2019SeedData;
+  const issues = validateBmPemulihanSeedData(data);
+  if (issues.length > 0) throw invalidImport(issues);
+
+  const result: CurriculumSeedResult = {
+    dryRun: options.dryRun === true,
+    versionCode: data.version.code,
+    created: { subjects: 0, versions: 0, programmes: 0, years: 0, languageStructures: 0, remedialSkills: 0 },
+  };
+  if (options.dryRun) return result;
+
+  await prisma.$transaction(async (tx) => {
+    let subject = await tx.subject.findUnique({ where: { code: data.subject.code } });
+    if (!subject) {
+      subject = await tx.subject.create({ data: { ...data.subject, status: CurriculumRecordStatus.ACTIVE } });
+      result.created.subjects += 1;
+    } else {
+      ensureSame(subject.name, data.subject.name, "subject.name");
+    }
+
+    let version = await tx.curriculumVersion.findUnique({ where: { code: data.version.code } });
+    if (!version) {
+      version = await tx.curriculumVersion.create({ data: { ...data.version, status: CurriculumStatus.DRAFT } });
+      result.created.versions += 1;
+    } else {
+      ensureSame(version.name, data.version.name, "version.name");
+      ensureSame(version.sourceYear, data.version.sourceYear, "version.sourceYear");
+    }
+
+    let programme = await tx.curriculumProgramme.findUnique({
+      where: { curriculumVersionId_code: { curriculumVersionId: version.id, code: data.programme.code } },
+    });
+    if (!programme) {
+      programme = await tx.curriculumProgramme.create({
+        data: { ...data.programme, curriculumVersionId: version.id, subjectId: subject.id, status: CurriculumRecordStatus.ACTIVE },
+      });
+      result.created.programmes += 1;
+    } else {
+      ensureSame(programme.subjectId, subject.id, "programme.subjectId");
+      ensureSame(programme.name, data.programme.name, "programme.name");
+    }
+
+    const existingYears = await tx.curriculumYear.findMany({ where: { programmeId: programme.id } });
+    const yearsByLevel = new Map(existingYears.map((year) => [year.yearLevel, year]));
+    const yearsBySequence = new Map(existingYears.map((year) => [year.sequence, year]));
+    const missingYears = [] as typeof data.years[number][];
+    for (const year of data.years) {
+      const existing = yearsByLevel.get(year.yearLevel);
+      if (!existing) {
+        const sameSequence = yearsBySequence.get(year.sequence);
+        if (sameSequence) throw invalidImport([issue("SEED_CONFLICT", `years.${year.yearLevel}.sequence`, "Turutan tahun telah digunakan oleh rekod lain.")]);
+        missingYears.push(year);
+      } else {
+        ensureSame(existing.name, year.name, `years.${year.yearLevel}.name`);
+        ensureSame(existing.sequence, year.sequence, `years.${year.yearLevel}.sequence`);
+      }
+    }
+    if (missingYears.length > 0) {
+      await tx.curriculumYear.createMany({ data: missingYears.map((year) => ({ ...year, programmeId: programme.id, status: CurriculumRecordStatus.ACTIVE })) });
+      result.created.years += missingYears.length;
+    }
+
+    let existingStructures = await tx.languageStructure.findMany({ where: { programmeId: programme.id } });
+    const structuresByCodeBeforeCreate = new Map(existingStructures.map((structure) => [structure.code, structure]));
+    const structuresBySequence = new Map(existingStructures.map((structure) => [structure.sequence, structure]));
+    const missingStructures = [] as typeof data.languageStructures[number][];
+    for (const structure of data.languageStructures) {
+      const existing = structuresByCodeBeforeCreate.get(structure.code);
+      if (!existing) {
+        const sameSequence = structuresBySequence.get(structure.sequence);
+        if (sameSequence) throw invalidImport([issue("SEED_CONFLICT", `languageStructures.${structure.code}.sequence`, "Turutan struktur bahasa telah digunakan oleh rekod lain.")]);
+        missingStructures.push(structure);
+      } else {
+        ensureSame(existing.name, structure.name, `languageStructures.${structure.code}.name`);
+        ensureSame(existing.sequence, structure.sequence, `languageStructures.${structure.code}.sequence`);
+      }
+    }
+    if (missingStructures.length > 0) {
+      await tx.languageStructure.createMany({ data: missingStructures.map((structure) => ({ ...structure, programmeId: programme.id, status: CurriculumRecordStatus.ACTIVE })) });
+      result.created.languageStructures += missingStructures.length;
+      existingStructures = await tx.languageStructure.findMany({ where: { programmeId: programme.id } });
+    }
+    const structuresByCode = new Map(existingStructures.map((structure) => [structure.code, structure.id]));
+
+    const existingSkills = await tx.remedialSkill.findMany({ where: { programmeId: programme.id } });
+    const skillsByCode = new Map(existingSkills.map((skill) => [skill.code, skill]));
+    const skillsBySequence = new Map(existingSkills.map((skill) => [skill.sequence, skill]));
+    const missingSkills: Array<{
+      programmeId: string;
+      languageStructureId: string;
+      code: string;
+      sequence: number;
+      name: string;
+      isPreparatory: boolean;
+      status: CurriculumRecordStatus;
+    }> = [];
+    for (const skill of data.remedialSkills) {
+      const languageStructureId = structuresByCode.get(skill.languageStructureCode);
+      if (!languageStructureId) throw invalidImport([issue("UNKNOWN_STRUCTURE", `remedialSkills.${skill.code}`, "Struktur bahasa kemahiran tidak wujud.")]);
+      const existing = skillsByCode.get(skill.code);
+      if (!existing) {
+        const sameSequence = skillsBySequence.get(skill.sequence);
+        if (sameSequence) throw invalidImport([issue("SEED_CONFLICT", `remedialSkills.${skill.code}.sequence`, "Turutan kemahiran telah digunakan oleh rekod lain.")]);
+        missingSkills.push({ programmeId: programme.id, languageStructureId, code: skill.code, sequence: skill.sequence, name: skill.name, isPreparatory: skill.isPreparatory, status: CurriculumRecordStatus.ACTIVE });
+      } else {
+        ensureSame(existing.languageStructureId, languageStructureId, `remedialSkills.${skill.code}.languageStructureId`);
+        ensureSame(existing.sequence, skill.sequence, `remedialSkills.${skill.code}.sequence`);
+        ensureSame(existing.name, skill.name, `remedialSkills.${skill.code}.name`);
+        ensureSame(existing.isPreparatory, skill.isPreparatory, `remedialSkills.${skill.code}.isPreparatory`);
+      }
+    }
+    if (missingSkills.length > 0) {
+      await tx.remedialSkill.createMany({ data: missingSkills });
+      result.created.remedialSkills += missingSkills.length;
+    }
+  }, { timeout: 30_000 });
+
+  await dispatchAuditEvent({
+    actorUserId: null,
+    actorProfileId: null,
+    actorRole: null,
+    actorName: "Curriculum seed",
+    action: "CURRICULUM_IMPORTED",
+    resourceType: "CURRICULUM",
+    resourceId: data.version.code,
+    schoolId: null,
+    before: null,
+    after: { versionCode: data.version.code, created: result.created },
+    timestamp: new Date(),
+    requestIp: null,
+    userAgent: "curriculum-seed",
+  });
+
+  return result;
+}
+
+async function main(): Promise<void> {
+  const dryRun = process.argv.includes("--dry-run");
+  const result = await seedBmPemulihanCurriculum({ dryRun });
+  console.log(JSON.stringify(result));
+}
+
+if (process.argv[1]?.endsWith("curriculum.seed.ts")) {
+  main()
+    .catch((caught: unknown) => {
+      if (caught instanceof Error) console.error(caught.message);
+      else console.error("Curriculum seed failed.");
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

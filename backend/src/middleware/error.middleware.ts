@@ -14,6 +14,7 @@ export function errorHandler(
       error: {
         code: error.code,
         message: error.message,
+        ...(error.details === undefined ? {} : { details: error.details }),
       },
     });
 
