@@ -41,7 +41,6 @@ model School {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   admins        Admin[]
-  parents       Parent[]
   classes       SchoolClass[]
   students      Student[]
   teachers      Teacher[]
@@ -50,24 +49,23 @@ model School {
 }
 
 model Teacher {
-  id            String        @id @default(uuid()) @db.Uuid
-  userId        String        @unique @db.Uuid
-  schoolId      String        @db.Uuid
-  teacherId     String        @unique
-  fullName      String
-  gender        Gender
-  phone         String?       @unique
-  position      String?
-  avatar        String?
-  accountStatus AccountStatus @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  classes       SchoolClass[]
-  school        School        @relation(fields: [schoolId], references: [id])
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String                   @id @default(uuid()) @db.Uuid
+  userId           String                   @unique @db.Uuid
+  schoolId         String                   @db.Uuid
+  teacherId        String
+  fullName         String
+  gender           Gender
+  phone            String?                  @unique
+  position         String?
+  avatar           String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  classes          SchoolClass[]
+  permissionGrants TeacherPermissionGrant[]
+  school           School                   @relation(fields: [schoolId], references: [id])
+  user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([schoolId])
-  @@index([teacherId])
+  @@unique([schoolId, teacherId])
   @@map("teachers")
 }
 
@@ -93,49 +91,43 @@ model SchoolClass {
 }
 
 model Student {
-  id            String          @id @default(uuid()) @db.Uuid
-  userId        String          @unique @db.Uuid
-  schoolId      String          @db.Uuid
-  classId       String          @db.Uuid
-  studentId     String          @unique
-  fullName      String
-  gender        Gender
-  birthDate     DateTime?
-  pinHash       String
-  avatar        String?
-  accountStatus AccountStatus   @default(ACTIVE)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  isPinChanged  Boolean         @default(false)
-  pinUpdatedAt  DateTime?
-  parents       ParentStudent[]
-  class         SchoolClass     @relation(fields: [classId], references: [id])
-  school        School          @relation(fields: [schoolId], references: [id])
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @unique @db.Uuid
+  schoolId     String          @db.Uuid
+  classId      String          @db.Uuid
+  studentId    String
+  fullName     String
+  gender       Gender
+  birthDate    DateTime?
+  pinHash      String
+  avatar       String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  isPinChanged Boolean         @default(false)
+  pinUpdatedAt DateTime?
+  parents      ParentStudent[]
+  class        SchoolClass     @relation(fields: [classId], references: [id])
+  school       School          @relation(fields: [schoolId], references: [id])
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([schoolId])
+  @@unique([schoolId, studentId])
   @@index([classId])
-  @@index([studentId])
   @@map("students")
 }
 
 model Parent {
-  id            String          @id @default(uuid()) @db.Uuid
-  userId        String          @unique @db.Uuid
-  schoolId      String          @db.Uuid
-  fullName      String
-  phone         String          @unique
-  occupation    String?
-  address       String?
-  avatar        String?
-  accountStatus AccountStatus   @default(ACTIVE)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  students      ParentStudent[]
-  school        School          @relation(fields: [schoolId], references: [id])
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @unique @db.Uuid
+  fullName   String
+  phone      String          @unique
+  occupation String?
+  address    String?
+  avatar     String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  students   ParentStudent[]
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([schoolId])
   @@map("parents")
 }
 
@@ -155,21 +147,42 @@ model ParentStudent {
 }
 
 model Admin {
-  id            String        @id @default(uuid()) @db.Uuid
-  userId        String        @unique @db.Uuid
-  schoolId      String?       @db.Uuid
-  fullName      String
-  phone         String?
-  position      String?
-  avatar        String?
-  accountStatus AccountStatus @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  school        School?       @relation(fields: [schoolId], references: [id])
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                        String                   @id @default(uuid()) @db.Uuid
+  userId                    String                   @unique @db.Uuid
+  schoolId                  String?                  @db.Uuid
+  fullName                  String
+  phone                     String?
+  position                  String?
+  avatar                    String?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  school                    School?                  @relation(fields: [schoolId], references: [id])
+  grantedTeacherPermissions TeacherPermissionGrant[]
+  user                      User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
   @@map("admins")
+}
+
+model TeacherPermissionGrant {
+  id          String            @id @default(uuid()) @db.Uuid
+  teacherId   String            @db.Uuid
+  grantedById String            @db.Uuid
+  permission  TeacherPermission
+  expiresAt   DateTime?
+  maxUses     Int               @default(1)
+  usedCount   Int               @default(0)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  grantedBy Admin   @relation(fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@index([teacherId])
+  @@index([grantedById])
+  @@index([permission, isActive])
+  @@map("teacher_permission_grants")
 }
 
 enum UserRole {
@@ -197,4 +210,8 @@ enum ParentRelationship {
   FATHER
   MOTHER
   GUARDIAN
+}
+
+enum TeacherPermission {
+  CREATE_TEACHER
 }

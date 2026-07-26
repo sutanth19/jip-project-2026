@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import Container from "@/components/common/Container";
+import { Card } from "@/components/ui/card";
 
 type FaqItem = {
   question: string;
@@ -45,44 +46,44 @@ export default function Faq() {
   const [openItem, setOpenItem] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="bg-[var(--background)]">
-      <Container className="py-20">
-        <div className="mx-auto mb-12 max-w-3xl text-center">
-          <span className="mb-4 inline-flex rounded-full bg-[var(--primary)]/10 px-4 py-1.5 text-sm font-semibold text-[var(--primary)]">
+    <section id="faq" className="bg-background">
+      <Container className="py-10 md:py-14 lg:py-16">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
             Frequently Asked Questions
           </span>
-          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-[var(--text)] md:text-4xl">
+          <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             Everything You Need to Know About Digital MoLIB
           </h2>
-          <p className="font-light text-[var(--text)]/70 sm:text-xl">
+          <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
             Find answers to the most common questions about Digital MoLIB and
             how it supports literacy management in schools.
           </p>
         </div>
 
-        <div className="mx-auto max-w-3xl space-y-4">
+        <div className="mx-auto mt-8 max-w-3xl space-y-3 md:mt-10">
           {faqItems.map(({ question, answer }, index) => {
             const isOpen = openItem === index;
             const triggerId = `faq-trigger-${index}`;
             const panelId = `faq-panel-${index}`;
 
             return (
-              <div
+              <Card
                 key={question}
-                className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+                className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
               >
                 <h3>
                   <button
                     id={triggerId}
                     type="button"
-                    className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left font-medium text-[var(--text)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)]"
+                    className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left text-base font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:text-lg"
                     aria-expanded={isOpen}
                     aria-controls={panelId}
                     onClick={() => setOpenItem(isOpen ? null : index)}
                   >
                     <span>{question}</span>
                     <ChevronDown
-                      className={`h-5 w-5 shrink-0 text-[var(--primary)] transition-transform duration-300 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+                      className={`h-5 w-5 shrink-0 text-primary transition-transform duration-300 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
                       aria-hidden="true"
                     />
                   </button>
@@ -95,12 +96,12 @@ export default function Faq() {
                   className={`grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
                 >
                   <div className="overflow-hidden">
-                    <p className="border-t border-[var(--border)] px-6 py-5 font-light leading-relaxed text-[var(--text)]/70">
+                    <p className="border-t border-border px-6 py-5 text-sm leading-6 text-muted-foreground sm:text-base">
                       {answer}
                     </p>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

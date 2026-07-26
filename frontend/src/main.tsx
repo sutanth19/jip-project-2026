@@ -3,12 +3,15 @@ import { createRoot } from "react-dom/client"
 
 import "./index.css"
 import App from "./App.tsx"
-import { ThemeProvider } from "@/components/theme-provider.tsx"
+import { ThemeProvider } from "@/components/theme-provider"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      <App />
+    <ThemeProvider defaultTheme="system" storageKey="digital-molib-theme">
+      <TooltipProvider>
+        <App />
+      </TooltipProvider>
     </ThemeProvider>
   </StrictMode>
 )

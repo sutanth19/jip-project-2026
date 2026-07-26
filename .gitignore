@@ -26,3 +26,9 @@ coverage/
 
 # Prisma
 prisma/dev.db
+
+# Keep the safe, documented backend environment template under version control.
+!backend/.env.example
+
+# Archive files
+*.zip

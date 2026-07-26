@@ -19,21 +19,21 @@ const platformLinks = [
 ] as const;
 
 const linkClassName =
-  "text-[var(--text)]/70 transition-colors hover:text-[var(--primary)]";
+  "text-muted-foreground transition-colors hover:text-foreground";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
-      <Container className="py-16">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+    <footer className="border-t border-border bg-background">
+      <Container className="py-10 md:py-12">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div>
             <Link
               to="/"
-              className="mb-5 inline-flex text-2xl font-bold text-[var(--text)] transition-colors hover:text-[var(--primary)]"
+              className="mb-4 inline-flex text-xl font-bold tracking-wide text-foreground transition-colors hover:text-primary"
             >
               Digital MoLIB
             </Link>
-            <p className="max-w-sm font-light leading-relaxed text-[var(--text)]/70">
+            <p className="max-w-sm text-sm leading-6 text-muted-foreground">
               A modern School Literacy Management System that empowers
               administrators, teachers, students, and parents through one
               integrated digital platform.
@@ -41,10 +41,10 @@ export default function Footer() {
           </div>
 
           <div>
-            <h2 className="mb-6 text-sm font-semibold tracking-wider text-[var(--text)] uppercase">
+            <h2 className="mb-4 text-sm font-semibold tracking-wider text-foreground uppercase">
               Quick Links
             </h2>
-            <ul className="space-y-4">
+            <ul className="space-y-3">
               {quickLinks.map(({ label, to }) => (
                 <li key={label}>
                   <Link to={to} className={linkClassName}>
@@ -56,10 +56,10 @@ export default function Footer() {
           </div>
 
           <div>
-            <h2 className="mb-6 text-sm font-semibold tracking-wider text-[var(--text)] uppercase">
+            <h2 className="mb-4 text-sm font-semibold tracking-wider text-foreground uppercase">
               Platform
             </h2>
-            <ul className="space-y-4">
+            <ul className="space-y-3">
               {platformLinks.map(({ label, to }) => (
                 <li key={label}>
                   <Link to={to} className={linkClassName}>
@@ -71,10 +71,10 @@ export default function Footer() {
           </div>
 
           <div>
-            <h2 className="mb-6 text-sm font-semibold tracking-wider text-[var(--text)] uppercase">
+            <h2 className="mb-4 text-sm font-semibold tracking-wider text-foreground uppercase">
               Contact
             </h2>
-            <ul className="space-y-4">
+            <ul className="space-y-3">
               <li>
                 <a
                   href="mailto:support@digitalmolib.my"
@@ -93,7 +93,7 @@ export default function Footer() {
                   <span>+60 12-345 6789</span>
                 </a>
               </li>
-              <li className="flex items-start gap-3 text-[var(--text)]/70">
+              <li className="flex items-start gap-3 text-muted-foreground">
                 <MapPin className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                 <span>Malaysia</span>
               </li>
@@ -101,7 +101,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-[var(--border)] pt-8 text-center text-sm text-[var(--text)]/70">
+        <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
           <p>© 2026 Digital MoLIB.</p>
           <p>All rights reserved.</p>
         </div>

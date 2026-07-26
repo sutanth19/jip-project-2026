@@ -1,5 +1,19 @@
 import { prisma } from "../config/prisma.js";
 import { AccountStatus } from "@prisma/client";
+import { AppError } from "../errors/app-error.js";
+
+export function assertTeacherClassSchoolAssignment(
+  classSchoolId: string,
+  teacherSchoolId: string,
+): void {
+  if (classSchoolId !== teacherSchoolId) {
+    throw new AppError(
+      "TEACHER_SCHOOL_ASSIGNMENT_INVALID",
+      400,
+      "Guru hanya boleh ditugaskan kepada kelas dalam sekolah yang sama.",
+    );
+  }
+}
 
 export interface CreateSchoolClassInput {
   schoolId: string;
@@ -36,6 +50,8 @@ export async function createSchoolClass(
   if (!teacher) {
     throw new Error("Teacher not found.");
   }
+
+  assertTeacherClassSchoolAssignment(data.schoolId, teacher.schoolId);
 
   const existingClass =
     await prisma.schoolClass.findFirst({
@@ -196,6 +212,8 @@ export async function updateSchoolClass(
     if (!teacher) {
       throw new Error("Teacher not found.");
     }
+
+    assertTeacherClassSchoolAssignment(schoolClass.schoolId, teacher.schoolId);
   }
 
   const updatedClass = await prisma.schoolClass.update({

@@ -11,6 +11,14 @@ import {
 } from "lucide-react";
 
 import Container from "@/components/common/Container";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getLandingCardTone } from "@/components/landing/card-tone";
 
 type PlatformFeature = {
   title: string;
@@ -65,39 +73,50 @@ const platformFeatures: PlatformFeature[] = [
 
 export default function Features() {
   return (
-    <section id="features" className="bg-[var(--surface)]">
-      <Container className="py-24">
-        <div className="mx-auto mb-8 max-w-3xl text-center lg:mb-12">
-          <span className="mb-4 inline-flex rounded-full bg-[var(--primary)]/10 px-4 py-1.5 text-sm font-semibold text-[var(--primary)]">
+    <section id="features" className="bg-background">
+      <Container className="py-10 md:py-14 lg:py-16">
+        <div className="mx-auto max-w-5xl text-center">
+          <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
             Platform Features
           </span>
-          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-[var(--text)] md:text-4xl">
+          <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
             Everything Schools Need in One Platform
           </h2>
-          <p className="font-light text-[var(--text)]/70 sm:text-xl">
+          <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
             Digital MoLIB combines library management, literacy programmes,
             student progress tracking, and reporting into one integrated system
             designed for modern schools.
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 xl:gap-8">
-          {platformFeatures.map(({ title, description, icon: Icon }) => (
-            <article
-              key={title}
-              className="group rounded-2xl border border-[var(--border)] bg-[var(--background)] p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[var(--primary)] hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none xl:p-8"
-            >
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] transition-transform duration-300 group-hover:scale-105 motion-reduce:transform-none">
-                <Icon className="h-6 w-6" aria-hidden="true" />
-              </div>
-              <h3 className="mb-3 text-xl font-semibold text-[var(--text)]">
-                {title}
-              </h3>
-              <p className="font-light leading-relaxed text-[var(--text)]/70">
-                {description}
-              </p>
-            </article>
-          ))}
+        <div className="mt-8 grid gap-5 md:mt-10 md:grid-cols-2 md:gap-6 xl:grid-cols-4">
+          {platformFeatures.map(({ title, description, icon: Icon }, index) => {
+            const tone = getLandingCardTone(index)
+
+            return (
+              <Card
+                key={title}
+                size="sm"
+                className={`group h-full rounded-2xl bg-card shadow-sm ring-0 transition duration-300 hover:-translate-y-1 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none ${tone.cardClassName}`}
+              >
+                <CardHeader className="pb-3">
+                  <div
+                    className={`mb-4 flex size-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105 motion-reduce:transform-none ${tone.iconContainerClassName}`}
+                  >
+                    <Icon className={`size-6 ${tone.iconClassName}`} aria-hidden="true" />
+                  </div>
+                  <CardTitle className="text-lg font-semibold leading-snug sm:text-xl">
+                    {title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
+                    {description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </Container>
     </section>

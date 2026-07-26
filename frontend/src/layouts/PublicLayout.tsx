@@ -2,17 +2,20 @@ import { Outlet } from "react-router-dom";
 
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import PublicThemeSurface from "@/components/layout/PublicThemeSurface";
 
 export default function PublicLayout() {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--text)]">
-      <Navbar />
+    <PublicThemeSurface>
+      <div className="min-h-dvh bg-background text-foreground flex flex-col">
+        <Navbar />
 
-      <main>
-        <Outlet />
-      </main>
+        <main className="flex-1">
+          <Outlet />
+        </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </PublicThemeSurface>
   );
 }

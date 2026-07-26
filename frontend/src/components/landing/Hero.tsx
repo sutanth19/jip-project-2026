@@ -1,42 +1,53 @@
 import { Link } from "react-router-dom";
 
-import heroImage from "@/assets/images/hero.png";
+import heroImage from "@/assets/images/image1.svg";
 import Container from "@/components/common/Container";
-import { Button } from "@/components/ui/button";
+import HeroIconSlider from "@/components/landing/HeroIconSlider";
 
 export default function Hero() {
   return (
-    <section className="bg-[var(--background)]">
-      <Container className="grid pt-20 pb-8 lg:grid-cols-12 lg:gap-8 lg:py-16 lg:pt-28 xl:gap-0">
-        <div className="mr-auto place-self-center lg:col-span-7">
-          <h1 className="mb-4 max-w-2xl text-4xl leading-none font-extrabold tracking-tight text-[var(--text)] md:text-5xl xl:text-6xl">
-            Digital MoLIB
-          </h1>
-          <p className="mb-6 max-w-2xl font-light text-[var(--text)]/70 md:text-lg lg:mb-8 lg:text-xl">
-            A modern School Literacy Management System that empowers students,
-            teachers, parents, and administrators to manage reading activities,
-            books, literacy programs, and progress through one integrated
-            platform.
-          </p>
-          <div className="space-y-4 sm:flex sm:space-y-0 sm:space-x-4">
-            <Button
-              asChild
-              className="h-auto w-full px-5 py-3 sm:w-auto"
-            >
-              <Link to="/#features">Explore Features</Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="h-auto w-full px-5 py-3 sm:w-auto"
-            >
-              <Link to="/login">Login</Link>
-            </Button>
+    <section className="relative overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-8 left-[-7rem] h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute right-[-5rem] bottom-0 h-72 w-72 rounded-full bg-secondary/10 blur-3xl" />
+      </div>
+      <Container className="relative pt-10 pb-8 md:pt-14 md:pb-10 lg:pt-16 lg:pb-12">
+        <div className="grid items-center gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10 xl:gap-14">
+          <div className="mr-auto max-w-xl place-self-center lg:col-span-1">
+            <h1 className="mb-4 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl xl:text-7xl">
+              Digital MoLIB
+            </h1>
+            <p className="mb-6 max-w-lg text-base leading-7 text-muted-foreground sm:max-w-xl sm:text-lg sm:leading-8">
+              A modern School Literacy Management System that empowers
+              students, teachers, parents, and administrators to manage
+              reading activities, books, literacy programs, and progress
+              through one integrated platform.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+              <Link
+                to="/#features"
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-12 sm:w-auto sm:text-base"
+              >
+                Explore Features
+              </Link>
+              <Link
+                to="/login"
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-border bg-background px-6 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-12 sm:w-auto sm:text-base"
+              >
+                Login
+              </Link>
+            </div>
+          </div>
+          <div className="flex justify-center lg:justify-center">
+            <img
+              src={heroImage}
+              alt="Digital MoLIB remedial learning platform"
+              className="mx-auto w-full max-w-[820px] object-contain lg:max-w-[960px] xl:max-w-[1050px] 2xl:max-w-[1120px]"
+            />
           </div>
         </div>
-        <div className="hidden lg:col-span-5 lg:mt-0 lg:flex">
-          <img src={heroImage} alt="Digital MoLIB literacy platform" />
-        </div>
+
+        <HeroIconSlider />
       </Container>
     </section>
   );

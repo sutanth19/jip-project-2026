@@ -16,3 +16,22 @@
   --text: #1e293b;
   --border: #e2e8f0;
 }
+
+.dark {
+  /* Brand */
+  --primary: #60a5fa;
+  --secondary: #34d399;
+  --accent: #fbbf24;
+  --info: #38bdf8;
+  --success: #4ade80;
+  --warning: #f59e0b;
+  --danger: #f87171;
+
+  /* Surface */
+  --background: #0f172a;
+  --surface: #111827;
+
+  /* Text */
+  --text: #e2e8f0;
+  --border: #334155;
+}

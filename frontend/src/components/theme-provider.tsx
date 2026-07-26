@@ -85,7 +85,11 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    const storedTheme = localStorage.getItem(storageKey)
+    if (typeof window === "undefined") {
+      return defaultTheme
+    }
+
+    const storedTheme = window.localStorage.getItem(storageKey)
     if (isTheme(storedTheme)) {
       return storedTheme
     }
@@ -95,7 +99,7 @@ export function ThemeProvider({
 
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
-      localStorage.setItem(storageKey, nextTheme)
+      window.localStorage.setItem(storageKey, nextTheme)
       setThemeState(nextTheme)
     },
     [storageKey]
@@ -112,6 +116,7 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark")
       root.classList.add(resolvedTheme)
+      root.style.colorScheme = resolvedTheme
 
       if (restoreTransitions) {
         restoreTransitions()
@@ -167,7 +172,7 @@ export function ThemeProvider({
                 ? "light"
                 : "dark"
 
-        localStorage.setItem(storageKey, nextTheme)
+        window.localStorage.setItem(storageKey, nextTheme)
         return nextTheme
       })
     }
@@ -181,7 +186,7 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.storageArea !== localStorage) {
+      if (event.storageArea !== window.localStorage) {
         return
       }
 

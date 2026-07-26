@@ -56,12 +56,10 @@ export async function createParent(
     const parent = await tx.parent.create({
       data: {
         userId: user.id,
-        schoolId: data.schoolId,
         fullName: data.fullName,
         phone: data.phone,
         occupation: data.occupation,
         address: data.address,
-        accountStatus: AccountStatus.ACTIVE,
       },
     });
 
@@ -200,16 +198,28 @@ export async function updateParentStatus(
     },
   });
 
-  const updatedParent = await prisma.parent.update({
+  const updatedParent = await prisma.parent.findUnique({
     where: {
       id,
     },
-    data: {
-      accountStatus: data.accountStatus,
+    include: {
+      user: {
+        select: {
+          email: true,
+          accountStatus: true,
+        },
+      },
     },
   });
 
-  return updatedParent;
+  if (!updatedParent) {
+    throw new Error("Parent not found.");
+  }
+
+  return {
+    ...updatedParent,
+    accountStatus: updatedParent.user.accountStatus,
+  };
 }
 
 export async function resendParentSetupLink(

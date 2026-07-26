@@ -1,127 +1,151 @@
-import type { Request, Response, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
+
+import { AppError } from "../errors/app-error.js";
+import { successResponse } from "../helpers/response.helper.js";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import {
   createTeacher,
-  getTeachers,
+  createTeacherPermissionGrant,
   getTeacherById,
+  listTeacherPermissionGrants,
+  listTeachers,
+  resendTeacherSetup,
+  revokeTeacherPermissionGrant,
   updateTeacher,
   updateTeacherStatus,
-  resendTeacherSetupLink,
+  type TeacherAuditContext,
 } from "../services/teacher.service.js";
-import { createTeacherSchema } from "../validators/teacher.validator.js";
-import { successResponse } from "../helpers/response.helper.js";
+import {
+  createTeacherGrantSchema,
+  createTeacherSchema,
+  listTeachersQuerySchema,
+  teacherGrantParamsSchema,
+  teacherIdParamsSchema,
+  updateTeacherSchema,
+  updateTeacherStatusSchema,
+} from "../validators/teacher.validator.js";
 
-export async function createTeacherController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+function getAuditContext(req: AuthenticatedRequest): TeacherAuditContext {
+  if (!req.auth) {
+    throw new AppError("AUTH_INVALID_TOKEN", 401, "Invalid or expired token.");
+  }
+
+  return {
+    actor: {
+      userId: req.auth.userId,
+      profileId: req.auth.profileId,
+      role: req.auth.role,
+      schoolId: req.auth.schoolId,
+    },
+    permissionGrant: req.permissionGrant,
+    requestIp: req.ip || null,
+    userAgent: req.get("user-agent") || null,
+  };
+}
+
+export async function createTeacherController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-   const data = createTeacherSchema.parse(req.body);
-   const result = await createTeacher(data);
-
-    return successResponse(
-      res,
-      201,
-      "Teacher created successfully.",
-      result
+    const result = await createTeacher(
+      createTeacherSchema.parse(req.body),
+      getAuditContext(req as AuthenticatedRequest),
     );
+    successResponse(res, 201, "Akaun guru berjaya dicipta.", result);
   } catch (error) {
     next(error);
   }
 }
 
-export async function getTeachersController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function listTeachersController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const teachers = await getTeachers();
-
-    return res.status(200).json({
-      success: true,
-      data: teachers,
-    });
+    const result = await listTeachers(listTeachersQuerySchema.parse(req.query));
+    successResponse(res, 200, "Senarai guru berjaya diperoleh.", result);
   } catch (error) {
     next(error);
   }
 }
 
-export async function getTeacherByIdController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function getTeacherByIdController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const teacher = await getTeacherById(req.params.id as string);
-
-    return res.status(200).json({
-      success: true,
-      data: teacher,
-    });
+    const { teacherId } = teacherIdParamsSchema.parse(req.params);
+    const teacher = await getTeacherById(teacherId);
+    successResponse(res, 200, "Maklumat guru berjaya diperoleh.", { teacher });
   } catch (error) {
     next(error);
   }
 }
 
-export async function updateTeacherController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function updateTeacherController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const { teacherId } = teacherIdParamsSchema.parse(req.params);
     const teacher = await updateTeacher(
-      req.params.id as string,
-      req.body
+      teacherId,
+      updateTeacherSchema.parse(req.body),
+      getAuditContext(req as AuthenticatedRequest),
     );
-
-    return successResponse(
-      res,
-      200,
-      "Teacher updated successfully.",
-      teacher
-    );
+    successResponse(res, 200, "Akaun guru berjaya dikemas kini.", { teacher });
   } catch (error) {
     next(error);
   }
 }
 
-export async function updateTeacherStatusController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function updateTeacherStatusController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const { teacherId } = teacherIdParamsSchema.parse(req.params);
+    const { status } = updateTeacherStatusSchema.parse(req.body);
     const teacher = await updateTeacherStatus(
-      req.params.id as string,
-      req.body
+      teacherId,
+      status,
+      getAuditContext(req as AuthenticatedRequest),
     );
-
-    return res.status(200).json({
-      success: true,
-      message: "Teacher status updated successfully.",
-      data: teacher,
-    });
+    successResponse(res, 200, "Status guru berjaya dikemas kini.", { teacher });
   } catch (error) {
     next(error);
   }
 }
 
-export async function resendTeacherSetupLinkController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function resendTeacherSetupController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await resendTeacherSetupLink(
-      req.params.id as string
-    );
+    const { teacherId } = teacherIdParamsSchema.parse(req.params);
+    const result = await resendTeacherSetup(teacherId, getAuditContext(req as AuthenticatedRequest));
+    successResponse(res, 200, "Jemputan persediaan guru berjaya dihantar semula.", result);
+  } catch (error) {
+    next(error);
+  }
+}
 
-    return res.status(200).json({
-      success: true,
-      message: "Setup link regenerated successfully.",
-      data: result,
-    });
+export async function createTeacherGrantController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { teacherId } = teacherIdParamsSchema.parse(req.params);
+    const grant = await createTeacherPermissionGrant(
+      teacherId,
+      createTeacherGrantSchema.parse(req.body),
+      getAuditContext(req as AuthenticatedRequest),
+    );
+    successResponse(res, 201, "Kebenaran guru berjaya diberikan.", { grant });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listTeacherGrantsController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { teacherId } = teacherIdParamsSchema.parse(req.params);
+    const grants = await listTeacherPermissionGrants(teacherId);
+    successResponse(res, 200, "Senarai kebenaran guru berjaya diperoleh.", { grants });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function revokeTeacherGrantController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { teacherId, grantId } = teacherGrantParamsSchema.parse(req.params);
+    const grant = await revokeTeacherPermissionGrant(
+      teacherId,
+      grantId,
+      getAuditContext(req as AuthenticatedRequest),
+    );
+    successResponse(res, 200, "Kebenaran guru berjaya ditarik balik.", { grant });
   } catch (error) {
     next(error);
   }

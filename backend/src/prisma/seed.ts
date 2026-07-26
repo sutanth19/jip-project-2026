@@ -1,54 +1,100 @@
-import { UserRole, AccountStatus } from "@prisma/client";
+import { AccountStatus, UserRole } from "@prisma/client";
+
 import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/bcrypt.js";
 
-async function main() {
-  console.log("🌱 Starting database seed...");
-
-  const email = "superadmin@digitalmolib.my";
-
-  // Check if SUPER_ADMIN already exists
-  const existingUser = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
-
-  if (existingUser) {
-    console.log("✅ SUPER_ADMIN already exists.");
-    return;
+function requireEnv(name: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
   }
 
-  const hashedPassword = await hashPassword("Admin@12345");
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return trimmed;
+}
+
+async function main() {
+  const email = requireEnv("SEED_SUPER_ADMIN_EMAIL", process.env.SEED_SUPER_ADMIN_EMAIL)
+    .toLowerCase();
+  const password = requireEnv(
+    "SEED_SUPER_ADMIN_PASSWORD",
+    process.env.SEED_SUPER_ADMIN_PASSWORD,
+  );
+  const fullName = requireEnv("SEED_SUPER_ADMIN_NAME", process.env.SEED_SUPER_ADMIN_NAME);
+
+  console.log("seed started");
+  console.log(`Super Admin email: ${email}`);
+
+  const passwordHash = await hashPassword(password);
 
   await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
+    const user = await tx.user.upsert({
+      where: {
+        email,
+      },
+      create: {
         role: UserRole.SUPER_ADMIN,
         email,
-        passwordHash: hashedPassword,
+        passwordHash,
         accountStatus: AccountStatus.ACTIVE,
-        mustChangePassword: false,
-        isFirstLogin: false,
+        isFirstLogin: true,
+        setupToken: null,
+        setupTokenExpiry: null,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+      update: {
+        role: UserRole.SUPER_ADMIN,
+        email,
+        passwordHash,
+        accountStatus: AccountStatus.ACTIVE,
+        isFirstLogin: true,
+        setupToken: null,
+        setupTokenExpiry: null,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
       },
     });
 
-    await tx.admin.create({
-      data: {
+    await tx.admin.upsert({
+      where: {
         userId: user.id,
-        fullName: "Digital MoLIB Super Admin",
-        accountStatus: AccountStatus.ACTIVE,
+      },
+      create: {
+        userId: user.id,
+        schoolId: null,
+        fullName,
+        position: "Super Administrator",
+        phone: null,
+        avatar: null,
+      },
+      update: {
+        schoolId: null,
+        fullName,
+        position: "Super Administrator",
+        phone: null,
+        avatar: null,
       },
     });
   });
 
-  console.log("🎉 SUPER_ADMIN created successfully!");
+  console.log("created or updated");
+  console.log("seed completed");
 }
 
 main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
+  .catch((error: unknown) => {
+    if (error instanceof Error) {
+      console.error(error.message);
+    } else {
+      console.error("Seed failed.");
+    }
+
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

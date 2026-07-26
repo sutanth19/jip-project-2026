@@ -8,15 +8,15 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="fixed z-50 w-full">
-      <nav className="border-b border-[var(--border)] bg-[var(--surface)] py-2.5">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between px-6">
+    <header className="sticky top-0 z-50 w-full">
+      <nav className="border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link to="/" aria-label="Literasi Digital home">
             <Logo size="md" />
           </Link>
 
-          <div className="flex items-center lg:gap-8">
-            <ul className="hidden items-center gap-8 font-medium lg:flex">
+          <div className="flex items-center gap-3 lg:gap-8">
+            <ul className="hidden items-center gap-8 text-base font-medium lg:flex">
               {navigation.map((item, index) => (
                 <li key={item.label}>
                   <Link
@@ -24,8 +24,8 @@ export default function Navbar() {
                     aria-current={index === 0 ? "page" : undefined}
                     className={
                       index === 0
-                        ? "text-[var(--primary)]"
-                        : "text-[var(--text)]/70 transition-colors hover:text-[var(--primary)]"
+                        ? "text-primary"
+                        : "text-muted-foreground transition-colors hover:text-foreground"
                     }
                   >
                     {item.label}
@@ -35,13 +35,13 @@ export default function Navbar() {
             </ul>
             <Link
               to="/login"
-              className="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--surface)] hover:bg-[var(--primary)]/90 focus:ring-4 focus:ring-[var(--primary)]/20 focus:outline-none lg:px-5 lg:py-2.5"
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:text-base lg:px-6"
             >
               Log Masuk
             </Link>
             <button
               type="button"
-              className="ml-1 inline-flex items-center rounded-xl p-2 text-sm text-[var(--text)]/70 hover:bg-[var(--background)] focus:ring-2 focus:ring-[var(--primary)]/20 focus:outline-none lg:hidden"
+              className="ml-1 inline-flex h-11 items-center justify-center rounded-xl p-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 lg:hidden"
               aria-controls="mobile-menu-2"
               aria-expanded={isMenuOpen}
               onClick={() => setIsMenuOpen((open) => !open)}
@@ -83,7 +83,7 @@ export default function Navbar() {
             className={`${isMenuOpen ? "flex" : "hidden"} w-full items-center justify-between lg:hidden`}
             id="mobile-menu-2"
           >
-            <ul className="mt-4 flex w-full flex-col font-medium lg:mt-0 lg:w-auto lg:flex-row lg:space-x-8">
+            <ul className="mt-4 flex w-full flex-col gap-1 rounded-2xl border border-border bg-card p-2 font-medium shadow-sm lg:mt-0 lg:w-auto lg:flex-row lg:space-x-8 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
               {navigation.map((item, index) => (
                 <li key={item.label}>
                   <Link
@@ -92,8 +92,8 @@ export default function Navbar() {
                     aria-current={index === 0 ? "page" : undefined}
                     className={
                       index === 0
-                        ? "block rounded-xl bg-[var(--primary)] py-2 pr-4 pl-3 text-[var(--surface)]"
-                        : "block border-b border-[var(--border)] py-2 pr-4 pl-3 text-[var(--text)]/70 hover:bg-[var(--background)] hover:text-[var(--primary)]"
+                        ? "block rounded-xl bg-primary px-3 py-2 text-primary-foreground"
+                        : "block rounded-xl px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     }
                   >
                     {item.label}

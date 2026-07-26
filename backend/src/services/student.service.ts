@@ -1,25 +1,20 @@
 import { prisma } from "../config/prisma.js";
 import { AccountStatus, Gender, UserRole } from "@prisma/client";
-import bcrypt from "bcrypt";
+import { hashPin } from "../utils/bcrypt.js";
 
 export interface CreateStudentInput {
   schoolId: string;
   classId: string;
-
   studentId: string;
   fullName: string;
-
   gender: Gender;
-
   birthDate?: string;
 }
 
-export async function createStudent(
-  data: CreateStudentInput
-) {
-  // Step 1: Check duplicate Student ID
-  const existingStudent = await prisma.student.findUnique({
+export async function createStudent(data: CreateStudentInput) {
+  const existingStudent = await prisma.student.findFirst({
     where: {
+      schoolId: data.schoolId,
       studentId: data.studentId,
     },
   });
@@ -28,12 +23,9 @@ export async function createStudent(
     throw new Error("Student ID already exists.");
   }
 
-  // Step 2: Generate default PIN
-  const defaultPin = "123456";
+  const defaultPin = "1234";
+  const pinHash = await hashPin(defaultPin);
 
-  const pinHash = await bcrypt.hash(defaultPin, 10);
-
-  // Step 3: Create User + Student in one transaction
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -45,19 +37,12 @@ export async function createStudent(
     const student = await tx.student.create({
       data: {
         userId: user.id,
-
         schoolId: data.schoolId,
         classId: data.classId,
-
         studentId: data.studentId,
         fullName: data.fullName,
-
         gender: data.gender,
-
-        birthDate: data.birthDate
-          ? new Date(data.birthDate)
-          : null,
-
+        birthDate: data.birthDate ? new Date(data.birthDate) : null,
         pinHash,
       },
     });
@@ -70,7 +55,7 @@ export async function createStudent(
         gender: student.gender,
         birthDate: student.birthDate,
         avatar: student.avatar,
-        accountStatus: student.accountStatus,
+        accountStatus: user.accountStatus,
         createdAt: student.createdAt,
         updatedAt: student.updatedAt,
       },
@@ -83,41 +68,39 @@ export async function createStudent(
 
 export async function getStudents() {
   const students = await prisma.student.findMany({
-  select: {
-    id: true,
-    studentId: true,
-    fullName: true,
-    gender: true,
-    birthDate: true,
-    avatar: true,
-    accountStatus: true,
-    createdAt: true,
-    updatedAt: true,
-
-    user: {
-      select: {
-        lastLogin: true,
+    select: {
+      id: true,
+      studentId: true,
+      fullName: true,
+      gender: true,
+      birthDate: true,
+      avatar: true,
+      createdAt: true,
+      updatedAt: true,
+      user: {
+        select: {
+          lastLogin: true,
+          accountStatus: true,
+        },
+      },
+      school: {
+        select: {
+          schoolName: true,
+        },
+      },
+      class: {
+        select: {
+          className: true,
+          yearLevel: true,
+          academicYear: true,
+        },
       },
     },
-
-    school: {
-      select: {
-        schoolName: true,
-      },
+    orderBy: {
+      createdAt: "desc",
     },
+  });
 
-    class: {
-      select: {
-        className: true,
-        yearLevel: true,
-        academicYear: true,
-      },
-    },
-  },
-  orderBy: {
-    createdAt: "desc",
-  },
-});
   return students;
 }
 
@@ -133,23 +116,20 @@ export async function getStudentById(id: string) {
       gender: true,
       birthDate: true,
       avatar: true,
-      accountStatus: true,
       createdAt: true,
       updatedAt: true,
-
       user: {
         select: {
           lastLogin: true,
+          accountStatus: true,
         },
       },
-
       school: {
         select: {
           schoolName: true,
           schoolCode: true,
         },
       },
-
       class: {
         select: {
           className: true,
@@ -174,10 +154,7 @@ export interface UpdateStudentInput {
   classId?: string;
 }
 
-export async function updateStudent(
-  id: string,
-  data: UpdateStudentInput
-) {
+export async function updateStudent(id: string, data: UpdateStudentInput) {
   const student = await prisma.student.findUnique({
     where: {
       id,
@@ -195,9 +172,7 @@ export async function updateStudent(
     data: {
       fullName: data.fullName,
       gender: data.gender,
-      birthDate: data.birthDate
-        ? new Date(data.birthDate)
-        : undefined,
+      birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
       classId: data.classId,
     },
     select: {
@@ -207,26 +182,23 @@ export async function updateStudent(
       gender: true,
       birthDate: true,
       avatar: true,
-      accountStatus: true,
       createdAt: true,
       updatedAt: true,
-
       school: {
         select: {
           schoolName: true,
         },
       },
-
       class: {
         select: {
           className: true,
           yearLevel: true,
         },
       },
-
       user: {
         select: {
           lastLogin: true,
+          accountStatus: true,
         },
       },
     },
@@ -262,23 +234,31 @@ export async function updateStudentStatus(
     },
   });
 
-  const updatedStudent = await prisma.student.update({
+  const updatedStudent = await prisma.student.findUnique({
     where: {
       id,
-    },
-    data: {
-      accountStatus: data.accountStatus,
     },
     select: {
       id: true,
       studentId: true,
       fullName: true,
-      accountStatus: true,
       updatedAt: true,
+      user: {
+        select: {
+          accountStatus: true,
+        },
+      },
     },
   });
 
-  return updatedStudent;
+  if (!updatedStudent) {
+    throw new Error("Student not found.");
+  }
+
+  return {
+    ...updatedStudent,
+    accountStatus: updatedStudent.user.accountStatus,
+  };
 }
 
 export async function resetStudentPin(id: string) {
@@ -292,12 +272,8 @@ export async function resetStudentPin(id: string) {
     throw new Error("Student not found.");
   }
 
-  const temporaryPin = "123456";
-
-  const pinHash = await bcrypt.hash(
-    temporaryPin,
-    10
-  );
+  const temporaryPin = "1234";
+  const pinHash = await hashPin(temporaryPin);
 
   await prisma.student.update({
     where: {

@@ -7,6 +7,14 @@ import {
 } from "lucide-react";
 
 import Container from "@/components/common/Container";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getLandingCardTone } from "@/components/landing/card-tone";
 
 type Statistic = {
   value: string;
@@ -47,42 +55,52 @@ const statistics: Statistic[] = [
 
 export default function Statistics() {
   return (
-    <section className="bg-[var(--background)]">
-      <Container className="py-20">
-        <div className="mx-auto mb-12 max-w-3xl text-center">
-          <span className="mb-4 inline-flex rounded-full bg-[var(--primary)]/10 px-4 py-1.5 text-sm font-semibold text-[var(--primary)]">
+    <section className="bg-muted/40">
+      <Container className="py-10 md:py-14 lg:py-16">
+        <div className="mx-auto max-w-3xl text-center">
+          <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
             Platform Overview
           </span>
-          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-[var(--text)] md:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground text-balance sm:text-4xl lg:text-5xl">
             One Connected Literacy Ecosystem
           </h2>
-          <p className="font-light text-[var(--text)]/70 sm:text-xl">
+          <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
             Digital MoLIB brings the essential areas of school literacy
             management together in one secure and organised platform.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 xl:gap-8">
-          {statistics.map(({ value, label, description, icon: Icon }) => (
-            <article
-              key={label}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 transition duration-300 hover:-translate-y-1 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none xl:p-8"
-            >
-              <Icon
-                className="mb-5 h-10 w-10 text-[var(--primary)] md:h-12 md:w-12"
-                aria-hidden="true"
-              />
-              <p className="mb-2 text-4xl font-extrabold tracking-tight text-[var(--text)]">
-                {value}
-              </p>
-              <h3 className="mb-3 text-xl font-semibold text-[var(--text)]">
-                {label}
-              </h3>
-              <p className="font-light leading-relaxed text-[var(--text)]/70">
-                {description}
-              </p>
-            </article>
-          ))}
+        <div className="mt-8 grid grid-cols-1 gap-5 md:mt-10 md:grid-cols-2 md:gap-6 xl:grid-cols-4">
+          {statistics.map(({ value, label, description, icon: Icon }, index) => {
+            const tone = getLandingCardTone(index)
+
+            return (
+              <Card
+                key={label}
+                size="sm"
+                className={`h-full rounded-2xl bg-card shadow-sm ring-0 transition duration-300 hover:-translate-y-1 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none ${tone.cardClassName}`}
+              >
+                <CardHeader className="pb-3">
+                  <div
+                    className={`mb-4 flex size-12 items-center justify-center rounded-xl ${tone.iconContainerClassName}`}
+                  >
+                    <Icon className={`size-6 ${tone.iconClassName}`} aria-hidden="true" />
+                  </div>
+                  <CardTitle className="text-4xl font-bold tracking-tight sm:text-5xl">
+                    {value}
+                  </CardTitle>
+                  <h3 className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
+                    {label}
+                  </h3>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
+                    {description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </Container>
     </section>

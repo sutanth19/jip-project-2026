@@ -1,42 +1,41 @@
 import { Link } from "react-router-dom";
 
 import Container from "@/components/common/Container";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export default function Cta() {
   return (
-    <section className="bg-[var(--background)]">
-      <Container className="py-20">
-        <div className="rounded-2xl bg-[var(--primary)] px-6 py-12 text-center sm:px-10 lg:py-16">
+    <section className="bg-muted/40">
+      <Container className="py-10 md:py-14 lg:py-16">
+        <Card className="[--card-spacing:--spacing(8)] md:[--card-spacing:--spacing(10)] mx-auto max-w-4xl rounded-2xl border border-border bg-card text-center shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
           <div className="mx-auto max-w-3xl">
-            <span className="mb-4 inline-flex rounded-full bg-[var(--surface)]/15 px-4 py-1.5 text-sm font-semibold text-[var(--surface)]">
+            <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
               Get Started Today
             </span>
-            <h2 className="mb-4 text-3xl leading-tight font-extrabold tracking-tight text-[var(--surface)] md:text-4xl">
+            <h2 className="text-balance text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
               Transform Your School&apos;s Literacy Management
             </h2>
-            <p className="mb-8 font-light text-[var(--surface)]/85 md:text-lg">
+            <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
               Empower administrators, teachers, students, and parents with one
               modern platform to manage books, literacy programmes, reading
               progress, and reports efficiently.
             </p>
-            <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <Button
-                asChild
-                className="h-auto bg-[var(--surface)] px-5 py-3 text-[var(--primary)] hover:bg-[var(--surface)]/90"
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
+              <Link
+                to="/register"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-12 sm:text-base"
               >
-                <Link to="/register">Get Started</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-auto border-[var(--surface)] bg-transparent px-5 py-3 text-[var(--surface)] hover:bg-[var(--surface)]/10 hover:text-[var(--surface)]"
+                Get Started
+              </Link>
+              <Link
+                to="/contact"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-6 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-12 sm:text-base"
               >
-                <Link to="/contact">Contact Us</Link>
-              </Button>
+                Contact Us
+              </Link>
             </div>
           </div>
-        </div>
+        </Card>
       </Container>
     </section>
   );
