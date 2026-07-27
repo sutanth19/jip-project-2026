@@ -7,24 +7,28 @@ datasource db {
 }
 
 model User {
-  id                  String        @id @default(uuid()) @db.Uuid
-  role                UserRole
-  email               String?       @unique
-  passwordHash        String?
-  accountStatus       AccountStatus @default(PENDING)
-  isFirstLogin        Boolean       @default(true)
-  lastLogin           DateTime?
-  passwordResetToken  String?       @unique
-  passwordResetExpiry DateTime?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  setupToken          String?       @unique
-  setupTokenExpiry    DateTime?
-  admin               Admin?
-  parent              Parent?
-  student             Student?
-  teacher             Teacher?
-  auditLogs           AuditLog[]
+  id                           String                         @id @default(uuid()) @db.Uuid
+  role                         UserRole
+  email                        String?                        @unique
+  passwordHash                 String?
+  accountStatus                AccountStatus                  @default(PENDING)
+  isFirstLogin                 Boolean                        @default(true)
+  lastLogin                    DateTime?
+  passwordResetToken           String?                        @unique
+  passwordResetExpiry          DateTime?
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+  setupToken                   String?                        @unique
+  setupTokenExpiry             DateTime?
+  admin                        Admin?
+  parent                       Parent?
+  student                      Student?
+  teacher                      Teacher?
+  auditLogs                    AuditLog[]
+  questionBankItems            QuestionBankItem[]
+  digitalActivitiesCreated     DigitalActivity[]              @relation("DigitalActivityCreatedBy")
+  digitalActivitiesUpdated     DigitalActivity[]              @relation("DigitalActivityUpdatedBy")
+  digitalActivityReviewHistory DigitalActivityReviewHistory[]
 
   @@map("users")
 }
@@ -275,6 +279,8 @@ model CurriculumProgramme {
   languageStructures LanguageStructure[]
   remedialSkills     RemedialSkill[]
   contentStandards   ContentStandard[]
+  questionBankItems  QuestionBankItem[]
+  digitalActivities  DigitalActivity[]
 
   @@unique([curriculumVersionId, code])
   @@index([subjectId])
@@ -292,8 +298,10 @@ model CurriculumYear {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
-  programme        CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
-  contentStandards ContentStandard[]
+  programme                      CurriculumProgramme             @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  contentStandards               ContentStandard[]
+  questionBankCurriculumLinks    QuestionBankCurriculumLink[]
+  digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
 
   @@unique([programmeId, yearLevel])
   @@unique([programmeId, sequence])
@@ -312,8 +320,9 @@ model LanguageStructure {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
-  programme      CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
-  remedialSkills RemedialSkill[]
+  programme                      CurriculumProgramme             @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  remedialSkills                 RemedialSkill[]
+  digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
 
   @@unique([programmeId, code])
   @@unique([programmeId, sequence])
@@ -334,11 +343,13 @@ model RemedialSkill {
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 
-  programme           CurriculumProgramme            @relation(fields: [programmeId], references: [id], onDelete: Restrict)
-  languageStructure   LanguageStructure              @relation(fields: [languageStructureId], references: [id], onDelete: Restrict)
-  standardMappings    RemedialSkillStandardMapping[]
-  learningObjectives  LearningObjective[]
-  suggestedActivities SuggestedTeachingActivity[]
+  programme                      CurriculumProgramme             @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  languageStructure              LanguageStructure               @relation(fields: [languageStructureId], references: [id], onDelete: Restrict)
+  standardMappings               RemedialSkillStandardMapping[]
+  learningObjectives             LearningObjective[]
+  suggestedActivities            SuggestedTeachingActivity[]
+  questionBankCurriculumLinks    QuestionBankCurriculumLink[]
+  digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
 
   @@unique([programmeId, code])
   @@unique([programmeId, sequence])
@@ -360,9 +371,11 @@ model ContentStandard {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
-  programme         CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
-  curriculumYear    CurriculumYear      @relation(fields: [curriculumYearId], references: [id], onDelete: Restrict)
-  learningStandards LearningStandard[]
+  programme                      CurriculumProgramme             @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  curriculumYear                 CurriculumYear                  @relation(fields: [curriculumYearId], references: [id], onDelete: Restrict)
+  learningStandards              LearningStandard[]
+  questionBankCurriculumLinks    QuestionBankCurriculumLink[]
+  digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
 
   @@unique([programmeId, curriculumYearId, code])
   @@index([domain])
@@ -380,8 +393,10 @@ model LearningStandard {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
-  contentStandard  ContentStandard                @relation(fields: [contentStandardId], references: [id], onDelete: Restrict)
-  remedialMappings RemedialSkillStandardMapping[]
+  contentStandard                ContentStandard                 @relation(fields: [contentStandardId], references: [id], onDelete: Restrict)
+  remedialMappings               RemedialSkillStandardMapping[]
+  questionBankCurriculumLinks    QuestionBankCurriculumLink[]
+  digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
 
   @@unique([contentStandardId, code])
   @@index([status])
@@ -414,8 +429,9 @@ model LearningObjective {
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 
-  remedialSkill       RemedialSkill               @relation(fields: [remedialSkillId], references: [id], onDelete: Cascade)
-  suggestedActivities SuggestedTeachingActivity[]
+  remedialSkill                  RemedialSkill                   @relation(fields: [remedialSkillId], references: [id], onDelete: Cascade)
+  suggestedActivities            SuggestedTeachingActivity[]
+  digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
 
   @@unique([remedialSkillId, sequence])
   @@index([status])
@@ -441,6 +457,293 @@ model SuggestedTeachingActivity {
   @@index([learningObjectiveId])
   @@index([status])
   @@map("suggested_teaching_activities")
+}
+
+model QuestionBankItem {
+  id              String               @id @default(uuid()) @db.Uuid
+  programmeId     String               @db.Uuid
+  createdByUserId String               @db.Uuid
+  type            QuestionBankItemType
+  title           String?
+  content         String
+  normalizedText  String?
+  languagePattern String?
+  instructions    String?
+  explanation     String?
+  answerType      QuestionAnswerType   @default(NONE)
+  correctAnswer   Json?
+  difficulty      DifficultyLevel
+  status          QuestionBankStatus   @default(DRAFT)
+  sourceReference String?
+  metadata        Json?
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  programme            CurriculumProgramme          @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  createdBy            User                         @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  curriculumLinks      QuestionBankCurriculumLink[]
+  mediaLinks           QuestionBankMedia[]
+  answerOptions        QuestionBankAnswerOption[]
+  digitalActivityItems DigitalActivityItem[]
+
+  @@index([programmeId])
+  @@index([createdByUserId])
+  @@index([type])
+  @@index([difficulty])
+  @@index([status])
+  @@index([normalizedText])
+  @@index([createdAt])
+  @@map("question_bank_items")
+}
+
+model QuestionBankCurriculumLink {
+  id                 String   @id @default(uuid()) @db.Uuid
+  questionBankItemId String   @db.Uuid
+  remedialSkillId    String?  @db.Uuid
+  contentStandardId  String?  @db.Uuid
+  learningStandardId String?  @db.Uuid
+  curriculumYearId   String?  @db.Uuid
+  isPrimary          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  questionBankItem QuestionBankItem  @relation(fields: [questionBankItemId], references: [id], onDelete: Cascade)
+  remedialSkill    RemedialSkill?    @relation(fields: [remedialSkillId], references: [id], onDelete: Restrict)
+  contentStandard  ContentStandard?  @relation(fields: [contentStandardId], references: [id], onDelete: Restrict)
+  learningStandard LearningStandard? @relation(fields: [learningStandardId], references: [id], onDelete: Restrict)
+  curriculumYear   CurriculumYear?   @relation(fields: [curriculumYearId], references: [id], onDelete: Restrict)
+
+  @@index([questionBankItemId])
+  @@index([remedialSkillId])
+  @@index([contentStandardId])
+  @@index([learningStandardId])
+  @@index([curriculumYearId])
+  @@map("question_bank_curriculum_links")
+}
+
+model QuestionBankAnswerOption {
+  id                 String   @id @default(uuid()) @db.Uuid
+  questionBankItemId String   @db.Uuid
+  label              String?
+  content            String
+  isCorrect          Boolean  @default(false)
+  sequence           Int
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  questionBankItem QuestionBankItem @relation(fields: [questionBankItemId], references: [id], onDelete: Cascade)
+
+  @@unique([questionBankItemId, sequence])
+  @@index([questionBankItemId])
+  @@map("question_bank_answer_options")
+}
+
+model QuestionBankMedia {
+  id                 String    @id @default(uuid()) @db.Uuid
+  questionBankItemId String    @db.Uuid
+  mediaKey           String
+  mediaRole          MediaRole
+  mimeType           String?
+  originalName       String?
+  sequence           Int       @default(0)
+  altText            String?
+  createdAt          DateTime  @default(now())
+
+  questionBankItem QuestionBankItem @relation(fields: [questionBankItemId], references: [id], onDelete: Cascade)
+
+  @@unique([questionBankItemId, mediaRole, sequence])
+  @@index([questionBankItemId])
+  @@index([mediaRole])
+  @@map("question_bank_media")
+}
+
+model ActivityTemplate {
+  id                     String                   @id @default(uuid()) @db.Uuid
+  code                   String                   @unique
+  name                   String
+  description            String?
+  category               ActivityTemplateCategory
+  version                Int                      @default(1)
+  status                 ActivityTemplateStatus   @default(ACTIVE)
+  assessmentMode         AssessmentMode
+  requiresTeacherReview  Boolean                  @default(false)
+  supportsAutoMarking    Boolean                  @default(false)
+  supportsMedia          Boolean                  @default(false)
+  supportsAudio          Boolean                  @default(false)
+  supportsVideo          Boolean                  @default(false)
+  supportsDrawing        Boolean                  @default(false)
+  supportsVoiceRecording Boolean                  @default(false)
+  supportsFutureAI       Boolean                  @default(false)
+  configurationSchema    Json
+  contentSchema          Json
+  rendererKey            String
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  acceptedItemTypes ActivityTemplateItemType[]
+  digitalActivities DigitalActivity[]
+
+  @@index([category])
+  @@index([status])
+  @@index([rendererKey])
+  @@map("activity_templates")
+}
+
+model ActivityTemplateItemType {
+  id                 String               @id @default(uuid()) @db.Uuid
+  activityTemplateId String               @db.Uuid
+  itemType           QuestionBankItemType
+  isRequired         Boolean              @default(false)
+  minimumItems       Int?
+  maximumItems       Int?
+  createdAt          DateTime             @default(now())
+
+  activityTemplate ActivityTemplate @relation(fields: [activityTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([activityTemplateId, itemType])
+  @@index([activityTemplateId])
+  @@map("activity_template_item_types")
+}
+
+model DigitalActivity {
+  id                    String                @id @default(uuid()) @db.Uuid
+  code                  String                @unique
+  title                 String
+  description           String?
+  instructions          String
+  learningOutcome       String?
+  programmeId           String                @db.Uuid
+  activityTemplateId    String                @db.Uuid
+  createdByUserId       String                @db.Uuid
+  updatedByUserId       String?               @db.Uuid
+  difficulty            LearningDifficulty
+  status                DigitalActivityStatus @default(DRAFT)
+  scoringMode           ActivityScoringMode
+  reviewMode            ActivityReviewMode
+  totalMarks            Int?
+  masteryThreshold      Int?
+  estimatedMinutes      Int?
+  attemptsAllowed       Int?
+  timeLimitSeconds      Int?
+  shuffleItems          Boolean               @default(false)
+  showImmediateFeedback Boolean               @default(false)
+  allowRetry            Boolean               @default(true)
+  configuration         Json
+  rewardConfiguration   Json?
+  presentationSettings  Json?
+  submittedForReviewAt  DateTime?
+  publishedAt           DateTime?
+  archivedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  programme        CurriculumProgramme             @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  activityTemplate ActivityTemplate                @relation(fields: [activityTemplateId], references: [id], onDelete: Restrict)
+  createdBy        User                            @relation("DigitalActivityCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  updatedBy        User?                           @relation("DigitalActivityUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  curriculumLinks  DigitalActivityCurriculumLink[]
+  items            DigitalActivityItem[]
+  mediaLinks       DigitalActivityMedia[]
+  reviewHistory    DigitalActivityReviewHistory[]
+
+  @@index([programmeId])
+  @@index([activityTemplateId])
+  @@index([createdByUserId])
+  @@index([difficulty])
+  @@index([status])
+  @@index([createdAt])
+  @@map("digital_activities")
+}
+
+model DigitalActivityCurriculumLink {
+  id                  String   @id @default(uuid()) @db.Uuid
+  digitalActivityId   String   @db.Uuid
+  curriculumYearId    String?  @db.Uuid
+  languageStructureId String?  @db.Uuid
+  remedialSkillId     String?  @db.Uuid
+  contentStandardId   String?  @db.Uuid
+  learningStandardId  String?  @db.Uuid
+  learningObjectiveId String?  @db.Uuid
+  isPrimary           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  digitalActivity   DigitalActivity    @relation(fields: [digitalActivityId], references: [id], onDelete: Cascade)
+  curriculumYear    CurriculumYear?    @relation(fields: [curriculumYearId], references: [id], onDelete: Restrict)
+  languageStructure LanguageStructure? @relation(fields: [languageStructureId], references: [id], onDelete: Restrict)
+  remedialSkill     RemedialSkill?     @relation(fields: [remedialSkillId], references: [id], onDelete: Restrict)
+  contentStandard   ContentStandard?   @relation(fields: [contentStandardId], references: [id], onDelete: Restrict)
+  learningStandard  LearningStandard?  @relation(fields: [learningStandardId], references: [id], onDelete: Restrict)
+  learningObjective LearningObjective? @relation(fields: [learningObjectiveId], references: [id], onDelete: Restrict)
+
+  @@index([digitalActivityId])
+  @@index([curriculumYearId])
+  @@index([languageStructureId])
+  @@index([remedialSkillId])
+  @@index([contentStandardId])
+  @@index([learningStandardId])
+  @@index([learningObjectiveId])
+  @@map("digital_activity_curriculum_links")
+}
+
+model DigitalActivityItem {
+  id                 String   @id @default(uuid()) @db.Uuid
+  digitalActivityId  String   @db.Uuid
+  questionBankItemId String   @db.Uuid
+  sequence           Int
+  sectionKey         String?
+  isRequired         Boolean  @default(true)
+  marks              Int?
+  configuration      Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  digitalActivity  DigitalActivity  @relation(fields: [digitalActivityId], references: [id], onDelete: Cascade)
+  questionBankItem QuestionBankItem @relation(fields: [questionBankItemId], references: [id], onDelete: Restrict)
+
+  @@unique([digitalActivityId, sequence])
+  @@unique([digitalActivityId, questionBankItemId])
+  @@index([questionBankItemId])
+  @@map("digital_activity_items")
+}
+
+model DigitalActivityMedia {
+  id                String   @id @default(uuid()) @db.Uuid
+  digitalActivityId String   @db.Uuid
+  mediaKey          String
+  mediaRole         String
+  mimeType          String?
+  label             String?
+  altText           String?
+  sequence          Int      @default(1)
+  isPrimary         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  digitalActivity DigitalActivity @relation(fields: [digitalActivityId], references: [id], onDelete: Cascade)
+
+  @@unique([digitalActivityId, mediaKey])
+  @@unique([digitalActivityId, mediaRole, sequence])
+  @@index([mediaRole])
+  @@map("digital_activity_media")
+}
+
+model DigitalActivityReviewHistory {
+  id                String                 @id @default(uuid()) @db.Uuid
+  digitalActivityId String                 @db.Uuid
+  actorUserId       String                 @db.Uuid
+  fromStatus        DigitalActivityStatus?
+  toStatus          DigitalActivityStatus
+  comment           String?
+  createdAt         DateTime               @default(now())
+
+  digitalActivity DigitalActivity @relation(fields: [digitalActivityId], references: [id], onDelete: Cascade)
+  actor           User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([digitalActivityId])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("digital_activity_review_history")
 }
 
 enum UserRole {
@@ -492,4 +795,95 @@ enum CurriculumRecordStatus {
   ACTIVE
   INACTIVE
   ARCHIVED
+}
+
+enum QuestionBankItemType {
+  LETTER
+  SYLLABLE
+  WORD
+  PHRASE
+  SENTENCE
+  PASSAGE
+  QUESTION
+}
+
+enum QuestionBankStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum LearningDifficulty {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum DigitalActivityStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ActivityScoringMode {
+  NONE
+  TOTAL_SCORE
+  PERCENTAGE
+  MASTERY_THRESHOLD
+}
+
+enum ActivityReviewMode {
+  AUTO
+  TEACHER
+  HYBRID
+  AI_ASSISTED
+}
+
+enum QuestionAnswerType {
+  NONE
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TEXT
+  BOOLEAN
+  ORDERED_ITEMS
+  MATCHING_PAIRS
+}
+
+enum MediaRole {
+  PRIMARY_IMAGE
+  SUPPORTING_IMAGE
+  REFERENCE_AUDIO
+  INSTRUCTION_AUDIO
+  REFERENCE_VIDEO
+}
+
+enum ActivityTemplateStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ActivityTemplateCategory {
+  QUIZ
+  MATCHING
+  ARRANGEMENT
+  WRITING
+  READING
+  LISTENING
+  SPEAKING
+}
+
+enum AssessmentMode {
+  AUTO
+  MANUAL
+  HYBRID
+  AI_ASSISTED
 }

@@ -17,6 +17,9 @@ import mediaRoutes from "./routes/media.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import curriculumRoutes from "./routes/curriculum.routes.js";
+import questionBankRoutes from "./routes/question-bank.routes.js";
+import activityTemplateRoutes from "./routes/activity-template.routes.js";
+import digitalActivityRoutes from "./routes/digitalActivity.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -47,6 +50,9 @@ app.use("/api/media", mediaRoutes);
 app.use("/api/audit-logs", auditRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/curriculum", curriculumRoutes);
+app.use("/api/question-bank", questionBankRoutes);
+app.use("/api/activity-templates", activityTemplateRoutes);
+app.use("/api/digital-activities", digitalActivityRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

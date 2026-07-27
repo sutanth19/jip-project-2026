@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed:curriculum": "tsx src/prisma/curriculum.seed.ts"
+    "seed:curriculum": "tsx src/prisma/curriculum.seed.ts",
+    "seed:activity-templates": "tsx src/prisma/activity-template.seed.ts"
   },
   "keywords": [],
   "author": "",
