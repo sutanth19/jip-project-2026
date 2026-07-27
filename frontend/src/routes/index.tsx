@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom"
 
 import { DashboardPage } from "@/components/dashboard/DashboardPage"
+import { ActivityPlayerPage } from "@/features/activity-player/ActivityPlayerPage"
 import AuthLayout from "@/layouts/AuthLayout"
 import { DashboardLayout } from "@/layouts/DashboardLayout"
 import PublicLayout from "@/layouts/PublicLayout"
@@ -108,6 +109,10 @@ const router = createBrowserRouter([
         element: <DashboardPage />,
       },
     ],
+  },
+  {
+    path: "/aktiviti/:activityId/mainkan",
+    element: <ActivityPlayerPage />,
   },
 ])
 

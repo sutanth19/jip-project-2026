@@ -1,0 +1,53 @@
+Everything is driven by the selected template. If the admin chooses **Tracing**, the form shows tracing-specific fields. If the admin chooses **Reading**, it shows text, timing, and optional audio. This keeps the interface simple and avoids overwhelming the admin.
+
+---
+
+# Student Experience
+
+For primary school students, the interface should feel like an educational game rather than an exam.
+
+When they answer correctly:
+
+- ⭐ Stars appear.
+- 🎉 Confetti animation.
+- 🐵 A friendly mascot says "Hebat!"
+- 🔊 Positive sound effects.
+- 📈 Progress bar fills.
+
+When they make a mistake:
+
+- 😊 Encourage them with messages like "Cuba lagi!"
+- 💡 Highlight the correct answer after several attempts.
+- 🔁 Offer a retry instead of showing a harsh "Wrong".
+
+This makes the experience more engaging and reduces frustration.
+
+---
+
+## My biggest recommendation
+
+I would **not** build 500 individual activity pages.
+
+Instead, I would build around **15 reusable activity engines**. Every activity in the system—whether it is for **Huruf Vokal**, **Perkataan KV + KV**, **KVKK**, or **Bacaan dan Pemahaman**—would be created by combining those reusable engines with different content, SK, SP, and Kemahiran.
+
+That approach gives you:
+
+- A consistent experience for students.
+- A simple authoring experience for admins.
+- Easy maintenance for developers.
+- Scalability as the curriculum grows.
+- A foundation for AI features like pronunciation assessment, adaptive recommendations, and learning analytics.
+
+I think this architecture fits both the **KPM curriculum structure** and the long-term vision you've described for Digital MoLIB. It is also the approach used by many mature educational platforms: build powerful reusable activity engines, then let educators create unlimited curriculum content on top of them.
+
+Phase 15  Curriculum Foundation                    ✅
+Phase 16  Question Bank + Template Registry
+Phase 17  Admin Activity Builder
+Phase 18  Core Activity Players
+Phase 19  Teacher Assignment
+Phase 20  Student Attempts and Submissions
+Phase 21  Assessment and Mastery
+Phase 22  Games and Gamification
+Phase 23  AI Reading and Pronunciation
+Phase 24  Speaker Verification
+Phase 25  Adaptive Learning and Analytics

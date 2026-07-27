@@ -3,7 +3,7 @@ import { useId, useState } from "react";
 import { AtSign, ArrowLeft, Building2, Eye, EyeOff, Hash, School, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ const loginSchema = z
     email: z.string().trim(),
     loginId: z.string().trim(),
     password: z.string(),
-    rememberMe: z.boolean().default(false),
+    rememberMe: z.boolean(),
     schoolId: z.string(),
     classId: z.string(),
     studentId: z.string().trim(),
@@ -244,7 +244,7 @@ export default function LoginForm({ className }: LoginFormProps) {
               </TabsList>
             </div>
 
-            <TabsContent value="admin" forceMount={false} className="space-y-5">
+            <TabsContent value="admin" className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor={emailInputId} className="text-sm font-medium text-foreground">
                   Email
@@ -281,7 +281,7 @@ export default function LoginForm({ className }: LoginFormProps) {
               />
             </TabsContent>
 
-            <TabsContent value="teacher" forceMount={false} className="space-y-5">
+            <TabsContent value="teacher" className="space-y-5">
               <LoginIdField
                 id={loginIdInputId}
                 label="Login ID"
@@ -300,7 +300,7 @@ export default function LoginForm({ className }: LoginFormProps) {
               />
             </TabsContent>
 
-            <TabsContent value="student" forceMount={false} className="space-y-5">
+            <TabsContent value="student" className="space-y-5">
               <SelectField
                 id={schoolId}
                 label="Sekolah"
@@ -391,7 +391,7 @@ export default function LoginForm({ className }: LoginFormProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="parent" forceMount={false} className="space-y-5">
+            <TabsContent value="parent" className="space-y-5">
               <LoginIdField
                 id={`${loginIdInputId}-parent`}
                 label="Login ID"
@@ -466,11 +466,7 @@ export default function LoginForm({ className }: LoginFormProps) {
   );
 }
 
-type FieldRegistration = ReturnType<typeof useForm<LoginFormValues>>["register"] extends (
-  name: infer Name,
-) => infer Registration
-  ? Registration
-  : never;
+type FieldRegistration = UseFormRegisterReturn;
 
 type LoginIdFieldProps = {
   id: string;

@@ -5,7 +5,6 @@ import {
   LibraryBig,
   PlusCircle,
   School,
-  SquarePen,
 } from "lucide-react"
 
 const actions = [
