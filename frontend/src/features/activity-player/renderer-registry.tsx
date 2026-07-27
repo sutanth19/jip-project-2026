@@ -2,6 +2,7 @@ import type { ComponentType } from "react"
 
 import { ComingSoonRenderer } from "./renderers/ComingSoonRenderer"
 import { MultipleChoicePlayer } from "./renderers/MultipleChoicePlayer"
+import { TrueFalsePlayer } from "./renderers/TrueFalsePlayer"
 
 export type ActivityRendererComponent = ComponentType
 
@@ -13,7 +14,7 @@ function createComingSoonRenderer(rendererKey: string, title: string): ActivityR
 
 export const activityRendererRegistry: Record<string, ActivityRendererComponent> = {
   "multiple-choice": MultipleChoicePlayer,
-  "true-false": createComingSoonRenderer("true-false", "Betul atau Salah"),
+  "true-false": TrueFalsePlayer,
   matching: createComingSoonRenderer("matching", "Padankan"),
   "drag-drop": createComingSoonRenderer("drag-drop", "Seret dan Lepas"),
   "fill-blank": createComingSoonRenderer("fill-blank", "Isi Tempat Kosong"),

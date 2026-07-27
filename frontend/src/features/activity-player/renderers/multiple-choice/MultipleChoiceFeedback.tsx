@@ -12,7 +12,7 @@ type MultipleChoiceFeedbackProps = {
 }
 
 export function MultipleChoiceFeedback({ submitted, isCorrect, message, explanation, showExplanation, showImmediateFeedback }: MultipleChoiceFeedbackProps) {
-  if (!submitted || !message) return null
+  if (!submitted || !message || !showImmediateFeedback) return null
   const isPositive = showImmediateFeedback && isCorrect === true
   const isNegative = showImmediateFeedback && isCorrect === false
   return (

@@ -1,6 +1,6 @@
 import { getBooleanConfiguration, stableShuffle } from "../../activity-player.utils"
 import type { ActivityCompletionSummary, ActivityMedia, QuestionBankMedia } from "../../types"
-import type { MultipleChoiceActivityItem, MultipleChoiceMapResult, MultipleChoiceQuestionModel, MultipleChoiceQuestionState, MultipleChoiceSessionState, MultipleChoiceSettings } from "./multiple-choice.types"
+import type { MultipleChoiceActivityItem, MultipleChoiceMapResult, MultipleChoiceMode, MultipleChoiceQuestionModel, MultipleChoiceQuestionState, MultipleChoiceSessionState, MultipleChoiceSettings } from "./multiple-choice.types"
 
 function toPlayerMedia(media: QuestionBankMedia): ActivityMedia {
   return {
@@ -26,11 +26,8 @@ function hasUsableOptionContent(content: string, media: ActivityMedia[]): boolea
   return content.trim().length > 0 || media.some((item) => Boolean(item.url))
 }
 
-export function mapMultipleChoiceQuestion(item: MultipleChoiceActivityItem): MultipleChoiceMapResult {
+export function mapChoiceQuestion(item: MultipleChoiceActivityItem, mode: MultipleChoiceMode): MultipleChoiceMapResult {
   const question = item.questionBankItem
-  if (question.answerType !== "SINGLE_CHOICE" && question.answerType !== "MULTIPLE_CHOICE") {
-    return { ok: false, message: "Jenis jawapan item ini tidak disokong oleh pemain pilihan jawapan." }
-  }
   if (!Array.isArray(question.answerOptions) || question.answerOptions.length === 0) {
     return { ok: false, message: "Item ini belum mempunyai pilihan jawapan." }
   }
@@ -59,12 +56,20 @@ export function mapMultipleChoiceQuestion(item: MultipleChoiceActivityItem): Mul
       title: question.title,
       instructions: question.instructions,
       explanation: question.explanation,
-      mode: question.answerType,
+      mode,
       options: options.filter((option): option is NonNullable<typeof option> => option !== null),
       media: question.mediaLinks.filter(isQuestionBankMedia).map(toPlayerMedia),
       correctOptionIds,
     },
   }
+}
+
+export function mapMultipleChoiceQuestion(item: MultipleChoiceActivityItem): MultipleChoiceMapResult {
+  const answerType = item.questionBankItem.answerType
+  if (answerType !== "SINGLE_CHOICE" && answerType !== "MULTIPLE_CHOICE") {
+    return { ok: false, message: "Jenis jawapan item ini tidak disokong oleh pemain pilihan jawapan." }
+  }
+  return mapChoiceQuestion(item, answerType)
 }
 
 export function getMultipleChoiceSettings(activity: { attemptsAllowed: number | null; allowRetry: boolean; showImmediateFeedback: boolean; configuration: unknown }): MultipleChoiceSettings {

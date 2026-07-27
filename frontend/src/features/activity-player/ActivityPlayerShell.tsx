@@ -40,7 +40,7 @@ export function ActivityPlayerShell({ onExit }: ActivityPlayerShellProps) {
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><ListChecks className="size-4" aria-hidden="true" /> Navigasi menggunakan butang, nombor item, atau kekunci Tab dan Enter.</div>
         </>}
       </div>
-      {!isFinished && items.length > 0 && activity.template.rendererKey !== "multiple-choice" ? <ActivityFooter /> : null}
+      {!isFinished && items.length > 0 && !["multiple-choice", "true-false"].includes(activity.template.rendererKey) ? <ActivityFooter /> : null}
     </main>
   )
 }
