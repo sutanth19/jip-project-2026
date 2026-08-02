@@ -14,11 +14,9 @@ function actorAndIp(req: AuthenticatedRequest): string {
 const uploadRateLimiter = rateLimit({ windowMs: 15 * 60 * 1_000, limit: 30, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => actorAndIp(req as AuthenticatedRequest) });
 const deleteRateLimiter = rateLimit({ windowMs: 15 * 60 * 1_000, limit: 20, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => actorAndIp(req as AuthenticatedRequest) });
 
-// Generic retrieval is authenticated in V1. Ownership-aware public/CDN access is
-// intentionally deferred until media metadata and business-resource links exist.
+router.get("/files/*key", getMediaFileController);
 router.use(authenticate, requirePasswordChanged, requireStudentPinChanged);
 router.post("/upload", uploadRateLimiter, singleMediaUpload, uploadMediaController);
-router.get("/files/*key", getMediaFileController);
 router.delete("/files", deleteRateLimiter, deleteMediaController);
 
 export default router;

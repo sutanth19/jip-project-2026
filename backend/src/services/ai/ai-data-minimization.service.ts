@@ -1,0 +1,1 @@
+export function minimizedAiContext(input: { label: string; yearLevel?: number; content: string; curriculumIds?: string[] }) { return { subject: input.label, ...(input.yearLevel === undefined ? {} : { yearLevel: input.yearLevel }), content: input.content.replace(/[\w.+-]+@[\w.-]+|\+?\d[\d\s-]{7,}|\b\d{6}-\d{2}-\d{4}\b/g, "[REDACTED]"), curriculumIds: input.curriculumIds ?? [] }; }

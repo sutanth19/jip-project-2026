@@ -1,0 +1,10 @@
+import { CheckCircle2, RotateCcw } from "lucide-react"
+
+import { Card, CardContent } from "@/components/ui/card"
+
+type FreeHandwritingFeedbackProps = { submitted: boolean; complete: boolean | null; message: string | null; showImmediateFeedback: boolean }
+
+export function FreeHandwritingFeedback({ submitted, complete, message, showImmediateFeedback }: FreeHandwritingFeedbackProps) {
+  if (!submitted || !showImmediateFeedback || !message) return null
+  return <Card aria-live="polite" className={complete ? "border-secondary/40 bg-secondary/10" : "border-primary/30 bg-primary/5"}><CardContent className="flex gap-3 p-4">{complete ? <CheckCircle2 className="size-6 shrink-0 text-secondary" aria-hidden="true" /> : <RotateCcw className="size-6 shrink-0 text-primary" aria-hidden="true" />}<p className="font-semibold">{message}</p></CardContent></Card>
+}

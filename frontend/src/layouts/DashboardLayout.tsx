@@ -8,9 +8,9 @@ export function DashboardLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="overflow-x-hidden">
+      <SidebarInset className="overflow-x-hidden bg-background">
         <DashboardTopbar />
-        <section className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <section className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
           <Outlet />
         </section>
       </SidebarInset>

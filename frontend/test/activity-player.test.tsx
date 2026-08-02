@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
-import { ActivityProvider, useActivityPlayer } from "@/features/activity-player/ActivityContext"
+import { ActivityProvider } from "@/features/activity-player/ActivityContext"
+import { useActivityPlayer } from "@/features/activity-player/useActivityPlayer"
 import { calculateActivityProgress, getNextActivityIndex, getPreviousActivityIndex } from "@/features/activity-player/activity-player.utils"
 import { EmptyActivity } from "@/features/activity-player/components/EmptyActivity"
 import { ActivityLoadingState } from "@/features/activity-player/components/LoadingState"

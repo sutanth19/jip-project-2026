@@ -26,6 +26,7 @@ export type ActivityQuestion = {
     content: string
     answerType: string
     correctAnswer: unknown
+    metadata: unknown
     instructions: string | null
     explanation: string | null
     difficulty: string

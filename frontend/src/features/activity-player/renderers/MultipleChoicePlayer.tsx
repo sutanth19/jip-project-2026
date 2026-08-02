@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
 
-import { useActivityPlayer } from "../ActivityContext"
+import { useActivityPlayer } from "../useActivityPlayer"
 import { MultipleChoiceQuestion } from "./multiple-choice/MultipleChoiceQuestion"
 import type { MultipleChoiceSessionState } from "./multiple-choice/multiple-choice.types"
 import { buildCompletionSummary, createQuestionState, getMultipleChoiceSettings, mapMultipleChoiceQuestion, retryQuestion, selectOption, submitQuestion, updateQuestionSession } from "./multiple-choice/multiple-choice.utils"

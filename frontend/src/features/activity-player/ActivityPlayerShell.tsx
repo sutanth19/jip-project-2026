@@ -3,7 +3,7 @@ import { ListChecks } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 import { findActivityMedia } from "./activity-player.utils"
-import { useActivityPlayer } from "./ActivityContext"
+import { useActivityPlayer } from "./useActivityPlayer"
 import { ActivityRenderer } from "./ActivityRenderer"
 import { ActivityFooter } from "./components/ActivityFooter"
 import { ActivityHeader } from "./components/ActivityHeader"
@@ -40,7 +40,7 @@ export function ActivityPlayerShell({ onExit }: ActivityPlayerShellProps) {
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><ListChecks className="size-4" aria-hidden="true" /> Navigasi menggunakan butang, nombor item, atau kekunci Tab dan Enter.</div>
         </>}
       </div>
-      {!isFinished && items.length > 0 && !["multiple-choice", "true-false"].includes(activity.template.rendererKey) ? <ActivityFooter /> : null}
+      {!isFinished && items.length > 0 && !["multiple-choice", "true-false", "matching", "drag-drop", "fill-blank", "arrange-letters", "arrange-syllables", "word-builder", "copy-writing", "free-handwriting", "reading", "reading-comprehension", "voice-recording"].includes(activity.template.rendererKey) ? <ActivityFooter /> : null}
     </main>
   )
 }

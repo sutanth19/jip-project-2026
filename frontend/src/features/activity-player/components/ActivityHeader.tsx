@@ -3,7 +3,7 @@ import { Expand, LogOut } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-import { useActivityPlayer } from "../ActivityContext"
+import { useActivityPlayer } from "../useActivityPlayer"
 import { Timer } from "./Timer"
 
 type ActivityHeaderProps = { onExit: () => void; onToggleFullscreen: () => void }

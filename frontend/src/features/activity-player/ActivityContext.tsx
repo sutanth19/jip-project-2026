@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 
+import { ActivityPlayerContext } from "./activity-player-context-value"
 import { calculateActivityProgress, getBooleanConfiguration, getNextActivityIndex, getPreviousActivityIndex, stableShuffle } from "./activity-player.utils"
 import type {
   ActivityAnswerMap,
@@ -9,7 +10,7 @@ import type {
   ActivityTimerMode,
 } from "./types"
 
-type ActivityPlayerContextValue = {
+export type ActivityPlayerContextValue = {
   activity: ActivityPreview
   items: ActivityPreview["items"]
   currentIndex: number
@@ -40,7 +41,6 @@ type ActivityPlayerContextValue = {
   setTemporaryState: (key: string, value: unknown) => void
 }
 
-const ActivityPlayerContext = createContext<ActivityPlayerContextValue | null>(null)
 
 function getTimerMode(activity: ActivityPreview): ActivityTimerMode {
   if (activity.timeLimitSeconds === 0) return "disabled"
@@ -52,9 +52,9 @@ type ActivityProviderProps = {
   children: ReactNode
 }
 
-export function ActivityProvider({ activity, children }: ActivityProviderProps) {
+function ActivityProviderState({ activity, children }: ActivityProviderProps) {
   const shouldShuffleItems = activity.shuffleItems || getBooleanConfiguration(activity.configuration, ["randomizeQuestions", "randomizeQuestionOrder"])
-  const [orderedItems, setOrderedItems] = useState(() => shouldShuffleItems ? stableShuffle(activity.items, `${activity.id}:questions`) : activity.items)
+  const [orderedItems] = useState(() => shouldShuffleItems ? stableShuffle(activity.items, `${activity.id}:questions`) : activity.items)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<ActivityAnswerMap>({})
   const [temporaryState, setTemporaryStateValue] = useState<ActivityTemporaryState>({})
@@ -64,18 +64,6 @@ export function ActivityProvider({ activity, children }: ActivityProviderProps) 
   const timerMode = getTimerMode(activity)
   const [timerSeconds, setTimerSeconds] = useState(() => activity.timeLimitSeconds ?? 0)
   const [isTimerPaused, setIsTimerPaused] = useState(false)
-
-  useEffect(() => {
-    setOrderedItems(shouldShuffleItems ? stableShuffle(activity.items, `${activity.id}:questions`) : activity.items)
-    setCurrentIndex(0)
-    setAnswers({})
-    setTemporaryStateValue({})
-    setCompletedItemIds(new Set())
-    setCompletionSummary(null)
-    setIsFinished(false)
-    setTimerSeconds(activity.timeLimitSeconds ?? 0)
-    setIsTimerPaused(false)
-  }, [activity.id, activity.items, activity.timeLimitSeconds, shouldShuffleItems])
 
   useEffect(() => {
     if (timerMode === "disabled" || isTimerPaused || isFinished) return undefined
@@ -172,8 +160,7 @@ export function ActivityProvider({ activity, children }: ActivityProviderProps) 
   return <ActivityPlayerContext.Provider value={value}>{children}</ActivityPlayerContext.Provider>
 }
 
-export function useActivityPlayer(): ActivityPlayerContextValue {
-  const context = useContext(ActivityPlayerContext)
-  if (!context) throw new Error("useActivityPlayer must be used within ActivityProvider.")
-  return context
+export function ActivityProvider({ activity, children }: ActivityProviderProps) {
+  const activityVersion = `${activity.id}:${activity.timeLimitSeconds ?? "none"}:${activity.shuffleItems}:${activity.items.map((item) => item.id).join(":")}`
+  return <ActivityProviderState key={activityVersion} activity={activity}>{children}</ActivityProviderState>
 }

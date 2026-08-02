@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 
-import { AtSign, ArrowLeft, Building2, Eye, EyeOff, Hash, School, UserRound } from "lucide-react";
-import { Link } from "react-router-dom";
+import { AtSign, ArrowLeft, Eye, EyeOff, Hash, UserRound } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { z } from "zod";
@@ -18,7 +18,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PasswordInput from "@/components/auth/PasswordInput";
+import { getDashboardPathForRole } from "@/lib/auth-routes";
+import { ApiError, apiRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 const userTypes = ["admin", "teacher", "student", "parent"] as const;
 
@@ -32,7 +35,6 @@ const loginSchema = z
     password: z.string(),
     rememberMe: z.boolean(),
     schoolId: z.string(),
-    classId: z.string(),
     studentId: z.string().trim(),
     pin: z.string(),
   })
@@ -88,14 +90,6 @@ const loginSchema = z
         });
       }
 
-      if (!values.classId) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["classId"],
-          message: "Sila pilih kelas.",
-        });
-      }
-
       if (!values.studentId) {
         ctx.addIssue({
           code: "custom",
@@ -122,6 +116,44 @@ const loginSchema = z
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+type AdminLoginResponse = {
+  accessToken: string;
+  expiresIn: string;
+  requiresPasswordChange: boolean;
+  user: {
+    id: string;
+    role: "SUPER_ADMIN" | "ADMIN" | "TEACHER" | "PARENT";
+    email: string | null;
+    accountStatus: string;
+    isFirstLogin: boolean;
+  };
+  profile: {
+    id: string;
+    fullName: string;
+    schoolId: string | null;
+  };
+};
+
+type StudentLoginResponse = {
+  accessToken: string;
+  expiresIn: string;
+  requiresPinChange: boolean;
+  user: {
+    id: string;
+    role: "STUDENT";
+    accountStatus: string;
+  };
+  profile: {
+    id: string;
+    studentId: string;
+    fullName: string;
+    schoolId: string;
+    classId: string;
+    className: string;
+    yearLevel: number;
+  };
+};
+
 type LoginFormProps = {
   className?: string;
 };
@@ -133,23 +165,25 @@ const loginDefaults: LoginFormValues = {
   password: "",
   rememberMe: false,
   schoolId: "",
-  classId: "",
   studentId: "",
   pin: "",
 };
 
-const schoolOptions = [
-  { value: "school-darul-aman", label: "SK Kampus Darul Aman" },
-  { value: "school-literasi", label: "SK Literasi Bestari" },
-];
+function loginErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 401) {
+    return "Emel, Login ID, kata laluan atau PIN tidak sepadan.";
+  }
 
-const classOptions = [
-  { value: "1-amanah", label: "Tahun 1 Amanah" },
-  { value: "2-bestari", label: "Tahun 2 Bestari" },
-  { value: "3-cerdas", label: "Tahun 3 Cerdas" },
-];
+  if (error instanceof ApiError && error.message) {
+    return error.message;
+  }
+
+  return "Log masuk gagal. Sila cuba lagi.";
+}
 
 export default function LoginForm({ className }: LoginFormProps) {
+  const navigate = useNavigate();
+  const setSession = useAuthStore((state) => state.setSession);
   const [activeUserType, setActiveUserType] = useState<UserType>("admin");
   const [placeholderMessage, setPlaceholderMessage] = useState("");
   const [isPinVisible, setIsPinVisible] = useState(false);
@@ -159,8 +193,6 @@ export default function LoginForm({ className }: LoginFormProps) {
   const loginIdErrorId = useId();
   const schoolId = useId();
   const schoolErrorId = useId();
-  const classId = useId();
-  const classErrorId = useId();
   const studentId = useId();
   const studentErrorId = useId();
   const pinId = useId();
@@ -182,14 +214,84 @@ export default function LoginForm({ className }: LoginFormProps) {
     setValueAs: (value) => String(value ?? "").replace(/\D/g, "").slice(0, 4),
   });
 
-  const onSubmit = handleSubmit(async () => {
+  const onSubmit = handleSubmit(async (values) => {
     setPlaceholderMessage("");
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 900);
-    });
-    setPlaceholderMessage(
-      "Log masuk akan disambungkan kepada API pengesahan dalam langkah seterusnya.",
-    );
+
+    try {
+      if (values.userType === "student") {
+        const data = await apiRequest<StudentLoginResponse>("/auth/student/login", {
+          method: "POST",
+          body: JSON.stringify({
+            schoolId: values.schoolId,
+            studentId: values.studentId,
+            pin: values.pin,
+          }),
+        });
+
+        setSession({
+          accessToken: data.accessToken,
+          user: {
+            id: data.user.id,
+            role: "STUDENT",
+            email: null,
+            accountStatus: data.user.accountStatus,
+          },
+          profile: data.profile,
+          rememberMe: false,
+          requiresPinChange: data.requiresPinChange,
+        });
+
+        navigate(data.requiresPinChange ? "/student/change-first-pin" : getDashboardPathForRole("STUDENT"), {
+          replace: true,
+        });
+        return;
+      }
+
+      const loginId = values.userType === "admin" ? values.email : values.loginId;
+      const rememberMe = values.rememberMe;
+      const roles =
+        values.userType === "admin"
+          ? (["SUPER_ADMIN", "ADMIN"] as const)
+          : (values.userType === "teacher"
+              ? (["TEACHER"] as const)
+              : (["PARENT"] as const));
+
+      let lastError: unknown = null;
+
+      for (const role of roles) {
+        try {
+          const data = await apiRequest<AdminLoginResponse>("/auth/login", {
+            method: "POST",
+            body: JSON.stringify({
+              role,
+              loginId,
+              password: values.password,
+              rememberMe,
+            }),
+          });
+
+          setSession({
+            accessToken: data.accessToken,
+            user: data.user,
+            profile: data.profile,
+            rememberMe,
+            requiresPasswordChange: data.requiresPasswordChange,
+          });
+
+          navigate(
+            data.requiresPasswordChange ? "/change-first-password" : getDashboardPathForRole(data.user.role),
+            { replace: true },
+          );
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      setPlaceholderMessage(loginErrorMessage(lastError));
+    } catch (error) {
+      setPlaceholderMessage(loginErrorMessage(error));
+    }
   });
 
   const handleTabChange = (value: string) => {
@@ -206,7 +308,6 @@ export default function LoginForm({ className }: LoginFormProps) {
   const loginIdError = errors.loginId?.message;
   const passwordError = errors.password?.message;
   const schoolError = errors.schoolId?.message;
-  const classError = errors.classId?.message;
   const studentIdError = errors.studentId?.message;
   const pinError = errors.pin?.message;
 
@@ -301,37 +402,15 @@ export default function LoginForm({ className }: LoginFormProps) {
             </TabsContent>
 
             <TabsContent value="student" className="space-y-5">
-              <SelectField
+              <LoginIdField
                 id={schoolId}
-                label="Sekolah"
+                label="ID Sekolah"
+                placeholder="Masukkan UUID sekolah"
                 errorId={schoolErrorId}
                 errorMessage={schoolError}
-                icon={<School className="size-4" aria-hidden="true" />}
+                icon="hash"
                 registration={register("schoolId")}
-              >
-                <option value="">Pilih sekolah</option>
-                {schoolOptions.map((school) => (
-                  <option key={school.value} value={school.value}>
-                    {school.label}
-                  </option>
-                ))}
-              </SelectField>
-
-              <SelectField
-                id={classId}
-                label="Kelas"
-                errorId={classErrorId}
-                errorMessage={classError}
-                icon={<Building2 className="size-4" aria-hidden="true" />}
-                registration={register("classId")}
-              >
-                <option value="">Pilih kelas</option>
-                {classOptions.map((schoolClass) => (
-                  <option key={schoolClass.value} value={schoolClass.value}>
-                    {schoolClass.label}
-                  </option>
-                ))}
-              </SelectField>
+              />
 
               <LoginIdField
                 id={studentId}
@@ -515,54 +594,7 @@ function LoginIdField({
         <p id={errorId} role="alert" className="text-sm text-destructive">
           {errorMessage}
         </p>
-      ) : null}
-    </div>
-  );
-}
-
-type SelectFieldProps = {
-  id: string;
-  label: string;
-  errorId: string;
-  errorMessage?: string;
-  icon: React.ReactNode;
-  registration: FieldRegistration;
-  children: React.ReactNode;
-};
-
-function SelectField({
-  id,
-  label,
-  errorId,
-  errorMessage,
-  icon,
-  registration,
-  children,
-}: SelectFieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-sm font-medium text-foreground">
-        {label}
-      </Label>
-      <div className="relative">
-        <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">
-          {icon}
-        </span>
-        <select
-          id={id}
-          aria-invalid={errorMessage ? true : undefined}
-          aria-describedby={errorMessage ? errorId : undefined}
-          className="h-11 w-full rounded-xl border border-input bg-background py-2 pr-4 pl-10 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 sm:h-12"
-          {...registration}
-        >
-          {children}
-        </select>
-      </div>
-      {errorMessage ? (
-        <p id={errorId} role="alert" className="text-sm text-destructive">
-          {errorMessage}
-        </p>
-      ) : null}
-    </div>
+  ) : null}
+  </div>
   );
 }

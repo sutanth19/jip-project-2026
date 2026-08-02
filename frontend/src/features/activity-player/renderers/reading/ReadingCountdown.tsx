@@ -1,0 +1,2 @@
+import { Badge } from "@/components/ui/badge"
+export function ReadingCountdown({ value }: { value: number | null }) { if (value === null) return null; return <div className="flex items-center justify-center rounded-2xl border bg-primary/5 p-6 text-center"><div className="space-y-3"><Badge variant="secondary" className="text-sm">Bersedia untuk membaca</Badge><p aria-live="polite" className="text-5xl font-bold tracking-tight motion-reduce:transition-none">{value}</p></div></div> }

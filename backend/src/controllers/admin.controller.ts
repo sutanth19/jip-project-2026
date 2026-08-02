@@ -103,7 +103,10 @@ export async function resendAdminSetupController(req: Request, res: Response, ne
       adminId,
       getAuditContext(req as AuthenticatedRequest),
     );
-    successResponse(res, 200, "Jemputan persediaan pentadbir berjaya dihantar semula.", result);
+    const message = result.invitation.status === "SENT"
+      ? "Jemputan persediaan pentadbir berjaya dihantar semula."
+      : "E-mel penyediaan tidak dapat dihantar. Sila cuba lagi.";
+    successResponse(res, 200, message, result);
   } catch (error) {
     next(error);
   }

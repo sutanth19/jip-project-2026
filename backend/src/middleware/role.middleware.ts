@@ -12,7 +12,7 @@ import type {
 /**
  * Secure route composition examples:
  * SUPER_ADMIN: authenticate -> requirePasswordChanged -> requireRole(UserRole.SUPER_ADMIN)
- * ADMIN: authenticate -> requirePasswordChanged -> requireRole(UserRole.ADMIN) -> requireSchoolAccess(...)
+ * ADMIN: authenticate -> requirePasswordChanged -> requireRole(UserRole.ADMIN)
  * TEACHER: authenticate -> requirePasswordChanged -> requireRole(UserRole.TEACHER) -> requireTeacherPermission(...) -> requireSchoolAccess(...)
  * STUDENT: authenticate -> requireStudentPinChanged -> requireRole(UserRole.STUDENT) -> requireStudentSelfAccess(...)
  * PARENT: authenticate -> requirePasswordChanged -> requireRole(UserRole.PARENT) -> requireLinkedChildAccess(...)
@@ -395,7 +395,7 @@ export function requireSchoolAccess(options: SchoolAccessOptions = {}) {
         defaultKey: "schoolId",
       });
 
-      if (auth.role === UserRole.SUPER_ADMIN) {
+      if (auth.role === UserRole.SUPER_ADMIN || auth.role === UserRole.ADMIN) {
         next();
         return;
       }

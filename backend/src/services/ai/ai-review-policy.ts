@@ -1,0 +1,2 @@
+import { AiFeatureType, AiOutputDisposition, AiRiskLevel } from "@prisma/client";
+export const aiReviewPolicy = (featureType: AiFeatureType) => ({ requiresHumanReview: true, disposition: featureType === AiFeatureType.TEXT_SIMPLIFICATION ? AiOutputDisposition.ADVISORY_ONLY : AiOutputDisposition.DRAFT_ONLY, riskLevel: featureType === AiFeatureType.AUDIO_READING_ANALYSIS || featureType === AiFeatureType.PARENT_SUMMARY_DRAFT ? AiRiskLevel.HIGH : AiRiskLevel.MEDIUM });

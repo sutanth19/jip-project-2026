@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
-import { useActivityPlayer } from "../ActivityContext"
+import { useActivityPlayer } from "../useActivityPlayer"
 
 export function ActivityFooter() {
   const { currentIndex, items, previousItem, nextItem, retryCurrentItem, finishActivity } = useActivityPlayer()

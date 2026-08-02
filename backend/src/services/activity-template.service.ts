@@ -32,7 +32,11 @@ const allowedRendererKeys = new Set([
   "drag-drop",
   "fill-blank",
   "arrange-syllables",
+  "arrange-letters",
+  "word-builder",
   "tracing",
+  "copy-writing",
+  "free-handwriting",
   "reading",
   "voice-recording",
 ]);

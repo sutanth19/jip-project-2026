@@ -41,8 +41,8 @@ That approach gives you:
 I think this architecture fits both the **KPM curriculum structure** and the long-term vision you've described for Digital MoLIB. It is also the approach used by many mature educational platforms: build powerful reusable activity engines, then let educators create unlimited curriculum content on top of them.
 
 Phase 15  Curriculum Foundation                    ✅
-Phase 16  Question Bank + Template Registry
-Phase 17  Admin Activity Builder
+Phase 16  Question Bank + Template Registry.       ✅
+Phase 17  Admin Activity Builder                   ✅
 Phase 18  Core Activity Players
 Phase 19  Teacher Assignment
 Phase 20  Student Attempts and Submissions
@@ -51,3 +51,116 @@ Phase 22  Games and Gamification
 Phase 23  AI Reading and Pronunciation
 Phase 24  Speaker Verification
 Phase 25  Adaptive Learning and Analytics
+
+--------------------------------------------------
+UI Component Policy
+--------------------------------------------------
+
+Use the existing shadcn/ui design system as the primary UI foundation.
+
+Before creating a component manually, inspect:
+
+https://ui.shadcn.com/docs/components
+
+and:
+
+https://21st.dev/community/components
+
+Prefer existing reusable components over hard-coded UI.
+
+Use shadcn/ui for foundational and accessible components such as:
+
+- Button
+- Card
+- Progress
+- Tabs
+- Dialog
+- Alert Dialog
+- Sheet
+- Tooltip
+- Badge
+- Input
+- Label
+- Field
+- Slider
+- Separator
+- Skeleton
+- Dropdown Menu
+- Collapsible
+- Avatar
+- Breadcrumb
+
+Use 21st.dev community components selectively for polished visual patterns such as:
+
+- child-friendly activity cards
+- animated progress indicators
+- completion celebrations
+- option-selection cards
+- feedback banners
+- countdown displays
+- animated text
+- audio controls
+- interactive navigation
+- empty states
+- loading states
+- mascot/reward presentation
+- responsive activity layouts
+
+Important:
+
+- Inspect the chosen component code before using it.
+- Copy the component into the project and adapt it to the existing Vite + React + Tailwind setup.
+- Do not add a component that requires Next.js-only APIs without adapting it correctly.
+- Do not blindly paste components with incompatible imports.
+- Do not install a second UI framework.
+- Do not duplicate an existing shadcn/ui component.
+- Do not hard-code buttons, dialogs, cards, progress bars, tooltips, tabs, or form controls when suitable reusable components already exist.
+- Preserve accessibility and keyboard behavior.
+- Preserve the existing theme tokens and LITERASI DIGITAL design system.
+- Remove unused code and dependencies from copied community components.
+- Do not copy components containing unsafe scripts, remote executable code, or unnecessary tracking.
+- Prefer lightweight components and avoid visual effects that reduce performance on school devices.
+- Ensure every selected 21st.dev component works in React + Vite, not only Next.js.
+
+
+* ✅Phase 17.8 — Free Handwriting Contract
+* ✅Phase 18L — Free Handwriting Player
+* ✅Phase 17.9 — Reading Contract
+* ✅Phase 18M — Reading Player
+* ✅Phase 17.10 — Reading Comprehension Contract
+* ✅Phase 18N — Reading Comprehension Player
+* ✅Phase 17.11 — Voice Recording Contract
+* ✅Phase 18.O — Voice Recording Player
+* ✅Phase 19 — Student Assignment & Activity Delivery
+* ✅Phase 20 — Student Attempt & Session Engine
+* ✅Phase 21 — Submission and Teacher Review
+* ✅Phase 22 — Automatic and Manual Assessment
+* ✅Phase 23 — PBD Progress and Mastery
+* ✅Phase 24 — Analytics, Reports and Parent Progress
+* ✅Phase 25 — AI and Smart Learning Features
+
+Phase 27 — Admin, Teacher, Student and Parent Frontend Modules
+        ✅Phase 27A✅— Shared Frontend Infrastructure & Authentication
+        ✅Phase 27B✅ — Admin Frontend
+        ✅Phase 27C✅— Curriculum, Question Bank & Activity Builder
+        ✅Phase 27D✅ — Teacher Frontend
+        ✅Phase 27E✅ — Student Frontend
+        ✅Phase 27F✅ — Parent Frontend
+        ✅Phase 27G✅ — Notifications & AI Frontend
+        Phase 27H — Final Integration, Testing & Polish
+Phase 28 — File Export, PDF Reports and Certificates
+Phase 29 — Security Hardening and Production Readiness
+Phase 30 — Deployment, Monitoring and Backup
+Phase 31 — End-to-End Testing and UAT
+Phase 32 — Launch and Maintenance
+
+Phase 27E.1 — Student Delivery Contract Completion
+↓
+Phase 27H.1 — Frontend Lint and Renderer Stability Fix
+↓
+Phase 27H.2 — Authenticated End-to-End Role Smoke Testing
+↓
+Phase 28 — Production Hardening, Security and Performance
+↓
+Phase 29 — Deployment, Monitoring and Backup
+

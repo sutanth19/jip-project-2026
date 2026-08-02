@@ -71,7 +71,15 @@ export async function seedCoreActivityTemplates(): Promise<SeedSummary> {
     });
     if (existing) {
       if (matchesCoreTemplate(existing, core)) summary.unchanged += 1;
-      else summary.skipped += 1;
+      else {
+        // Codes are unique and the registry has no DRAFT status, so a changed
+        // core contract cannot be versioned beside an existing record. Preserve
+        // it rather than silently replacing an ACTIVE production contract.
+        summary.skipped += 1;
+        if (core.code === "FILL_BLANK" || core.code === "ARRANGE_LETTERS" || core.code === "ARRANGE_SYLLABLES" || core.code === "WORD_BUILDER" || core.code === "TRACING" || core.code === "COPY_WRITING" || core.code === "READING" || core.code === "FREE_HANDWRITING" || core.code === "READING_COMPREHENSION" || core.code === "VOICE_RECORDING") {
+          console.warn(`${core.code} template preserved without overwrite: existing version=${existing.version}, status=${existing.status}. A separately versioned template record is required before activation.`);
+        }
+      }
       continue;
     }
     await prisma.$transaction(async (tx) => {

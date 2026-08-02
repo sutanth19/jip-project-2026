@@ -1,8 +1,19 @@
 import type { ComponentType } from "react"
 
 import { ComingSoonRenderer } from "./renderers/ComingSoonRenderer"
+import { ArrangeLettersPlayer } from "./renderers/ArrangeLettersPlayer"
+import { ArrangeSyllablesPlayer } from "./renderers/ArrangeSyllablesPlayer"
+import { CopyWritingPlayer } from "./renderers/CopyWritingPlayer"
+import { DragDropPlayer } from "./renderers/DragDropPlayer"
+import { FillInBlankPlayer } from "./renderers/FillInBlankPlayer"
+import { FreeHandwritingPlayer } from "./renderers/FreeHandwritingPlayer"
+import { MatchingPlayer } from "./renderers/MatchingPlayer"
 import { MultipleChoicePlayer } from "./renderers/MultipleChoicePlayer"
+import { ReadingPlayer } from "./renderers/ReadingPlayer"
+import { ReadingComprehensionPlayer } from "./renderers/ReadingComprehensionPlayer"
+import { VoiceRecordingPlayer } from "./renderers/VoiceRecordingPlayer"
 import { TrueFalsePlayer } from "./renderers/TrueFalsePlayer"
+import { WordBuilderPlayer } from "./renderers/WordBuilderPlayer"
 
 export type ActivityRendererComponent = ComponentType
 
@@ -15,18 +26,18 @@ function createComingSoonRenderer(rendererKey: string, title: string): ActivityR
 export const activityRendererRegistry: Record<string, ActivityRendererComponent> = {
   "multiple-choice": MultipleChoicePlayer,
   "true-false": TrueFalsePlayer,
-  matching: createComingSoonRenderer("matching", "Padankan"),
-  "drag-drop": createComingSoonRenderer("drag-drop", "Seret dan Lepas"),
-  "fill-blank": createComingSoonRenderer("fill-blank", "Isi Tempat Kosong"),
-  "arrange-letters": createComingSoonRenderer("arrange-letters", "Susun Huruf"),
-  "arrange-syllables": createComingSoonRenderer("arrange-syllables", "Susun Suku Kata"),
-  "word-builder": createComingSoonRenderer("word-builder", "Bina Perkataan"),
+  matching: MatchingPlayer,
+  "drag-drop": DragDropPlayer,
+  "fill-blank": FillInBlankPlayer,
+  "arrange-letters": ArrangeLettersPlayer,
+  "arrange-syllables": ArrangeSyllablesPlayer,
+  "word-builder": WordBuilderPlayer,
   tracing: createComingSoonRenderer("tracing", "Menekap"),
-  "copy-writing": createComingSoonRenderer("copy-writing", "Menyalin"),
-  "free-handwriting": createComingSoonRenderer("free-handwriting", "Tulisan Bebas"),
-  reading: createComingSoonRenderer("reading", "Bacaan"),
-  "reading-comprehension": createComingSoonRenderer("reading-comprehension", "Kefahaman Bacaan"),
-  "voice-recording": createComingSoonRenderer("voice-recording", "Rakaman Suara"),
+  "copy-writing": CopyWritingPlayer,
+  "free-handwriting": FreeHandwritingPlayer,
+  reading: ReadingPlayer,
+  "reading-comprehension": ReadingComprehensionPlayer,
+  "voice-recording": VoiceRecordingPlayer,
 }
 
 export function getActivityRenderer(rendererKey: string): ActivityRendererComponent | undefined {
