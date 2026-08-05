@@ -28,45 +28,45 @@ type PlatformFeature = {
 
 const platformFeatures: PlatformFeature[] = [
   {
-    title: "Digital Book Catalogue",
-    description: "Manage physical and digital book collections.",
+    title: "Katalog Buku Digital",
+    description: "Mengurus koleksi buku fizikal dan buku digital dengan sistematik.",
     icon: Library,
   },
   {
-    title: "Borrowing Management",
-    description: "Track borrowing, returns, and overdue books.",
+    title: "Pengurusan Peminjaman",
+    description: "Mengurus rekod peminjaman, pemulangan dan buku yang lewat dipulangkan dengan mudah.",
     icon: RefreshCw,
   },
   {
-    title: "Reading Progress",
-    description: "Monitor students' reading achievements and milestones.",
+    title: "Kemajuan Bacaan",
+    description: "Memantau pencapaian bacaan murid serta perkembangan literasi mereka.",
     icon: TrendingUp,
   },
   {
-    title: "Literacy Programmes",
-    description: "Organise reading campaigns and literacy activities.",
+    title: "Program Literasi",
+    description: "Mengurus dan menyelaras program literasi, kempen membaca serta aktiviti galakan membaca.",
     icon: CalendarDays,
   },
   {
-    title: "Teacher Dashboard",
+    title: "Papan Pemuka Guru",
     description:
-      "Manage students, books, and literacy programmes efficiently.",
+      "Membantu guru mengurus murid, buku dan program literasi dengan lebih cekap.",
     icon: LayoutDashboard,
   },
   {
-    title: "Parent Portal",
-    description: "Allow parents to monitor reading activities and progress.",
+    title: "Portal Ibu Bapa",
+    description: "Membolehkan ibu bapa memantau aktiviti bacaan dan kemajuan pembelajaran anak-anak.",
     icon: Users,
   },
   {
-    title: "Reports & Analytics",
-    description: "Generate detailed literacy and library reports.",
+    title: "Laporan & Analitik",
+    description: "Menjana laporan literasi dan perpustakaan yang terperinci untuk pemantauan serta analisis.",
     icon: BarChart3,
   },
   {
-    title: "Notifications",
+    title: "Pemberitahuan",
     description:
-      "Send reminders for borrowing, events, and reading activities.",
+      "Menghantar peringatan berkaitan peminjaman buku, program literasi dan aktiviti bacaan.",
     icon: Bell,
   },
 ];
@@ -77,15 +77,14 @@ export default function Features() {
       <Container className="py-10 md:py-14 lg:py-16">
         <div className="mx-auto max-w-5xl text-center">
           <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
-            Platform Features
+            Ciri-ciri Platform
           </span>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Everything Schools Need in One Platform
+            Semua Keperluan Pengurusan Literasi Sekolah dalam Satu Platform
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            Digital MoLIB combines library management, literacy programmes,
-            student progress tracking, and reporting into one integrated system
-            designed for modern schools.
+            LITERASI DIGITAL menggabungkan pengurusan perpustakaan, program literasi, pemantauan kemajuan murid serta pelaporan 
+            dalam satu sistem bersepadu yang direka khas untuk sekolah moden.
           </p>
         </div>
 

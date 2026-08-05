@@ -1,106 +1,74 @@
-import {
-  Clock3,
-  LayoutGrid,
-  PanelsTopLeft,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-
 import Container from "@/components/common/Container";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { getLandingCardTone } from "@/components/landing/card-tone";
+import { CircularTestimonials } from "@/components/ui/circular-testimonials";
 
-type Statistic = {
-  value: string;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-};
-
-const statistics: Statistic[] = [
+const statistics = [
   {
-    value: "4",
-    label: "User Roles",
-    description: "Administrators, teachers, students, and parents.",
-    icon: Users,
+    quote: "Pentadbir, guru, murid dan ibu bapa.",
+    name: "4",
+    designation: "Peranan Pengguna",
+    src: "/images/statistics/user-roles.jpg",
   },
   {
-    value: "8",
-    label: "Core Modules",
-    description:
-      "Library, borrowing, progress, programmes, reports, notifications, users, and dashboards.",
-    icon: LayoutGrid,
+    quote:
+      "Perpustakaan, peminjaman, kemajuan bacaan, program literasi, laporan, pemberitahuan, pengurusan pengguna dan papan pemuka.",
+    name: "8",
+    designation: "Modul Utama",
+    src: "/images/statistics/modules.jpg",
   },
   {
-    value: "1",
-    label: "Integrated Platform",
-    description:
-      "All literacy operations managed from one central system.",
-    icon: PanelsTopLeft,
+    quote:
+      "Semua pengurusan literasi sekolah diuruskan melalui satu sistem berpusat.",
+    name: "1",
+    designation: "Platform Bersepadu",
+    src: "/images/statistics/platform.jpg",
   },
   {
-    value: "24/7",
-    label: "Digital Access",
-    description:
-      "Authorised users can access the platform whenever needed.",
-    icon: Clock3,
+    quote:
+      "Pengguna yang diberi kebenaran boleh mengakses platform pada bila-bila masa mengikut keperluan.",
+    name: "24/7",
+    designation: "Akses Digital",
+    src: "/images/statistics/digital-access.jpg",
   },
 ];
 
 export default function Statistics() {
   return (
-    <section className="bg-muted/40">
+    <section className="overflow-hidden bg-muted/40">
       <Container className="py-10 md:py-14 lg:py-16">
         <div className="mx-auto max-w-3xl text-center">
           <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
-            Platform Overview
+            Gambaran Keseluruhan Platform
           </span>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground text-balance sm:text-4xl lg:text-5xl">
-            One Connected Literacy Ecosystem
+
+          <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Satu Ekosistem Literasi Bersepadu
           </h2>
+
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            Digital MoLIB brings the essential areas of school literacy
-            management together in one secure and organised platform.
+            LITERASI DIGITAL menghimpunkan semua aspek penting pengurusan
+            literasi sekolah dalam satu platform yang selamat, sistematik dan
+            bersepadu.
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-5 md:mt-10 md:grid-cols-2 md:gap-6 xl:grid-cols-4">
-          {statistics.map(({ value, label, description, icon: Icon }, index) => {
-            const tone = getLandingCardTone(index)
-
-            return (
-              <Card
-                key={label}
-                size="sm"
-                className={`h-full rounded-2xl bg-card shadow-sm ring-0 transition duration-300 hover:-translate-y-1 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none ${tone.cardClassName}`}
-              >
-                <CardHeader className="pb-3">
-                  <div
-                    className={`mb-4 flex size-12 items-center justify-center rounded-xl ${tone.iconContainerClassName}`}
-                  >
-                    <Icon className={`size-6 ${tone.iconClassName}`} aria-hidden="true" />
-                  </div>
-                  <CardTitle className="text-4xl font-bold tracking-tight sm:text-5xl">
-                    {value}
-                  </CardTitle>
-                  <h3 className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
-                    {label}
-                  </h3>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-                    {description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            )
-          })}
+        <div className="mt-10 flex justify-center md:mt-14">
+          <CircularTestimonials
+            testimonials={statistics}
+            autoplay
+            colors={{
+              name: "#2563EB",
+              designation: "#1E293B",
+              testimony: "#64748B",
+              arrowBackground: "#2563EB",
+              arrowForeground: "#FFFFFF",
+              arrowHoverBackground: "#1D4ED8",
+            }}
+            fontSizes={{
+              name: "3rem",
+              designation: "1.25rem",
+              quote: "1rem",
+            }}
+          />
         </div>
       </Container>
     </section>

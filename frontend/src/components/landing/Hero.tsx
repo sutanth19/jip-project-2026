@@ -15,26 +15,24 @@ export default function Hero() {
         <div className="grid items-center gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10 xl:gap-14">
           <div className="mr-auto max-w-xl place-self-center lg:col-span-1">
             <h1 className="mb-4 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl xl:text-7xl">
-              Digital MoLIB
+              LITERASI DIGITAL
             </h1>
             <p className="mb-6 max-w-lg text-base leading-7 text-muted-foreground sm:max-w-xl sm:text-lg sm:leading-8">
-              A modern School Literacy Management System that empowers
-              students, teachers, parents, and administrators to manage
-              reading activities, books, literacy programs, and progress
-              through one integrated platform.
+              LITERASI DIGITAL ialah sistem pengurusan literasi sekolah moden yang membantu murid, guru, ibu bapa dan pentadbir mengurus aktiviti bacaan, 
+              koleksi buku, program literasi serta memantau kemajuan pembelajaran melalui satu platform bersepadu.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
               <Link
                 to="/#features"
                 className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-12 sm:w-auto sm:text-base"
               >
-                Explore Features
+                Terokai Ciri-ciri
               </Link>
               <Link
                 to="/login"
                 className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-border bg-background px-6 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-12 sm:w-auto sm:text-base"
               >
-                Login
+                Log Masuk
               </Link>
             </div>
           </div>

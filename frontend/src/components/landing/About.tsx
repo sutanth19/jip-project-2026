@@ -25,27 +25,27 @@ type Feature = {
 
 const features: Feature[] = [
   {
-    title: "Digital Library",
+    title: "Perpustakaan Digital",
     description:
-      "Manage books, categories, borrowing, and digital resources efficiently.",
+      "Mengurus buku, kategori, peminjaman serta sumber digital secara cekap.",
     icon: BookOpen,
   },
   {
-    title: "Reading Progress",
+    title: "Kemajuan Bacaan",
     description:
-      "Track students' reading records, achievements, and literacy performance.",
+      "Menjejak rekod bacaan, pencapaian dan prestasi literasi murid.",
     icon: ChartNoAxesCombined,
   },
   {
-    title: "School Management",
+    title: "Pengurusan Sekolah",
     description:
-      "Support teachers and administrators with book management, reports, and programme administration.",
+      "Menyokong guru dan pentadbir dalam pengurusan buku, laporan serta pentadbiran program.",
     icon: School,
   },
   {
-    title: "Parent Engagement",
+    title: "Penglibatan Ibu Bapa",
     description:
-      "Allow parents to monitor their children's reading activities and progress.",
+      "Membolehkan ibu bapa memantau aktiviti bacaan dan kemajuan pembelajaran anak-anak.",
     icon: Users,
   },
 ];
@@ -61,13 +61,11 @@ export default function About() {
             className="mx-auto mb-4 h-20 w-20 object-contain sm:h-24 sm:w-24 lg:h-28 lg:w-28"
           />
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Why Choose Digital MoLIB?
+            Mengapa Memilih LITERASI DIGITAL?
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            Digital MoLIB provides a complete digital ecosystem for school
-            literacy programmes. It helps schools manage books, reading
-            activities, literacy competitions, student progress, and reporting
-            efficiently from a single platform.
+            LITERASI DIGITAL menyediakan platform bersepadu yang membantu sekolah mengurus buku, aktiviti 
+            bacaan, kemajuan murid, pertandingan literasi serta pelaporan dengan lebih sistematik, cekap dan mudah diakses.
           </p>
         </div>
 
