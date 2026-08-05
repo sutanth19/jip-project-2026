@@ -16,16 +16,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar-context"
 import {
   BadgeCheckIcon,
   BellIcon,
   ChevronsUpDownIcon,
-  CreditCardIcon,
   LogOutIcon,
-  SparklesIcon,
 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useLogout } from "@/hooks/use-auth"
 
 export function NavUser({
   user,
@@ -37,6 +37,14 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const logout = useLogout()
+  const initials =
+    user.name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "LD"
 
   return (
     <SidebarMenu>
@@ -49,7 +57,7 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">PI</AvatarFallback>
+                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -68,7 +76,7 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">PI</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
@@ -78,35 +86,26 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <SparklesIcon
-                />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/admin/profil">
                 <BadgeCheckIcon
                 />
-                Account
+                Akaun
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon
-                />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/admin/notifikasi">
                 <BellIcon
                 />
-                Notifications
+                Notifikasi
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>
               <LogOutIcon
               />
-              Log out
+              Log keluar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

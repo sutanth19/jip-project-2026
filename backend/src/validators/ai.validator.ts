@@ -1,0 +1,15 @@
+import { AiFeatureType, AiRiskLevel } from "@prisma/client";
+import { z } from "zod";
+const uuid = (message: string) => z.string().trim().uuid(message);
+const text = (max: number, label: string) => z.string().trim().min(1, `${label} diperlukan.`).max(max, `${label} terlalu panjang.`).refine((value) => !/<\s*\/?\s*[a-z][^>]*>|javascript:/i.test(value), `${label} mesti teks biasa yang selamat.`);
+export const aiIdParamsSchema = z.object({ requestId: uuid("ID permintaan AI tidak sah.") }).strict();
+export const aiOutputParamsSchema = z.object({ outputId: uuid("ID output AI tidak sah.") }).strict();
+export const aiTemplateParamsSchema = z.object({ templateId: uuid("ID templat AI tidak sah.") }).strict();
+export const aiStudentParamsSchema = z.object({ studentId: uuid("ID murid tidak sah.") }).strict();
+export const aiSubmissionParamsSchema = z.object({ submissionId: uuid("ID penyerahan tidak sah.") }).strict();
+export const aiDraftSchema = z.object({ programmeId: uuid("ID program tidak sah.").optional(), curriculumVersionId: uuid("ID versi kurikulum tidak sah.").optional(), remedialSkillId: uuid("ID kemahiran tidak sah.").optional(), learningStandardIds: z.array(uuid("ID standard pembelajaran tidak sah.")).max(20).optional(), text: text(10_000, "Teks").optional(), additionalInstructions: text(1_000, "Arahan tambahan").optional(), count: z.coerce.number().int().min(1).max(10).optional(), targetYear: z.coerce.number().int().min(1).max(6).optional(), candidateActivityIds: z.array(uuid("ID aktiviti tidak sah.")).max(100).optional() }).strict();
+export const outputReviewSchema = z.object({ reviewNotes: text(2_000, "Nota semakan").optional(), editedStructuredOutput: z.record(z.string(), z.unknown()).optional() }).strict();
+export const outputRejectSchema = z.object({ reviewNotes: text(2_000, "Sebab penolakan") }).strict();
+export const promptTemplateSchema = z.object({ code: z.string().trim().min(3).max(100).regex(/^[A-Z0-9_]+$/), name: text(200, "Nama"), description: z.string().trim().max(1_000).optional(), featureType: z.nativeEnum(AiFeatureType), systemInstruction: text(20_000, "Arahan sistem"), promptTemplate: text(30_000, "Templat prompt"), outputSchema: z.record(z.string(), z.unknown()), modelAlias: z.enum(["TEXT", "FAST", "AUDIO", "EMBEDDING"]), temperature: z.coerce.number().min(0).max(2).optional(), maximumOutputTokens: z.coerce.number().int().min(1).max(16_000).optional(), riskLevel: z.nativeEnum(AiRiskLevel) }).strict();
+export const aiListQuerySchema = z.object({ page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(20), featureType: z.nativeEnum(AiFeatureType).optional(), status: z.string().trim().optional() }).strict();
+export type AiDraftInput = z.infer<typeof aiDraftSchema>;

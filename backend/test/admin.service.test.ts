@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { AccountStatus, UserRole } from "@prisma/client";
@@ -6,10 +7,13 @@ import { ZodError } from "zod";
 
 import { AppError } from "../src/errors/app-error.js";
 import {
+  adminSetupEmailTemplate,
+  buildAdminSetupUrl,
   createAdmin,
   getAdminById,
   listAdmins,
   resendAdminSetup,
+  sendAdminSetupInvitation,
   updateAdmin,
   updateAdminStatus,
   type AdminAccountRecord,
@@ -212,6 +216,70 @@ function assertAppError(error: unknown, code: string, statusCode: number): void 
   assert.equal(error.statusCode, statusCode);
 }
 
+function withEmailEnv(callback: () => Promise<void>): Promise<void> {
+  const previous = {
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+    FRONTEND_URL: process.env.FRONTEND_URL,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+
+  process.env.RESEND_API_KEY = "test_resend_key";
+  process.env.EMAIL_FROM = "Digital MoLIB <no-reply@digitalmolib.edu.my>";
+  process.env.FRONTEND_URL = "https://app.digitalmolib.test";
+  process.env.NODE_ENV = "test";
+
+  return callback().finally(() => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+}
+
+async function withProcessEnv<T>(
+  overrides: Record<string, string | undefined>,
+  callback: () => Promise<T> | T,
+): Promise<T> {
+  const previous = Object.fromEntries(
+    Object.keys(overrides).map((key) => [key, process.env[key]]),
+  );
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+function mockFetch(
+  handler: (input: string | URL | Request, init?: RequestInit) => Response | Promise<Response>,
+): () => void {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = handler as typeof fetch;
+
+  return () => {
+    globalThis.fetch = originalFetch;
+  };
+}
+
 test("admin provisioning creates a pending system-level ADMIN with a safe response", async () => {
   const { repository, records } = createRepository();
   const auditEvents: unknown[] = [];
@@ -244,6 +312,215 @@ test("admin provisioning creates a pending system-level ADMIN with a safe respon
   assert.equal(stored?.user.passwordHash, null);
   assert.equal(stored?.user.setupToken, "secure-test-token");
   assert.equal((auditEvents[0] as { action: string }).action, "ADMIN_CREATED");
+});
+
+test("admin setup email builds the real setup URL and Malay email content", () => {
+  const setupUrl = buildAdminSetupUrl(
+    "safe-token",
+    { FRONTEND_URL: "https://app.digitalmolib.test" } as NodeJS.ProcessEnv,
+  );
+  assert.equal(setupUrl, "https://app.digitalmolib.test/setup-password?token=safe-token");
+
+  const email = adminSetupEmailTemplate({
+    fullName: "Pentadbir Baharu",
+    setupUrl: setupUrl ?? "",
+    expiresAt: new Date("2026-07-27T00:00:00.000Z"),
+  });
+
+  assert.equal(email.subject, "Lengkapkan Penyediaan Akaun Digital MoLIB");
+  assert.match(email.html, /Lengkapkan Akaun/);
+  assert.match(email.html, /https:\/\/app\.digitalmolib\.test\/setup-password\?token=safe-token/);
+  assert.match(email.text, /Akaun Admin Digital MoLIB telah dicipta/);
+  assert.match(email.text, /abaikan mesej ini/);
+});
+
+test("development setup URL builder falls back to localhost only in development", () => {
+  const developmentUrl = buildAdminSetupUrl(
+    "safe-token",
+    { NODE_ENV: "development" } as NodeJS.ProcessEnv,
+  );
+  const productionUrl = buildAdminSetupUrl(
+    "safe-token",
+    { NODE_ENV: "production" } as NodeJS.ProcessEnv,
+  );
+
+  assert.equal(developmentUrl, "http://localhost:5173/setup-password?token=safe-token");
+  assert.equal(productionUrl, null);
+});
+
+test("development create response includes developmentSetupUrl without raw token fields", async () => {
+  await withProcessEnv({
+    NODE_ENV: "development",
+    FRONTEND_URL: undefined,
+    APP_URL: undefined,
+  }, async () => {
+    const { repository } = createRepository();
+    const result = await createAdmin(
+      createAdminSchema.parse({
+        fullName: "Pentadbir Pembangunan",
+        email: "admin.dev@example.com",
+      }),
+      auditContext,
+      {
+        repository,
+        now: () => fixedNow,
+        setupTokenGenerator: () => "development-create-token",
+        invitationDispatcher: () => "FAILED",
+        auditDispatcher: () => undefined,
+      },
+    );
+
+    assert.equal(result.invitation.status, "FAILED");
+    assert.equal(
+      result.invitation.developmentSetupUrl,
+      "http://localhost:5173/setup-password?token=development-create-token",
+    );
+    assert.equal("setupToken" in result.invitation, false);
+    assert.equal("token" in result.invitation, false);
+    assert.equal("setupToken" in result.admin, false);
+  });
+});
+
+test("production create response omits developmentSetupUrl and raw token fields", async () => {
+  await withProcessEnv({
+    NODE_ENV: "production",
+    FRONTEND_URL: "https://app.digitalmolib.test",
+  }, async () => {
+    const { repository } = createRepository();
+    const result = await createAdmin(
+      createAdminSchema.parse({
+        fullName: "Pentadbir Produksi",
+        email: "admin.production@example.com",
+      }),
+      auditContext,
+      {
+        repository,
+        now: () => fixedNow,
+        setupTokenGenerator: () => "production-create-token",
+        invitationDispatcher: () => "FAILED",
+        auditDispatcher: () => undefined,
+      },
+    );
+
+    const serialized = JSON.stringify(result);
+    assert.equal("developmentSetupUrl" in result.invitation, false);
+    assert.equal("setupToken" in result.invitation, false);
+    assert.equal("token" in result.invitation, false);
+    assert.doesNotMatch(serialized, /production-create-token|setup-password/);
+  });
+});
+
+test("admin provisioning sends setup email through Resend with safe response fields", async () => {
+  await withEmailEnv(async () => {
+    const { repository, records } = createRepository();
+    const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+    const restoreFetch = mockFetch(async (input, init) => {
+      calls.push({ input, init });
+      return new Response(JSON.stringify({ id: "email-provider-id" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    const originalInfo = console.info;
+    const logs: unknown[] = [];
+    console.info = (...args: unknown[]) => { logs.push(args); };
+
+    try {
+      const result = await createAdmin(
+        createAdminSchema.parse({
+          fullName: "Pentadbir Baharu",
+          email: "admin.delivery@example.com",
+        }),
+        auditContext,
+        {
+          repository,
+          now: () => fixedNow,
+          setupTokenGenerator: () => "secure-email-token",
+          auditDispatcher: () => undefined,
+        },
+      );
+
+      assert.equal(result.invitation.status, "SENT");
+      assert.equal("setupToken" in result.admin, false);
+      assert.equal(calls.length, 1);
+      assert.equal(String(calls[0]?.input), "https://api.resend.com/emails");
+      const body = JSON.parse(String(calls[0]?.init?.body)) as Record<string, string>;
+      assert.equal(body.from, "Digital MoLIB <no-reply@digitalmolib.edu.my>");
+      assert.equal(body.to, "admin.delivery@example.com");
+      assert.equal(body.subject, "Lengkapkan Penyediaan Akaun Digital MoLIB");
+      assert.match(body.html, /setup-password\?token=secure-email-token/);
+      assert.match(body.text, /Lengkapkan Akaun/);
+      assert.equal(records.values().next().value?.user.setupToken, "secure-email-token");
+      assert.doesNotMatch(JSON.stringify(result), /secure-email-token/);
+      assert.doesNotMatch(JSON.stringify(logs), /secure-email-token|test_resend_key|setup-password/i);
+      assert.match(JSON.stringify(logs), /email-provider-id/);
+    } finally {
+      console.info = originalInfo;
+      restoreFetch();
+    }
+  });
+});
+
+test("admin setup email failure returns FAILED without logging secrets or tokens", async () => {
+  await withEmailEnv(async () => {
+    const restoreFetch = mockFetch(async () => new Response(JSON.stringify({ message: "bad sender" }), { status: 403 }));
+    const originalWarn = console.warn;
+    const logs: unknown[] = [];
+    console.warn = (...args: unknown[]) => { logs.push(args); };
+
+    try {
+      const status = await sendAdminSetupInvitation({
+        adminId: adminOneId,
+        email: "admin.failure@example.com",
+        fullName: "Pentadbir Gagal",
+        setupToken: "secret-failure-token",
+        expiresAt: fixedNow,
+      });
+
+      assert.equal(status, "FAILED");
+      const serializedLogs = JSON.stringify(logs);
+      assert.doesNotMatch(serializedLogs, /secret-failure-token|test_resend_key|setup-password/i);
+      assert.match(serializedLogs, /example.com/);
+      assert.match(serializedLogs, /RESEND_DELIVERY_FAILED/);
+      assert.match(serializedLogs, /403/);
+    } finally {
+      console.warn = originalWarn;
+      restoreFetch();
+    }
+  });
+});
+
+test("production setup email failure logs no setup URL or token", async () => {
+  await withProcessEnv({
+    NODE_ENV: "production",
+    RESEND_API_KEY: "production-resend-key",
+    EMAIL_FROM: "Digital MoLIB <no-reply@digitalmolib.edu.my>",
+    FRONTEND_URL: "https://app.digitalmolib.test",
+  }, async () => {
+    const restoreFetch = mockFetch(async () => new Response(JSON.stringify({ message: "bad sender" }), { status: 403 }));
+    const originalWarn = console.warn;
+    const logs: unknown[] = [];
+    console.warn = (...args: unknown[]) => { logs.push(args); };
+
+    try {
+      const status = await sendAdminSetupInvitation({
+        adminId: adminOneId,
+        email: "admin.production.failure@example.com",
+        fullName: "Pentadbir Produksi Gagal",
+        setupToken: "production-secret-token",
+        expiresAt: fixedNow,
+      });
+
+      const serializedLogs = JSON.stringify(logs);
+      assert.equal(status, "FAILED");
+      assert.doesNotMatch(serializedLogs, /production-secret-token|production-resend-key|setup-password/i);
+      assert.match(serializedLogs, /example.com/);
+      assert.match(serializedLogs, /RESEND_DELIVERY_FAILED/);
+    } finally {
+      console.warn = originalWarn;
+      restoreFetch();
+    }
+  });
 });
 
 test("admin provisioning rejects duplicate email with a stable conflict", async () => {
@@ -368,6 +645,100 @@ test("resending setup invalidates the previous token without exposing the replac
   assert.equal("setupToken" in result, false);
   assert.equal(records.get(adminOneId)?.user.setupToken, "fresh-secure-token");
   assert.notEqual(records.get(adminOneId)?.user.setupToken, "old-token");
+});
+
+test("development resend response includes a fresh developmentSetupUrl", async () => {
+  await withProcessEnv({
+    NODE_ENV: "development",
+    FRONTEND_URL: "http://localhost:5173",
+  }, async () => {
+    const { repository, records } = createRepository([createRecord()]);
+    const result = await resendAdminSetup(adminOneId, auditContext, {
+      repository,
+      now: () => fixedNow,
+      setupTokenGenerator: () => "fresh-development-token",
+      invitationDispatcher: () => "FAILED",
+      auditDispatcher: () => undefined,
+    });
+
+    assert.equal(result.invitation.status, "FAILED");
+    assert.equal(
+      result.invitation.developmentSetupUrl,
+      "http://localhost:5173/setup-password?token=fresh-development-token",
+    );
+    assert.equal(records.get(adminOneId)?.user.setupToken, "fresh-development-token");
+    assert.notEqual(result.invitation.developmentSetupUrl, "http://localhost:5173/setup-password?token=old-token");
+    assert.doesNotMatch(JSON.stringify(result), /old-token/);
+    assert.equal("setupToken" in result.invitation, false);
+    assert.equal("token" in result.invitation, false);
+  });
+});
+
+test("production resend response omits developmentSetupUrl and setup tokens", async () => {
+  await withProcessEnv({
+    NODE_ENV: "production",
+    FRONTEND_URL: "https://app.digitalmolib.test",
+  }, async () => {
+    const { repository } = createRepository([createRecord()]);
+    const result = await resendAdminSetup(adminOneId, auditContext, {
+      repository,
+      now: () => fixedNow,
+      setupTokenGenerator: () => "fresh-production-token",
+      invitationDispatcher: () => "FAILED",
+      auditDispatcher: () => undefined,
+    });
+
+    const serialized = JSON.stringify(result);
+    assert.equal(result.invitation.status, "FAILED");
+    assert.equal("developmentSetupUrl" in result.invitation, false);
+    assert.equal("setupToken" in result.invitation, false);
+    assert.equal("token" in result.invitation, false);
+    assert.doesNotMatch(serialized, /fresh-production-token|setup-password/);
+  });
+});
+
+test("resending setup sends the fresh token through the default Resend dispatcher", async () => {
+  await withEmailEnv(async () => {
+    const { repository, records } = createRepository([createRecord()]);
+    const bodies: Record<string, string>[] = [];
+    const restoreFetch = mockFetch(async (_input, init) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, string>);
+      return new Response(JSON.stringify({ id: "resend-provider-id" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    const originalInfo = console.info;
+    console.info = () => undefined;
+
+    try {
+      const result = await resendAdminSetup(adminOneId, auditContext, {
+        repository,
+        now: () => fixedNow,
+        setupTokenGenerator: () => "fresh-email-token",
+        auditDispatcher: () => undefined,
+      });
+
+      assert.equal(result.invitation.status, "SENT");
+      assert.equal(records.get(adminOneId)?.user.setupToken, "fresh-email-token");
+      assert.notEqual(records.get(adminOneId)?.user.setupToken, "old-token");
+      assert.equal(bodies.length, 1);
+      assert.equal(bodies[0]?.to, "admin@example.com");
+      assert.match(bodies[0]?.html ?? "", /setup-password\?token=fresh-email-token/);
+      assert.doesNotMatch(JSON.stringify(result), /fresh-email-token/);
+    } finally {
+      console.info = originalInfo;
+      restoreFetch();
+    }
+  });
+});
+
+test("resend setup controller does not claim email delivery when provider status failed", () => {
+  const controller = readFileSync(new URL("../src/controllers/admin.controller.ts", import.meta.url), "utf8");
+
+  assert.match(controller, /result\.invitation\.status === "SENT"/);
+  assert.match(controller, /Jemputan persediaan pentadbir berjaya dihantar semula\./);
+  assert.match(controller, /E-mel penyediaan tidak dapat dihantar\. Sila cuba lagi\./);
 });
 
 test("resending setup rejects completed and archived admin accounts", async () => {

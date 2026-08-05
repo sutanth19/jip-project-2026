@@ -34,7 +34,7 @@ export default function Footer() {
               LITERASI DIGITAL
             </Link>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              Sistem pengurusan literasi sekolah moden yang membantu pentadbir, guru, murid dan ibu bapa mengurus aktiviti bacaan, 
+              Sistem pengurusan literasi sekolah moden yang membantu pentadbir, guru, murid dan ibu bapa mengurus aktiviti bacaan,
               koleksi buku serta program literasi melalui satu platform digital bersepadu.
             </p>
           </div>
@@ -101,7 +101,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          <p>© 2026 Digital MoLIB.</p>
+          <p>©️ 2026 Digital MoLIB.</p>
           <p>All rights reserved.</p>
         </div>
       </Container>

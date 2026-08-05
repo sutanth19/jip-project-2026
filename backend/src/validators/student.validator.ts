@@ -53,14 +53,25 @@ export const createStudentSchema = z.object({
   avatar: avatarSchema.optional(),
 }).strict();
 
+export const createTeacherStudentSchema = z.object({
+  classId: z.string().uuid("ID kelas tidak sah."),
+  fullName: fullNameSchema,
+  yearLevel: z.coerce.number().int().min(1, "Tahun tidak sah.").max(6, "Tahun tidak sah."),
+  gender: z.nativeEnum(Gender),
+}).strict();
+
 export const updateStudentSchema = z.object({
   studentId: studentIdSchema.optional(),
   fullName: fullNameSchema.optional(),
+  classId: z.string().uuid("ID kelas tidak sah.").optional(),
+  yearLevel: z.coerce.number().int().min(1, "Tahun tidak sah.").max(6, "Tahun tidak sah.").optional(),
   gender: z.nativeEnum(Gender).optional(),
   birthDate: birthDateSchema.nullable().optional(),
   avatar: avatarSchema.nullable().optional(),
 }).strict().refine((data) => Object.keys(data).length > 0, {
   message: "Sekurang-kurangnya satu medan kemas kini diperlukan.",
+}).refine((data) => Boolean(data.classId) === Boolean(data.yearLevel), {
+  message: "Tahun dan kelas asal mesti dipilih bersama.",
 });
 
 export const updateStudentStatusSchema = z.object({
@@ -89,5 +100,6 @@ export const listStudentsQuerySchema = z.object({
 }).strict();
 
 export type CreateStudentRequest = z.infer<typeof createStudentSchema>;
+export type CreateTeacherStudentRequest = z.infer<typeof createTeacherStudentSchema>;
 export type UpdateStudentRequest = z.infer<typeof updateStudentSchema>;
 export type ListStudentsQuery = z.infer<typeof listStudentsQuerySchema>;

@@ -25,6 +25,8 @@ export const createParentSchema = z.object({
   occupation: optionalText(100, "Pekerjaan tidak sah.").optional(),
   address: optionalText(500, "Alamat tidak sah.").optional(),
   avatar: avatarSchema.optional(),
+  relationship: z.nativeEnum(ParentRelationship).optional(),
+  studentIds: z.array(z.string().uuid("ID murid tidak sah.")).optional(),
 }).strict();
 
 export const updateParentSchema = z.object({
@@ -34,6 +36,8 @@ export const updateParentSchema = z.object({
   occupation: optionalText(100, "Pekerjaan tidak sah.").nullable().optional(),
   address: optionalText(500, "Alamat tidak sah.").nullable().optional(),
   avatar: avatarSchema.nullable().optional(),
+  relationship: z.nativeEnum(ParentRelationship).optional(),
+  studentIds: z.array(z.string().uuid("ID murid tidak sah.")).optional(),
 }).strict().refine((data) => Object.keys(data).length > 0, {
   message: "Sekurang-kurangnya satu medan kemas kini diperlukan.",
 });
@@ -47,6 +51,7 @@ export const listParentsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),
   search: z.string().trim().max(150).optional(),
   status: z.nativeEnum(AccountStatus).optional(),
+  relationship: z.nativeEnum(ParentRelationship).optional(),
   sortBy: z.enum(["fullName", "phone", "email", "occupation", "accountStatus", "createdAt", "updatedAt"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 }).strict();

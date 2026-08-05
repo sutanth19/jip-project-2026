@@ -1,14 +1,18 @@
 import { Router } from "express";
+import type { Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 
 import {
   changeFirstPinController,
   changeFirstPasswordController,
+  forgotPasswordController,
   loginController,
   meController,
+  resetPasswordController,
   setupPasswordController,
   studentLoginController,
 } from "../controllers/auth.controller.js";
+import { PASSWORD_RESET_GENERIC_MESSAGE } from "../services/auth.service.js";
 
 import { authenticate } from "../middleware/auth.middleware.js";
 
@@ -42,9 +46,54 @@ const changeFirstPinRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const forgotPasswordRateLimitHandler = (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: PASSWORD_RESET_GENERIC_MESSAGE,
+  });
+};
+
+const forgotPasswordIpRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: forgotPasswordRateLimitHandler,
+});
+
+const forgotPasswordEmailRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const body = req.body;
+    if (!body || typeof body !== "object" || !("email" in body) || typeof body.email !== "string") {
+      return "email:unknown";
+    }
+
+    return `email:${body.email.trim().toLowerCase()}`;
+  },
+  handler: forgotPasswordRateLimitHandler,
+});
+
+const resetPasswordRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.post("/login", loginRateLimiter, loginController);
 router.post("/student/login", studentLoginRateLimiter, studentLoginController);
 router.post("/setup-password", setupPasswordController);
+router.post(
+  "/forgot-password",
+  forgotPasswordIpRateLimiter,
+  forgotPasswordEmailRateLimiter,
+  forgotPasswordController
+);
+router.post("/reset-password", resetPasswordRateLimiter, resetPasswordController);
 router.post(
   "/change-first-password",
   changeFirstPasswordRateLimiter,

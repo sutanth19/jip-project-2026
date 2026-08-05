@@ -12,18 +12,20 @@ import { requireRole } from "../middleware/role.middleware.js";
 const router = Router();
 const managementRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 const readRoles = [...managementRoles, UserRole.TEACHER];
+const createRoles = [...managementRoles, UserRole.TEACHER];
+const teacherClassOwnerRoles = [...managementRoles, UserRole.TEACHER];
 
 router.use(authenticate, requirePasswordChanged);
 
-router.post("/", requireRole(...managementRoles), createSchoolClassController);
+router.post("/", requireRole(...createRoles), createSchoolClassController);
 router.get("/", requireRole(...readRoles), getSchoolClassesController);
 
 router.get("/:classId/students", requireRole(...readRoles), getSchoolClassStudentsController);
 router.post("/:classId/students/:studentId", requireRole(...managementRoles), assignStudentToSchoolClassController);
 router.delete("/:classId/students/:studentId", requireRole(...managementRoles), removeStudentFromSchoolClassController);
-router.patch("/:classId/status", requireRole(...managementRoles), updateSchoolClassStatusController);
+router.patch("/:classId/status", requireRole(...teacherClassOwnerRoles), updateSchoolClassStatusController);
 router.patch("/:classId/teacher", requireRole(...managementRoles), assignSchoolClassTeacherController);
 router.get("/:classId", requireRole(...readRoles), getSchoolClassByIdController);
-router.patch("/:classId", requireRole(...managementRoles), updateSchoolClassController);
+router.patch("/:classId", requireRole(...teacherClassOwnerRoles), updateSchoolClassController);
 
 export default router;

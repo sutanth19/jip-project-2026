@@ -64,7 +64,7 @@ export default function About() {
             Mengapa Memilih LITERASI DIGITAL?
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            LITERASI DIGITAL menyediakan platform bersepadu yang membantu sekolah mengurus buku, aktiviti 
+            LITERASI DIGITAL menyediakan platform bersepadu yang membantu sekolah mengurus buku, aktiviti
             bacaan, kemajuan murid, pertandingan literasi serta pelaporan dengan lebih sistematik, cekap dan mudah diakses.
           </p>
         </div>

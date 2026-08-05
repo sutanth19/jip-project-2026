@@ -5,10 +5,10 @@ import { AppError } from "../errors/app-error.js";
 import type { AuthenticatedSession } from "../middleware/auth.middleware.js";
 import { dispatchAuditEvent, type AuditEvent, type AuditEventDispatcher } from "./audit.service.js";
 import { transferStudentClass } from "./student.service.js";
-import type { CreateSchoolClassRequest, ListClassStudentsQuery, ListSchoolClassesQuery, UpdateSchoolClassRequest } from "../validators/schoolClass.validator.js";
+import type { CreateSchoolClassRequest, CreateTeacherSchoolClassRequest, ListClassStudentsQuery, ListSchoolClassesQuery, UpdateSchoolClassRequest } from "../validators/schoolClass.validator.js";
 
 const classSelect = {
-  id: true, schoolId: true, teacherId: true, className: true, yearLevel: true, academicYear: true,
+  id: true, schoolId: true, teacherId: true, className: true, normalizedClassName: true, yearLevel: true, academicYear: true,
   capacity: true, accountStatus: true, createdAt: true, updatedAt: true,
   school: { select: { id: true, schoolCode: true, schoolName: true } },
   teacher: { select: { id: true, teacherId: true, fullName: true, user: { select: { accountStatus: true } } } },
@@ -39,17 +39,20 @@ function error(code: string, status: number, message: string): AppError { return
 const classNotFound = () => error("CLASS_NOT_FOUND", 404, "Kelas tidak ditemui.");
 const schoolNotFound = () => error("SCHOOL_NOT_FOUND", 404, "Sekolah tidak ditemui.");
 const teacherNotFound = () => error("TEACHER_NOT_FOUND", 404, "Guru tidak ditemui.");
-const classExists = () => error("CLASS_ALREADY_EXISTS", 409, "Kelas dengan nama dan tahun akademik ini telah wujud di sekolah tersebut.");
+const classExists = () => error("CLASS_ALREADY_EXISTS", 409, "Kelas ini telah wujud bagi tahun dan sesi akademik yang dipilih.");
 const forbidden = () => error("AUTH_ROLE_FORBIDDEN", 403, "Anda tidak mempunyai kebenaran untuk mengakses fungsi ini.");
 const teacherAccessDenied = () => error("AUTH_OWNER_ACCESS_DENIED", 403, "Anda tidak dibenarkan mengakses kelas ini.");
+const schoolContextRequired = () => error("AUTH_SCHOOL_CONTEXT_REQUIRED", 403, "Guru ini belum dipautkan kepada sekolah.");
+const teacherContextInvalid = () => error("TEACHER_CONTEXT_INVALID", 403, "Akaun guru ini tidak sah untuk mengurus kelas.");
 const statusInvalid = () => error("CLASS_STATUS_TRANSITION_INVALID", 403, "Perubahan status kelas tidak dibenarkan.");
 const teacherAssignmentInvalid = () => error("CLASS_TEACHER_ASSIGNMENT_INVALID", 400, "Penugasan guru kepada kelas tidak dibenarkan.");
 const removalUnsupported = () => error("CLASS_STUDENT_REMOVAL_NOT_SUPPORTED", 400, "Murid mesti dipindahkan ke kelas lain dan tidak boleh dikeluarkan tanpa kelas gantian.");
+const teacherClassUpdateInvalid = () => error("CLASS_TEACHER_UPDATE_INVALID", 403, "Guru hanya boleh mengemas kini maklumat asas kelas.");
 
 function mapUniqueError(caught: unknown): AppError | null {
   if (!(caught instanceof Prisma.PrismaClientKnownRequestError) || caught.code !== "P2002") return null;
   const target = Array.isArray(caught.meta?.target) ? caught.meta.target.join(" ") : String(caught.meta?.target ?? "");
-  if (target.toLowerCase().includes("schoolid") && target.toLowerCase().includes("classname") && target.toLowerCase().includes("academicyear")) return classExists();
+  if (target.toLowerCase().includes("schoolid") && target.toLowerCase().includes("academicyear") && target.toLowerCase().includes("yearlevel") && target.toLowerCase().includes("normalizedclassname")) return classExists();
   return error("CLASS_CONFLICT", 409, "Maklumat kelas telah digunakan.");
 }
 function actor(context: SchoolClassAuditContext): AuthenticatedSession { return context.actor; }
@@ -70,6 +73,38 @@ function response(record: ClassRecord): ClassResponse {
     studentCount: record._count.students,
   };
 }
+export function normalizeSchoolClassName(value: string): string {
+  return value.trim().toLocaleLowerCase("en-US");
+}
+
+async function findDuplicateClassId(
+  schoolId: string,
+  academicYear: number,
+  yearLevel: number,
+  className: string,
+): Promise<string | null> {
+  const duplicate = await prisma.schoolClass.findFirst({
+    where: {
+      schoolId,
+      academicYear,
+      yearLevel,
+      normalizedClassName: normalizeSchoolClassName(className),
+    },
+    select: { id: true },
+  });
+  return duplicate?.id ?? null;
+}
+
+async function resolveTeacherCreateContext(context: SchoolClassAuditContext): Promise<{ teacherId: string; schoolId: string }> {
+  const schoolId = actor(context).schoolId;
+  if (!schoolId) throw schoolContextRequired();
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: actor(context).profileId },
+    select: { id: true, schoolId: true, user: { select: { accountStatus: true } } },
+  });
+  if (!teacher || teacher.schoolId !== schoolId || teacher.user.accountStatus !== AccountStatus.ACTIVE) throw teacherContextInvalid();
+  return { teacherId: teacher.id, schoolId };
+}
 function auditSafe(record: ClassResponse): Record<string, unknown> {
   return { id: record.id, schoolId: record.schoolId, teacherId: record.teacherId, className: record.className, yearLevel: record.yearLevel, academicYear: record.academicYear, capacity: record.capacity, accountStatus: record.accountStatus, studentCount: record.studentCount };
 }
@@ -79,11 +114,16 @@ function audit(context: SchoolClassAuditContext, action: Extract<AuditEvent["act
 
 async function requireTeacherClassAccess(classId: string, context: SchoolClassAuditContext): Promise<void> {
   if (actor(context).role !== UserRole.TEACHER) return;
-  const schoolClass = await prisma.schoolClass.findUnique({ where: { id: classId }, select: { schoolId: true, teacherId: true } });
-  if (!schoolClass || !actor(context).schoolId || schoolClass.schoolId !== actor(context).schoolId || schoolClass.teacherId !== actor(context).profileId) throw teacherAccessDenied();
+  const schoolClass = await prisma.schoolClass.findUnique({ where: { id: classId }, select: { schoolId: true } });
+  if (!schoolClass || !actor(context).schoolId || schoolClass.schoolId !== actor(context).schoolId) throw teacherAccessDenied();
 }
 
 export function canSchoolClassTransitionStatus(current: AccountStatus, next: AccountStatus, role: UserRole): boolean {
+  if (role === UserRole.TEACHER) {
+    if (current === AccountStatus.ACTIVE) return next === AccountStatus.ARCHIVED;
+    if (current === AccountStatus.ARCHIVED) return next === AccountStatus.ACTIVE;
+    return false;
+  }
   if (current === AccountStatus.ACTIVE) return next === AccountStatus.SUSPENDED || next === AccountStatus.ARCHIVED;
   if (current === AccountStatus.SUSPENDED) return next === AccountStatus.ACTIVE || next === AccountStatus.ARCHIVED;
   return current === AccountStatus.ARCHIVED && next === AccountStatus.ACTIVE && role === UserRole.SUPER_ADMIN;
@@ -91,10 +131,12 @@ export function canSchoolClassTransitionStatus(current: AccountStatus, next: Acc
 
 export async function createSchoolClass(data: CreateSchoolClassRequest, context: SchoolClassAuditContext, deps: SchoolClassServiceDependencies = {}): Promise<ClassResponse> {
   management(context);
+  const trimmedClassName = data.className.trim();
+  const normalizedClassName = normalizeSchoolClassName(data.className);
   const [school, teacher, duplicate] = await Promise.all([
     prisma.school.findUnique({ where: { id: data.schoolId }, select: { id: true } }),
     prisma.teacher.findUnique({ where: { id: data.teacherId }, select: { id: true, schoolId: true, user: { select: { accountStatus: true } } } }),
-    prisma.schoolClass.findUnique({ where: { schoolId_className_academicYear: { schoolId: data.schoolId, className: data.className.trim(), academicYear: data.academicYear } }, select: { id: true } }),
+    findDuplicateClassId(data.schoolId, data.academicYear, data.yearLevel, data.className),
   ]);
   if (!school) throw schoolNotFound();
   if (!teacher) throw teacherNotFound();
@@ -102,28 +144,76 @@ export async function createSchoolClass(data: CreateSchoolClassRequest, context:
   if (duplicate) throw classExists();
   let record: ClassRecord;
   try {
-    record = await prisma.schoolClass.create({ data: { schoolId: data.schoolId, teacherId: data.teacherId, className: data.className.trim(), yearLevel: data.yearLevel, academicYear: data.academicYear, capacity: data.capacity ?? null, accountStatus: AccountStatus.ACTIVE }, select: classSelect });
+    record = await prisma.schoolClass.create({ data: { schoolId: data.schoolId, teacherId: data.teacherId, className: trimmedClassName, normalizedClassName, yearLevel: data.yearLevel, academicYear: data.academicYear, capacity: data.capacity ?? null, accountStatus: AccountStatus.ACTIVE }, select: classSelect });
   } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   const result = response(record);
   await audit(context, "CLASS_CREATED", record.id, record.schoolId, null, auditSafe(result), deps);
   return result;
 }
 
-function classWhere(query: ListSchoolClassesQuery, teacherId?: string, schoolId?: string): Prisma.SchoolClassWhereInput {
+export async function createTeacherSchoolClass(data: CreateTeacherSchoolClassRequest, context: SchoolClassAuditContext, deps: SchoolClassServiceDependencies = {}): Promise<ClassResponse> {
+  readable(context);
+  if (actor(context).role !== UserRole.TEACHER) throw forbidden();
+  const teacherContext = await resolveTeacherCreateContext(context);
+  const duplicate = await findDuplicateClassId(teacherContext.schoolId, data.academicYear, data.yearLevel, data.className);
+  if (duplicate) throw classExists();
+  let record: ClassRecord;
+  try {
+    record = await prisma.schoolClass.create({
+      data: {
+        schoolId: teacherContext.schoolId,
+        teacherId: teacherContext.teacherId,
+        className: data.className.trim(),
+        normalizedClassName: normalizeSchoolClassName(data.className),
+        yearLevel: data.yearLevel,
+        academicYear: data.academicYear,
+        capacity: null,
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      select: classSelect,
+    });
+  } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
+  const result = response(record);
+  await audit(context, "CLASS_CREATED", record.id, record.schoolId, null, auditSafe(result), deps);
+  return result;
+}
+
+function searchYearLevel(search: string | undefined): number | undefined {
+  if (!search) return undefined;
+  const normalized = search.trim().toLowerCase();
+  const yearMatch = normalized.match(/(?:tahun\s*)?([1-6])$/);
+  if (!yearMatch) return undefined;
+  return Number(yearMatch[1]);
+}
+
+function classWhere(query: ListSchoolClassesQuery, scopedSchoolId?: string): Prisma.SchoolClassWhereInput {
   const search = query.search?.trim();
+  const yearLevelFromSearch = searchYearLevel(search);
   return {
     ...(query.status ? { accountStatus: query.status } : {}), ...(query.schoolId ? { schoolId: query.schoolId } : {}),
     ...(query.teacherId ? { teacherId: query.teacherId } : {}), ...(query.yearLevel ? { yearLevel: query.yearLevel } : {}),
     ...(query.academicYear ? { academicYear: query.academicYear } : {}),
-    ...(teacherId ? { teacherId, ...(schoolId ? { schoolId } : {}) } : {}),
-    ...(search ? { OR: [ { className: { contains: search, mode: "insensitive" } }, { school: { schoolName: { contains: search, mode: "insensitive" } } }, { school: { schoolCode: { contains: search, mode: "insensitive" } } }, { teacher: { fullName: { contains: search, mode: "insensitive" } } }, { teacher: { teacherId: { contains: search, mode: "insensitive" } } } ] } : {}),
+    ...(scopedSchoolId ? { schoolId: scopedSchoolId } : {}),
+    ...(search ? { OR: [ { className: { contains: search, mode: "insensitive" } }, { school: { schoolName: { contains: search, mode: "insensitive" } } }, { school: { schoolCode: { contains: search, mode: "insensitive" } } }, { teacher: { fullName: { contains: search, mode: "insensitive" } } }, { teacher: { teacherId: { contains: search, mode: "insensitive" } } }, ...(yearLevelFromSearch ? [{ yearLevel: yearLevelFromSearch }] : []) ] } : {}),
   };
 }
 export async function getSchoolClasses(query: ListSchoolClassesQuery, context: SchoolClassAuditContext): Promise<{ classes: ClassResponse[]; pagination: { page: number; limit: number; total: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean } }> {
   readable(context);
-  const teacher = actor(context).role === UserRole.TEACHER ? actor(context).profileId : undefined;
   const scopedSchoolId = actor(context).role === UserRole.TEACHER ? actor(context).schoolId ?? undefined : undefined;
-  const where = classWhere(query, teacher, scopedSchoolId);
+  if (actor(context).role === UserRole.TEACHER && !scopedSchoolId) {
+    return {
+      classes: [],
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: query.page > 1,
+      },
+    };
+  }
+  const where = classWhere(query, scopedSchoolId);
   const orderBy: Prisma.SchoolClassOrderByWithRelationInput = { [query.sortBy]: query.sortOrder };
   const [records, total] = await Promise.all([prisma.schoolClass.findMany({ where, orderBy, skip: (query.page - 1) * query.limit, take: query.limit, select: classSelect }), prisma.schoolClass.count({ where })]);
   const totalPages = Math.ceil(total / query.limit);
@@ -141,26 +231,37 @@ export async function getSchoolClassById(classId: string, context: SchoolClassAu
 }
 
 export async function updateSchoolClass(classId: string, data: UpdateSchoolClassRequest, context: SchoolClassAuditContext, deps: SchoolClassServiceDependencies = {}): Promise<ClassResponse> {
-  management(context);
   const beforeRecord = await prisma.schoolClass.findUnique({ where: { id: classId }, select: classSelect });
   if (!beforeRecord) throw classNotFound();
+  if (actor(context).role === UserRole.TEACHER) {
+    if (!actor(context).schoolId || beforeRecord.schoolId !== actor(context).schoolId) throw teacherAccessDenied();
+    if (data.capacity !== undefined) throw teacherClassUpdateInvalid();
+  } else {
+    management(context);
+  }
   const nextClassName = data.className?.trim() ?? beforeRecord.className;
+  const nextNormalizedClassName = normalizeSchoolClassName(nextClassName);
   const nextAcademicYear = data.academicYear ?? beforeRecord.academicYear;
-  if (nextClassName !== beforeRecord.className || nextAcademicYear !== beforeRecord.academicYear) {
-    const duplicate = await prisma.schoolClass.findUnique({ where: { schoolId_className_academicYear: { schoolId: beforeRecord.schoolId, className: nextClassName, academicYear: nextAcademicYear } }, select: { id: true } });
-    if (duplicate && duplicate.id !== classId) throw classExists();
+  const nextYearLevel = data.yearLevel ?? beforeRecord.yearLevel;
+  if (nextNormalizedClassName !== beforeRecord.normalizedClassName || nextAcademicYear !== beforeRecord.academicYear || nextYearLevel !== beforeRecord.yearLevel) {
+    const duplicateId = await findDuplicateClassId(beforeRecord.schoolId, nextAcademicYear, nextYearLevel, nextClassName);
+    if (duplicateId && duplicateId !== classId) throw classExists();
   }
   let record: ClassRecord;
-  try { record = await prisma.schoolClass.update({ where: { id: classId }, data: { ...(data.className !== undefined ? { className: data.className.trim() } : {}), ...(data.yearLevel !== undefined ? { yearLevel: data.yearLevel } : {}), ...(data.academicYear !== undefined ? { academicYear: data.academicYear } : {}), ...(data.capacity !== undefined ? { capacity: data.capacity } : {}) }, select: classSelect }); } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
+  try { record = await prisma.schoolClass.update({ where: { id: classId }, data: { ...(data.className !== undefined ? { className: data.className.trim(), normalizedClassName: normalizeSchoolClassName(data.className) } : {}), ...(data.yearLevel !== undefined ? { yearLevel: data.yearLevel } : {}), ...(data.academicYear !== undefined ? { academicYear: data.academicYear } : {}), ...(data.capacity !== undefined ? { capacity: data.capacity } : {}) }, select: classSelect }); } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   const result = response(record);
   await audit(context, "CLASS_UPDATED", classId, record.schoolId, auditSafe(response(beforeRecord)), auditSafe(result), deps);
   return result;
 }
 
 export async function updateSchoolClassStatus(classId: string, status: AccountStatus, context: SchoolClassAuditContext, deps: SchoolClassServiceDependencies = {}): Promise<ClassResponse> {
-  management(context);
   const beforeRecord = await prisma.schoolClass.findUnique({ where: { id: classId }, select: classSelect });
   if (!beforeRecord) throw classNotFound();
+  if (actor(context).role === UserRole.TEACHER) {
+    if (!actor(context).schoolId || beforeRecord.schoolId !== actor(context).schoolId) throw teacherAccessDenied();
+  } else {
+    management(context);
+  }
   if (!canSchoolClassTransitionStatus(beforeRecord.accountStatus, status, actor(context).role)) throw statusInvalid();
   const record = await prisma.schoolClass.update({ where: { id: classId }, data: { accountStatus: status }, select: classSelect });
   const result = response(record);

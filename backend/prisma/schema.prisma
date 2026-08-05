@@ -29,92 +29,129 @@ model User {
   digitalActivitiesCreated     DigitalActivity[]              @relation("DigitalActivityCreatedBy")
   digitalActivitiesUpdated     DigitalActivity[]              @relation("DigitalActivityUpdatedBy")
   digitalActivityReviewHistory DigitalActivityReviewHistory[]
+  aiPromptTemplatesCreated     AiPromptTemplate[]             @relation("AiPromptCreatedBy")
+  aiPromptTemplatesActivated   AiPromptTemplate[]             @relation("AiPromptActivatedBy")
+  aiRequests                   AiRequest[]                    @relation("AiRequestedBy")
+  aiOutputsReviewed            AiGeneratedOutput[]            @relation("AiOutputReviewedBy")
+  notificationRecipients       NotificationRecipient[]
+  notificationPreferences      NotificationPreference?
+  notificationsCreated         Notification[]                 @relation("NotificationCreatedBy")
+  announcementsCreated         Announcement[]                 @relation("AnnouncementCreatedBy")
 
   @@map("users")
 }
 
 model School {
-  id            String        @id @default(uuid()) @db.Uuid
-  schoolCode    String        @unique
-  schoolName    String        @unique
-  logo          String?
-  principalName String?
-  address       String
-  phone         String
-  contactEmail  String?       @unique
-  accountStatus AccountStatus @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  admins        Admin[]
-  classes       SchoolClass[]
-  students      Student[]
-  teachers      Teacher[]
-  auditLogs     AuditLog[]
+  id                  String               @id @default(uuid()) @db.Uuid
+  schoolCode          String               @unique
+  schoolName          String               @unique
+  logo                String?
+  principalName       String?
+  address             String
+  phone               String
+  contactEmail        String?              @unique
+  accountStatus       AccountStatus        @default(ACTIVE)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  admins              Admin[]
+  classes             SchoolClass[]
+  students            Student[]
+  teachers            Teacher[]
+  assignments         Assignment[]
+  submissions         Submission[]
+  assessments         Assessment[]
+  auditLogs           AuditLog[]
+  pbdEvidence         PBDEvidence[]
+  masteries           StudentMastery[]
+  aiRequests          AiRequest[]
+  aiUsageDaily        AiUsageDaily[]
+  notifications       Notification[]
+  announcements       Announcement[]
+  announcementTargets AnnouncementTarget[]
 
   @@map("schools")
 }
 
 model Teacher {
-  id               String                   @id @default(uuid()) @db.Uuid
-  userId           String                   @unique @db.Uuid
-  schoolId         String                   @db.Uuid
-  teacherId        String
-  fullName         String
-  gender           Gender
-  phone            String?                  @unique
-  position         String?
-  avatar           String?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
-  classes          SchoolClass[]
-  permissionGrants TeacherPermissionGrant[]
-  school           School                   @relation(fields: [schoolId], references: [id])
-  user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String                   @id @default(uuid()) @db.Uuid
+  userId             String                   @unique @db.Uuid
+  schoolId           String                   @db.Uuid
+  teacherId          String
+  fullName           String
+  gender             Gender
+  phone              String?                  @unique
+  position           String?
+  avatar             String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  classes            SchoolClass[]
+  assignments        Assignment[]
+  reviews            TeacherReview[]
+  itemReviews        SubmissionItemReview[]
+  assessments        Assessment[]
+  assessmentItems    AssessmentItem[]
+  adjustments        AssessmentAdjustment[]
+  permissionGrants   TeacherPermissionGrant[]
+  pbdEvidence        PBDEvidence[]
+  confirmedMasteries StudentMastery[]         @relation("MasteryConfirmedBy")
+  masteryHistory     StudentMasteryHistory[]
+  school             School                   @relation(fields: [schoolId], references: [id])
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, teacherId])
   @@map("teachers")
 }
 
 model SchoolClass {
-  id            String        @id @default(uuid()) @db.Uuid
-  schoolId      String        @db.Uuid
-  teacherId     String        @db.Uuid
-  className     String
-  yearLevel     Int
-  academicYear  Int
-  capacity      Int?
-  accountStatus AccountStatus @default(ACTIVE)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  school        School        @relation(fields: [schoolId], references: [id])
-  teacher       Teacher       @relation(fields: [teacherId], references: [id])
-  students      Student[]
+  id                     String                  @id @default(uuid()) @db.Uuid
+  schoolId               String                  @db.Uuid
+  teacherId              String                  @db.Uuid
+  className              String
+  yearLevel              Int
+  academicYear           Int
+  capacity               Int?
+  accountStatus          AccountStatus           @default(ACTIVE)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  normalizedClassName    String
+  school                 School                  @relation(fields: [schoolId], references: [id])
+  teacher                Teacher                 @relation(fields: [teacherId], references: [id])
+  students               Student[]
+  assignmentClassTargets AssignmentClassTarget[]
+  announcementTargets    AnnouncementTarget[]
 
-  @@unique([schoolId, className, academicYear])
+  @@unique([schoolId, academicYear, yearLevel, normalizedClassName])
   @@index([schoolId])
   @@index([teacherId])
   @@map("school_classes")
 }
 
 model Student {
-  id           String          @id @default(uuid()) @db.Uuid
-  userId       String          @unique @db.Uuid
-  schoolId     String          @db.Uuid
-  classId      String          @db.Uuid
-  studentId    String
-  fullName     String
-  gender       Gender
-  birthDate    DateTime?
-  pinHash      String
-  avatar       String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  isPinChanged Boolean         @default(false)
-  pinUpdatedAt DateTime?
-  parents      ParentStudent[]
-  class        SchoolClass     @relation(fields: [classId], references: [id])
-  school       School          @relation(fields: [schoolId], references: [id])
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                       String                    @id @default(uuid()) @db.Uuid
+  userId                   String                    @unique @db.Uuid
+  schoolId                 String                    @db.Uuid
+  classId                  String                    @db.Uuid
+  studentId                String
+  fullName                 String
+  gender                   Gender
+  birthDate                DateTime?
+  pinHash                  String
+  avatar                   String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  isPinChanged             Boolean                   @default(false)
+  pinUpdatedAt             DateTime?
+  parents                  ParentStudent[]
+  assignmentStudentTargets AssignmentStudentTarget[]
+  attempts                 StudentAttempt[]
+  submissions              Submission[]
+  assessments              Assessment[]
+  pbdEvidence              PBDEvidence[]
+  masteries                StudentMastery[]
+  aiRequests               AiRequest[]
+  class                    SchoolClass               @relation(fields: [classId], references: [id])
+  school                   School                    @relation(fields: [schoolId], references: [id])
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, studentId])
   @@index([classId])
@@ -240,7 +277,10 @@ model CurriculumVersion {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  programmes CurriculumProgramme[]
+  programmes  CurriculumProgramme[]
+  pbdEvidence PBDEvidence[]
+  masteries   StudentMastery[]
+  aiRequests  AiRequest[]
 
   @@index([status])
   @@index([sourceYear])
@@ -281,6 +321,9 @@ model CurriculumProgramme {
   contentStandards   ContentStandard[]
   questionBankItems  QuestionBankItem[]
   digitalActivities  DigitalActivity[]
+  pbdEvidence        PBDEvidence[]
+  masteries          StudentMastery[]
+  aiRequests         AiRequest[]
 
   @@unique([curriculumVersionId, code])
   @@index([subjectId])
@@ -350,6 +393,9 @@ model RemedialSkill {
   suggestedActivities            SuggestedTeachingActivity[]
   questionBankCurriculumLinks    QuestionBankCurriculumLink[]
   digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
+  pbdEvidence                    PBDEvidence[]
+  masteries                      StudentMastery[]
+  aiRequests                     AiRequest[]
 
   @@unique([programmeId, code])
   @@unique([programmeId, sequence])
@@ -397,6 +443,8 @@ model LearningStandard {
   remedialMappings               RemedialSkillStandardMapping[]
   questionBankCurriculumLinks    QuestionBankCurriculumLink[]
   digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
+  pbdEvidence                    PBDEvidence[]
+  masteries                      StudentMastery[]
 
   @@unique([contentStandardId, code])
   @@index([status])
@@ -432,6 +480,7 @@ model LearningObjective {
   remedialSkill                  RemedialSkill                   @relation(fields: [remedialSkillId], references: [id], onDelete: Cascade)
   suggestedActivities            SuggestedTeachingActivity[]
   digitalActivityCurriculumLinks DigitalActivityCurriculumLink[]
+  pbdEvidence                    PBDEvidence[]
 
   @@unique([remedialSkillId, sequence])
   @@index([status])
@@ -647,6 +696,8 @@ model DigitalActivity {
   items            DigitalActivityItem[]
   mediaLinks       DigitalActivityMedia[]
   reviewHistory    DigitalActivityReviewHistory[]
+  assignments      Assignment[]
+  pbdEvidence      PBDEvidence[]
 
   @@index([programmeId])
   @@index([activityTemplateId])
@@ -701,6 +752,7 @@ model DigitalActivityItem {
 
   digitalActivity  DigitalActivity  @relation(fields: [digitalActivityId], references: [id], onDelete: Cascade)
   questionBankItem QuestionBankItem @relation(fields: [questionBankItemId], references: [id], onDelete: Restrict)
+  assessmentItems  AssessmentItem[]
 
   @@unique([digitalActivityId, sequence])
   @@unique([digitalActivityId, questionBankItemId])
@@ -744,6 +796,730 @@ model DigitalActivityReviewHistory {
   @@index([actorUserId])
   @@index([createdAt])
   @@map("digital_activity_review_history")
+}
+
+model Assignment {
+  id                         String             @id @default(uuid()) @db.Uuid
+  title                      String
+  instructions               String?
+  digitalActivityId          String             @db.Uuid
+  schoolId                   String             @db.Uuid
+  assignedByTeacherId        String             @db.Uuid
+  status                     AssignmentStatus   @default(DRAFT)
+  priority                   AssignmentPriority @default(NORMAL)
+  startAt                    DateTime?
+  dueAt                      DateTime?
+  availableUntil             DateTime?
+  isRequired                 Boolean            @default(true)
+  attemptsAllowed            Int?
+  showResultsAfterCompletion Boolean            @default(false)
+  publishedAt                DateTime?
+  closedAt                   DateTime?
+  cancelledAt                DateTime?
+  archivedAt                 DateTime?
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+
+  digitalActivity   DigitalActivity           @relation(fields: [digitalActivityId], references: [id], onDelete: Restrict)
+  school            School                    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  assignedByTeacher Teacher                   @relation(fields: [assignedByTeacherId], references: [id], onDelete: Restrict)
+  classTargets      AssignmentClassTarget[]
+  studentTargets    AssignmentStudentTarget[]
+  attempts          StudentAttempt[]
+  submissions       Submission[]
+  assessments       Assessment[]
+  pbdEvidence       PBDEvidence[]
+  aiRequests        AiRequest[]
+
+  @@index([digitalActivityId])
+  @@index([schoolId])
+  @@index([assignedByTeacherId])
+  @@index([status])
+  @@index([startAt])
+  @@index([dueAt])
+  @@index([schoolId, status])
+  @@index([assignedByTeacherId, createdAt])
+  @@map("assignments")
+}
+
+model AssignmentClassTarget {
+  id           String   @id @default(uuid()) @db.Uuid
+  assignmentId String   @db.Uuid
+  classId      String   @db.Uuid
+  createdAt    DateTime @default(now())
+
+  assignment  Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  schoolClass SchoolClass @relation(fields: [classId], references: [id], onDelete: Restrict)
+
+  @@unique([assignmentId, classId])
+  @@index([classId])
+  @@map("assignment_class_targets")
+}
+
+model AssignmentStudentTarget {
+  id           String   @id @default(uuid()) @db.Uuid
+  assignmentId String   @db.Uuid
+  studentId    String   @db.Uuid
+  createdAt    DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+  @@map("assignment_student_targets")
+}
+
+model StudentAttempt {
+  id                   String        @id @default(uuid()) @db.Uuid
+  assignmentId         String        @db.Uuid
+  studentId            String        @db.Uuid
+  attemptNumber        Int
+  status               AttemptStatus @default(NOT_STARTED)
+  startedAt            DateTime?
+  submittedAt          DateTime?
+  lastSavedAt          DateTime?
+  expiresAt            DateTime?
+  totalDurationSeconds Int?
+  deviceInfo           Json?
+  browserInfo          Json?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  assignment Assignment         @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  session    AssignmentSession?
+  answers    StudentAnswer[]
+  submission Submission?
+  assessment Assessment?
+
+  @@unique([assignmentId, studentId, attemptNumber])
+  @@index([assignmentId, studentId])
+  @@index([studentId, status])
+  @@map("student_attempts")
+}
+
+model AssignmentSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  attemptId     String    @unique @db.Uuid
+  sessionToken  String    @unique
+  startedAt     DateTime  @default(now())
+  lastHeartbeat DateTime?
+  endedAt       DateTime?
+  isActive      Boolean   @default(true)
+
+  attempt StudentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken])
+  @@map("assignment_sessions")
+}
+
+model StudentAnswer {
+  id               String   @id @default(uuid()) @db.Uuid
+  attemptId        String   @db.Uuid
+  activityItemId   String   @db.Uuid
+  answerJson       Json
+  isCompleted      Boolean  @default(false)
+  timeSpentSeconds Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  attempt StudentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, activityItemId])
+  @@index([attemptId])
+  @@map("student_answers")
+}
+
+model Submission {
+  id                 String           @id @default(uuid()) @db.Uuid
+  attemptId          String           @unique @db.Uuid
+  assignmentId       String           @db.Uuid
+  studentId          String           @db.Uuid
+  schoolId           String           @db.Uuid
+  parentSubmissionId String?          @db.Uuid
+  status             SubmissionStatus @default(PENDING_REVIEW)
+  revisionNumber     Int              @default(1)
+  submittedAt        DateTime
+  reviewStartedAt    DateTime?
+  reviewedAt         DateTime?
+  returnedAt         DateTime?
+  cancelledAt        DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  attempt          StudentAttempt         @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  assignment       Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student          Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  school           School                 @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  parentSubmission Submission?            @relation("SubmissionRevisions", fields: [parentSubmissionId], references: [id], onDelete: Restrict)
+  revisions        Submission[]           @relation("SubmissionRevisions")
+  reviews          TeacherReview[]
+  itemReviews      SubmissionItemReview[]
+  assessment       Assessment?
+  pbdEvidence      PBDEvidence[]
+
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([status])
+  @@index([submittedAt])
+  @@index([schoolId, status])
+  @@index([assignmentId, status])
+  @@index([parentSubmissionId])
+  @@map("submissions")
+}
+
+model TeacherReview {
+  id              String         @id @default(uuid()) @db.Uuid
+  submissionId    String         @db.Uuid
+  teacherId       String         @db.Uuid
+  decision        ReviewDecision
+  source          ReviewSource   @default(TEACHER)
+  overallFeedback String?
+  internalNotes   String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  teacher    Teacher    @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  @@index([submissionId])
+  @@index([teacherId])
+  @@index([decision])
+  @@index([completedAt])
+  @@map("teacher_reviews")
+}
+
+model SubmissionItemReview {
+  id               String           @id @default(uuid()) @db.Uuid
+  submissionId     String           @db.Uuid
+  activityItemId   String           @db.Uuid
+  teacherId        String?          @db.Uuid
+  status           ItemReviewStatus @default(PENDING)
+  feedback         String?
+  internalNotes    String?
+  observedResponse Json?
+  reviewedAt       DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  teacher    Teacher?   @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  @@unique([submissionId, activityItemId])
+  @@index([activityItemId])
+  @@index([teacherId])
+  @@index([status])
+  @@map("submission_item_reviews")
+}
+
+model Assessment {
+  id              String           @id @default(uuid()) @db.Uuid
+  submissionId    String           @unique @db.Uuid
+  attemptId       String           @unique @db.Uuid
+  assignmentId    String           @db.Uuid
+  studentId       String           @db.Uuid
+  schoolId        String           @db.Uuid
+  teacherId       String?          @db.Uuid
+  status          AssessmentStatus @default(PENDING)
+  method          AssessmentMethod
+  result          AssessmentResult @default(NOT_APPLICABLE)
+  automaticMarks  Decimal          @default(0) @db.Decimal(10, 2)
+  manualMarks     Decimal          @default(0) @db.Decimal(10, 2)
+  adjustedMarks   Decimal          @default(0) @db.Decimal(10, 2)
+  finalMarks      Decimal          @default(0) @db.Decimal(10, 2)
+  possibleMarks   Decimal          @default(0) @db.Decimal(10, 2)
+  percentage      Decimal?         @db.Decimal(5, 2)
+  passPercentage  Decimal?         @db.Decimal(5, 2)
+  overallFeedback String?
+  assessedAt      DateTime?
+  invalidatedAt   DateTime?
+  archivedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  submission  Submission             @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  attempt     StudentAttempt         @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  assignment  Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student     Student                @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  school      School                 @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  teacher     Teacher?               @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  items       AssessmentItem[]
+  adjustments AssessmentAdjustment[]
+  pbdEvidence PBDEvidence[]
+  aiRequests  AiRequest[]
+
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([teacherId])
+  @@index([status])
+  @@index([method])
+  @@index([result])
+  @@index([createdAt])
+  @@index([schoolId, status])
+  @@map("assessments")
+}
+
+model AssessmentItem {
+  id              String               @id @default(uuid()) @db.Uuid
+  assessmentId    String               @db.Uuid
+  activityItemId  String               @db.Uuid
+  teacherId       String?              @db.Uuid
+  method          AssessmentMethod
+  status          AssessmentItemStatus @default(PENDING)
+  correct         Boolean?
+  marksAwarded    Decimal              @default(0) @db.Decimal(10, 2)
+  possibleMarks   Decimal              @default(0) @db.Decimal(10, 2)
+  feedback        Json?
+  teacherFeedback String?
+  internalNotes   String?
+  assessedAt      DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  assessment   Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  activityItem DigitalActivityItem @relation(fields: [activityItemId], references: [id], onDelete: Restrict)
+  teacher      Teacher?            @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  pbdEvidence  PBDEvidence[]
+
+  @@unique([assessmentId, activityItemId])
+  @@index([activityItemId])
+  @@index([teacherId])
+  @@index([status])
+  @@index([method])
+  @@map("assessment_items")
+}
+
+model AssessmentAdjustment {
+  id               String               @id @default(uuid()) @db.Uuid
+  assessmentId     String               @db.Uuid
+  teacherId        String?              @db.Uuid
+  adjustedByUserId String               @db.Uuid
+  reason           MarkAdjustmentReason
+  previousMarks    Decimal              @db.Decimal(10, 2)
+  newMarks         Decimal              @db.Decimal(10, 2)
+  difference       Decimal              @db.Decimal(10, 2)
+  notes            String?
+  createdAt        DateTime             @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  teacher    Teacher?   @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  @@index([assessmentId])
+  @@index([teacherId])
+  @@index([adjustedByUserId])
+  @@index([reason])
+  @@index([createdAt])
+  @@map("assessment_adjustments")
+}
+
+model PBDEvidence {
+  id                  String           @id @default(uuid()) @db.Uuid
+  sourceKey           String           @unique
+  studentId           String           @db.Uuid
+  schoolId            String           @db.Uuid
+  assessmentId        String?          @db.Uuid
+  assessmentItemId    String?          @db.Uuid
+  submissionId        String?          @db.Uuid
+  assignmentId        String?          @db.Uuid
+  digitalActivityId   String?          @db.Uuid
+  curriculumVersionId String           @db.Uuid
+  programmeId         String           @db.Uuid
+  remedialSkillId     String           @db.Uuid
+  learningStandardId  String?          @db.Uuid
+  learningObjectiveId String?          @db.Uuid
+  evidenceType        EvidenceType
+  strength            EvidenceStrength @default(STANDARD)
+  awardedMarks        Decimal?         @db.Decimal(10, 2)
+  possibleMarks       Decimal?         @db.Decimal(10, 2)
+  percentage          Decimal?         @db.Decimal(5, 2)
+  completionOnly      Boolean          @default(false)
+  observedLevel       MasteryLevel?
+  isValid             Boolean          @default(true)
+  invalidatedAt       DateTime?
+  invalidationReason  String?
+  observedAt          DateTime
+  recordedByTeacherId String?          @db.Uuid
+  summary             String?
+  createdAt           DateTime         @default(now())
+
+  student           Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  school            School              @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  assessment        Assessment?         @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  assessmentItem    AssessmentItem?     @relation(fields: [assessmentItemId], references: [id], onDelete: SetNull)
+  submission        Submission?         @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  assignment        Assignment?         @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  digitalActivity   DigitalActivity?    @relation(fields: [digitalActivityId], references: [id], onDelete: SetNull)
+  curriculumVersion CurriculumVersion   @relation(fields: [curriculumVersionId], references: [id], onDelete: Restrict)
+  programme         CurriculumProgramme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  remedialSkill     RemedialSkill       @relation(fields: [remedialSkillId], references: [id], onDelete: Restrict)
+  learningStandard  LearningStandard?   @relation(fields: [learningStandardId], references: [id], onDelete: Restrict)
+  learningObjective LearningObjective?  @relation(fields: [learningObjectiveId], references: [id], onDelete: Restrict)
+  recordedByTeacher Teacher?            @relation(fields: [recordedByTeacherId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([assessmentId])
+  @@index([remedialSkillId])
+  @@index([learningStandardId])
+  @@index([studentId, remedialSkillId])
+  @@index([studentId, learningStandardId])
+  @@index([observedAt])
+  @@map("pbd_evidence")
+}
+
+model StudentMastery {
+  id                    String                @id @default(uuid()) @db.Uuid
+  studentId             String                @db.Uuid
+  schoolId              String                @db.Uuid
+  curriculumVersionId   String                @db.Uuid
+  programmeId           String                @db.Uuid
+  remedialSkillId       String                @db.Uuid
+  learningStandardId    String?               @db.Uuid
+  scopeKey              String
+  currentLevel          MasteryLevel
+  status                MasteryStatus
+  decisionSource        MasteryDecisionSource
+  recommendedLevel      MasteryLevel?
+  recommendedConfidence Decimal?              @db.Decimal(5, 2)
+  recommendedAt         DateTime?
+  confidencePercentage  Decimal?              @db.Decimal(5, 2)
+  evidenceCount         Int                   @default(0)
+  activityCount         Int                   @default(0)
+  trend                 ProgressTrend         @default(INSUFFICIENT_DATA)
+  latestEvidenceAt      DateTime?
+  confirmedByTeacherId  String?               @db.Uuid
+  confirmedAt           DateTime?
+  teacherNote           String?
+  archivedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  student            Student                 @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  school             School                  @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  curriculumVersion  CurriculumVersion       @relation(fields: [curriculumVersionId], references: [id], onDelete: Restrict)
+  programme          CurriculumProgramme     @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  remedialSkill      RemedialSkill           @relation(fields: [remedialSkillId], references: [id], onDelete: Restrict)
+  learningStandard   LearningStandard?       @relation(fields: [learningStandardId], references: [id], onDelete: Restrict)
+  confirmedByTeacher Teacher?                @relation("MasteryConfirmedBy", fields: [confirmedByTeacherId], references: [id], onDelete: SetNull)
+  history            StudentMasteryHistory[]
+
+  @@unique([studentId, curriculumVersionId, scopeKey])
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([remedialSkillId])
+  @@index([learningStandardId])
+  @@index([currentLevel])
+  @@index([status])
+  @@map("student_mastery")
+}
+
+model StudentMasteryHistory {
+  id                   String                @id @default(uuid()) @db.Uuid
+  studentMasteryId     String                @db.Uuid
+  previousLevel        MasteryLevel?
+  newLevel             MasteryLevel
+  previousStatus       MasteryStatus?
+  newStatus            MasteryStatus
+  decisionSource       MasteryDecisionSource
+  evidenceCount        Int
+  confidencePercentage Decimal?              @db.Decimal(5, 2)
+  decidedByTeacherId   String?               @db.Uuid
+  reason               String?
+  teacherNote          String?
+  createdAt            DateTime              @default(now())
+
+  studentMastery   StudentMastery @relation(fields: [studentMasteryId], references: [id], onDelete: Cascade)
+  decidedByTeacher Teacher?       @relation(fields: [decidedByTeacherId], references: [id], onDelete: SetNull)
+
+  @@index([studentMasteryId])
+  @@index([newLevel])
+  @@index([createdAt])
+  @@map("student_mastery_history")
+}
+
+model AiPromptTemplate {
+  id                  String        @id @default(uuid()) @db.Uuid
+  code                String
+  version             Int
+  name                String
+  description         String?
+  featureType         AiFeatureType
+  systemInstruction   String
+  promptTemplate      String
+  outputSchema        Json
+  modelAlias          String
+  temperature         Decimal?      @db.Decimal(3, 2)
+  maximumOutputTokens Int?
+  riskLevel           AiRiskLevel
+  requiresHumanReview Boolean       @default(true)
+  isActive            Boolean       @default(false)
+  createdByUserId     String        @db.Uuid
+  activatedByUserId   String?       @db.Uuid
+  activatedAt         DateTime?
+  archivedAt          DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  createdBy   User        @relation("AiPromptCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  activatedBy User?       @relation("AiPromptActivatedBy", fields: [activatedByUserId], references: [id], onDelete: SetNull)
+  requests    AiRequest[]
+
+  @@unique([code, version])
+  @@index([featureType])
+  @@index([isActive])
+  @@index([riskLevel])
+  @@map("ai_prompt_templates")
+}
+
+model AiRequest {
+  id                  String          @id @default(uuid()) @db.Uuid
+  featureType         AiFeatureType
+  provider            AiProvider      @default(GOOGLE_GEMINI)
+  promptTemplateId    String          @db.Uuid
+  requestedByUserId   String          @db.Uuid
+  schoolId            String?         @db.Uuid
+  studentId           String?         @db.Uuid
+  assignmentId        String?         @db.Uuid
+  assessmentId        String?         @db.Uuid
+  curriculumVersionId String?         @db.Uuid
+  programmeId         String?         @db.Uuid
+  remedialSkillId     String?         @db.Uuid
+  status              AiRequestStatus @default(QUEUED)
+  riskLevel           AiRiskLevel
+  inputSummary        Json?
+  providerRequestId   String?
+  modelAlias          String
+  inputTokenCount     Int?
+  outputTokenCount    Int?
+  totalTokenCount     Int?
+  estimatedCostMyr    Decimal?        @db.Decimal(12, 6)
+  latencyMs           Int?
+  retryCount          Int             @default(0)
+  blockedReason       String?
+  failureCode         String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  failedAt            DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  promptTemplate    AiPromptTemplate     @relation(fields: [promptTemplateId], references: [id], onDelete: Restrict)
+  requestedBy       User                 @relation("AiRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  school            School?              @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  student           Student?             @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  assignment        Assignment?          @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  assessment        Assessment?          @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  curriculumVersion CurriculumVersion?   @relation(fields: [curriculumVersionId], references: [id], onDelete: SetNull)
+  programme         CurriculumProgramme? @relation(fields: [programmeId], references: [id], onDelete: SetNull)
+  remedialSkill     RemedialSkill?       @relation(fields: [remedialSkillId], references: [id], onDelete: SetNull)
+  output            AiGeneratedOutput?
+
+  @@index([featureType])
+  @@index([status])
+  @@index([requestedByUserId])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([createdAt])
+  @@index([schoolId, createdAt])
+  @@map("ai_requests")
+}
+
+model AiGeneratedOutput {
+  id               String              @id @default(uuid()) @db.Uuid
+  aiRequestId      String              @unique @db.Uuid
+  reviewStatus     AiReviewStatus      @default(PENDING_REVIEW)
+  disposition      AiOutputDisposition
+  structuredOutput Json
+  safeSummary      String?
+  validationIssues Json?
+  reviewedByUserId String?             @db.Uuid
+  reviewNotes      String?
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  archivedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  aiRequest  AiRequest @relation(fields: [aiRequestId], references: [id], onDelete: Cascade)
+  reviewedBy User?     @relation("AiOutputReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([reviewStatus])
+  @@index([disposition])
+  @@index([createdAt])
+  @@map("ai_generated_outputs")
+}
+
+model AiUsageDaily {
+  id               String        @id @default(uuid()) @db.Uuid
+  usageDate        DateTime      @db.Date
+  schoolId         String?       @db.Uuid
+  featureType      AiFeatureType
+  requestCount     Int           @default(0)
+  blockedCount     Int           @default(0)
+  failedCount      Int           @default(0)
+  inputTokenCount  BigInt        @default(0)
+  outputTokenCount BigInt        @default(0)
+  totalTokenCount  BigInt        @default(0)
+  estimatedCostMyr Decimal       @default(0) @db.Decimal(14, 6)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  school School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@unique([usageDate, schoolId, featureType])
+  @@index([usageDate])
+  @@index([schoolId])
+  @@map("ai_usage_daily")
+}
+
+model Notification {
+  id              String               @id @default(uuid()) @db.Uuid
+  type            NotificationType
+  channel         NotificationChannel  @default(IN_APP)
+  status          NotificationStatus   @default(PENDING)
+  priority        NotificationPriority @default(NORMAL)
+  title           String
+  body            String
+  imageUrl        String?
+  attachmentUrl   String?
+  deepLink        String?
+  schoolId        String?              @db.Uuid
+  createdByUserId String?              @db.Uuid
+  scheduledFor    DateTime?
+  expiresAt       DateTime?
+  sourceType      String?
+  sourceId        String?
+  metadata        Json?
+  deletedAt       DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  school     School?                 @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  createdBy  User?                   @relation("NotificationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  recipients NotificationRecipient[]
+  deliveries NotificationDelivery[]
+
+  @@index([schoolId, createdAt])
+  @@index([status, scheduledFor])
+  @@index([type, createdAt])
+  @@index([expiresAt])
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             String             @id @default(uuid()) @db.Uuid
+  notificationId String             @db.Uuid
+  userId         String             @db.Uuid
+  status         NotificationStatus @default(QUEUED)
+  readAt         DateTime?
+  archivedAt     DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  notification Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@unique([notificationId, userId])
+  @@index([userId, status, createdAt])
+  @@map("notification_recipients")
+}
+
+model NotificationDelivery {
+  id             String              @id @default(uuid()) @db.Uuid
+  notificationId String              @db.Uuid
+  recipientId    String              @db.Uuid
+  channel        NotificationChannel
+  status         NotificationStatus  @default(PENDING)
+  provider       String?
+  providerId     String?
+  attemptedAt    DateTime?
+  deliveredAt    DateTime?
+  failedAt       DateTime?
+  retryCount     Int                 @default(0)
+  nextRetryAt    DateTime?
+  failureReason  String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  notification Notification          @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipient    NotificationRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([recipientId])
+  @@map("notification_deliveries")
+}
+
+model NotificationPreference {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @db.Uuid
+  assignments    Boolean  @default(true)
+  assessments    Boolean  @default(true)
+  announcements  Boolean  @default(true)
+  ai             Boolean  @default(true)
+  parentProgress Boolean  @default(true)
+  reminders      Boolean  @default(true)
+  security       Boolean  @default(true)
+  emailEnabled   Boolean  @default(true)
+  inAppEnabled   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model Announcement {
+  id              String               @id @default(uuid()) @db.Uuid
+  title           String
+  body            String
+  imageUrl        String?
+  attachmentUrl   String?
+  priority        NotificationPriority @default(NORMAL)
+  pinned          Boolean              @default(false)
+  schoolId        String?              @db.Uuid
+  createdByUserId String               @db.Uuid
+  publishAt       DateTime?
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  archivedAt      DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  school    School?              @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  createdBy User                 @relation("AnnouncementCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  targets   AnnouncementTarget[]
+
+  @@index([schoolId, publishedAt])
+  @@index([publishAt])
+  @@map("announcements")
+}
+
+model AnnouncementTarget {
+  id             String    @id @default(uuid()) @db.Uuid
+  announcementId String    @db.Uuid
+  schoolId       String?   @db.Uuid
+  classId        String?   @db.Uuid
+  role           UserRole?
+  createdAt      DateTime  @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  school       School?      @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  schoolClass  SchoolClass? @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([announcementId])
+  @@index([schoolId, role])
+  @@index([classId])
+  @@map("announcement_targets")
 }
 
 enum UserRole {
@@ -831,6 +1607,229 @@ enum DigitalActivityStatus {
   IN_REVIEW
   PUBLISHED
   ARCHIVED
+}
+
+enum AssignmentStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  CANCELLED
+  ARCHIVED
+}
+
+enum AssignmentTargetType {
+  CLASS
+  STUDENT
+}
+
+enum AssignmentPriority {
+  NORMAL
+  HIGH
+}
+
+enum AttemptStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+  CANCELLED
+}
+
+enum SubmissionStatus {
+  PENDING_REVIEW
+  IN_REVIEW
+  REVISION_REQUIRED
+  REVIEWED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ReviewDecision {
+  APPROVED
+  REVISION_REQUIRED
+}
+
+enum ItemReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  REVIEWED
+  REVISION_REQUIRED
+}
+
+enum ReviewSource {
+  TEACHER
+  SYSTEM
+}
+
+enum AssessmentStatus {
+  PENDING
+  AUTO_ASSESSED
+  PARTIALLY_ASSESSED
+  COMPLETED
+  INVALIDATED
+  ARCHIVED
+}
+
+enum AssessmentMethod {
+  AUTOMATIC
+  MANUAL
+  HYBRID
+  COMPLETION
+}
+
+enum AssessmentResult {
+  PASSED
+  FAILED
+  COMPLETED
+  NOT_APPLICABLE
+}
+
+enum AssessmentItemStatus {
+  PENDING
+  AUTO_ASSESSED
+  MANUALLY_ASSESSED
+  NOT_ASSESSED
+}
+
+enum MarkAdjustmentReason {
+  TEACHER_CORRECTION
+  REVIEW_APPEAL
+  TECHNICAL_ERROR
+  ADMIN_CORRECTION
+}
+
+enum MasteryLevel {
+  NOT_STARTED
+  EMERGING
+  DEVELOPING
+  ACHIEVED
+  MASTERED
+}
+
+enum MasteryStatus {
+  PENDING
+  RECOMMENDED
+  CONFIRMED
+  OVERRIDDEN
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum EvidenceType {
+  AUTOMATIC_ASSESSMENT
+  MANUAL_ASSESSMENT
+  TEACHER_OBSERVATION
+  ACTIVITY_COMPLETION
+  REVISION
+}
+
+enum EvidenceStrength {
+  SUPPORTING
+  STANDARD
+  STRONG
+}
+
+enum MasteryDecisionSource {
+  SYSTEM_RECOMMENDATION
+  TEACHER_JUDGMENT
+  TEACHER_OVERRIDE
+}
+
+enum ProgressTrend {
+  INSUFFICIENT_DATA
+  DECLINING
+  STABLE
+  IMPROVING
+}
+
+enum AiFeatureType {
+  QUESTION_DRAFT
+  ACTIVITY_DRAFT
+  READING_PASSAGE_DRAFT
+  READING_COMPREHENSION_DRAFT
+  CURRICULUM_ALIGNMENT
+  TEXT_SIMPLIFICATION
+  FEEDBACK_DRAFT
+  PARENT_SUMMARY_DRAFT
+  PRACTICE_SUGGESTION
+  AUDIO_TRANSCRIPTION
+  AUDIO_READING_ANALYSIS
+  DUPLICATE_DETECTION
+}
+
+enum AiRequestStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  BLOCKED
+  CANCELLED
+  EXPIRED
+}
+
+enum AiReviewStatus {
+  NOT_REQUIRED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  EDITED
+  ARCHIVED
+}
+
+enum AiProvider {
+  GOOGLE_GEMINI
+}
+
+enum AiRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AiOutputDisposition {
+  DRAFT_ONLY
+  ADVISORY_ONLY
+  SAFE_SUMMARY
+}
+
+enum NotificationType {
+  SYSTEM
+  ANNOUNCEMENT
+  ASSIGNMENT
+  SUBMISSION
+  ASSESSMENT
+  PBD_PROGRESS
+  PARENT_PROGRESS
+  TEACHER_REVIEW
+  REVISION_REQUIRED
+  AI_COMPLETED
+  REMINDER
+  SECURITY
+  PROFILE
+  ACCOUNT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  BOTH
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  FAILED
+  READ
+  ARCHIVED
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
 
 enum ActivityScoringMode {

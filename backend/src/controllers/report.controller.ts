@@ -1,0 +1,15 @@
+import type { NextFunction, Request, Response } from "express";
+import { AppError } from "../errors/app-error.js";
+import { successResponse } from "../helpers/response.helper.js";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import * as reports from "../services/report.service.js";
+import { classReportParamsSchema, reportFiltersSchema, schoolReportParamsSchema, studentReportParamsSchema, teacherReportParamsSchema } from "../validators/report.validator.js";
+function context(req: AuthenticatedRequest): reports.ReportContext { if (!req.auth) throw new AppError("AUTH_INVALID_TOKEN", 401, "Invalid or expired token."); return { actor: req.auth, requestIp: req.ip ?? null, userAgent: req.get("user-agent") ?? null }; }
+function respond(res: Response, next: NextFunction, message: string, action: () => Promise<unknown>): Promise<void> { return action().then((data) => { successResponse(res, 200, message, data); }).catch(next); }
+export const studentReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan murid berjaya diperoleh.", () => reports.studentReport(studentReportParamsSchema.parse(req.params).studentId, reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest)));
+export const parentReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan ibu bapa berjaya diperoleh.", () => reports.studentReport(studentReportParamsSchema.parse(req.params).studentId, reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest), true));
+export const teacherReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan guru berjaya diperoleh.", () => reports.teacherReport(teacherReportParamsSchema.parse(req.params).teacherId, reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest)));
+export const classReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan kelas berjaya diperoleh.", () => reports.classReport(classReportParamsSchema.parse(req.params).classId, reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest)));
+export const schoolReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan sekolah berjaya diperoleh.", () => reports.schoolReport(schoolReportParamsSchema.parse(req.params).schoolId, reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest)));
+export const remedialSkillReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan kemahiran pemulihan berjaya diperoleh.", () => reports.remedialSkillReport(reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest)));
+export const learningStandardReportController = (req: Request, res: Response, next: NextFunction) => respond(res, next, "Laporan standard pembelajaran berjaya diperoleh.", () => reports.learningStandardReport(reportFiltersSchema.parse(req.query), context(req as AuthenticatedRequest)));

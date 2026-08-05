@@ -1,0 +1,10 @@
+import { apiRequest } from "@/lib/api";
+import type { StudentList, StudentRecord, StudentResource } from "@/features/student/types/student.types";
+import { isRecord, listFrom } from "@/features/student/utils/student-record";
+const resources: Record<StudentResource, { path: string; key: string }> = { assignments: { path: "/student/assignments", key: "assignments" }, submissions: { path: "/student/submissions", key: "submissions" }, assessments: { path: "/student/assessments", key: "assessments" }, notifications: { path: "/notifications", key: "notifications" }, announcements: { path: "/announcements", key: "announcements" } };
+function query(values: Record<string, string | number | boolean | undefined>) { const p = new URLSearchParams(); Object.entries(values).forEach(([k,v]) => { if (v !== undefined && v !== "") p.set(k, String(v)); }); return p.size ? `?${p}` : ""; }
+export async function studentDashboard(): Promise<StudentRecord> { const v=await apiRequest<unknown>("/dashboard/student"); return isRecord(v) ? v : {}; }
+export async function studentList(resource: StudentResource, values: Record<string, string | number | boolean | undefined> = {}): Promise<StudentList> { const r=resources[resource]; return listFrom(await apiRequest<unknown>(`${r.path}${query(values)}`),r.key); }
+export async function studentDetail(resource: Exclude<StudentResource,"notifications"|"announcements">, id: string): Promise<StudentRecord> { const v=await apiRequest<unknown>(`${resources[resource].path}/${id}`); if (!isRecord(v)) return {}; return Object.values(v).find(isRecord) ?? v; }
+export async function assignmentDelivery(id: string): Promise<StudentRecord> { const v=await apiRequest<unknown>(`/student/assignments/${id}/delivery`); if (!isRecord(v)) return {}; return isRecord(v.data) ? v.data : v; }
+export async function studentPost(path: string, body: StudentRecord = {}): Promise<StudentRecord> { const v=await apiRequest<unknown>(path,{method:"POST",body:JSON.stringify(body)}); return isRecord(v) ? v : {}; }

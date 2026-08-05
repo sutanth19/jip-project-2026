@@ -1,0 +1,16 @@
+import type { NextFunction, Request, Response } from "express";
+import { AiFeatureType } from "@prisma/client";
+import { AppError } from "../errors/app-error.js";
+import { successResponse } from "../helpers/response.helper.js";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
+import * as ai from "../services/ai/ai.service.js";
+import * as outputs from "../services/ai/ai-output.service.js";
+import { aiDraftSchema, aiOutputParamsSchema, outputRejectSchema, outputReviewSchema } from "../validators/ai.validator.js";
+const context = (req: AuthenticatedRequest): ai.AiContext => { if (!req.auth) throw new AppError("AUTH_INVALID_TOKEN", 401, "Invalid or expired token."); return { actor: req.auth, requestIp: req.ip ?? null, userAgent: req.get("user-agent") ?? null }; };
+const reply = (res: Response, next: NextFunction, status: number, message: string, action: () => Promise<unknown>) => action().then((data) => successResponse(res, status, message, data)).catch(next);
+export const draftController = (feature: AiFeatureType) => (req: Request, res: Response, next: NextFunction) => reply(res, next, 201, "Draf AI berjaya dijana untuk semakan.", () => ai.generateDraft(feature, aiDraftSchema.parse(req.body), context(req as AuthenticatedRequest)));
+export const listOutputsController = (req: Request, res: Response, next: NextFunction) => reply(res, next, 200, "Senarai output AI berjaya diperoleh.", () => outputs.listAiOutputs(context(req as AuthenticatedRequest)));
+export const getOutputController = (req: Request, res: Response, next: NextFunction) => reply(res, next, 200, "Output AI berjaya diperoleh.", () => outputs.getAiOutput(aiOutputParamsSchema.parse(req.params).outputId, context(req as AuthenticatedRequest)));
+export const approveOutputController = (req: Request, res: Response, next: NextFunction) => reply(res, next, 200, "Output AI berjaya diluluskan sebagai draf.", () => outputs.approveAiOutput(aiOutputParamsSchema.parse(req.params).outputId, outputReviewSchema.parse(req.body), context(req as AuthenticatedRequest)));
+export const rejectOutputController = (req: Request, res: Response, next: NextFunction) => reply(res, next, 200, "Output AI berjaya ditolak.", () => outputs.rejectAiOutput(aiOutputParamsSchema.parse(req.params).outputId, outputRejectSchema.parse(req.body).reviewNotes, context(req as AuthenticatedRequest)));
+export const archiveOutputController = (req: Request, res: Response, next: NextFunction) => reply(res, next, 200, "Output AI berjaya diarkibkan.", () => outputs.archiveAiOutput(aiOutputParamsSchema.parse(req.params).outputId, context(req as AuthenticatedRequest)));

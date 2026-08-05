@@ -1,0 +1,14 @@
+import { UserRole } from "@prisma/client";
+import { Router } from "express";
+import * as controller from "../controllers/report.controller.js";
+import { authenticate, requirePasswordChanged, requireStudentPinChanged } from "../middleware/auth.middleware.js";
+import { requireRole } from "../middleware/role.middleware.js";
+const router = Router();
+router.get("/student/:studentId", authenticate, requirePasswordChanged, requireStudentPinChanged, requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT), controller.studentReportController);
+router.get("/parent/:studentId", authenticate, requirePasswordChanged, requireRole(UserRole.PARENT), controller.parentReportController);
+router.get("/teacher/:teacherId", authenticate, requirePasswordChanged, requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), controller.teacherReportController);
+router.get("/class/:classId", authenticate, requirePasswordChanged, requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), controller.classReportController);
+router.get("/school/:schoolId", authenticate, requirePasswordChanged, requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), controller.schoolReportController);
+router.get("/remedial-skills", authenticate, requirePasswordChanged, requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), controller.remedialSkillReportController);
+router.get("/learning-standards", authenticate, requirePasswordChanged, requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), controller.learningStandardReportController);
+export default router;

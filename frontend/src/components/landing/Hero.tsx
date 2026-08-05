@@ -18,7 +18,7 @@ export default function Hero() {
               LITERASI DIGITAL
             </h1>
             <p className="mb-6 max-w-lg text-base leading-7 text-muted-foreground sm:max-w-xl sm:text-lg sm:leading-8">
-              LITERASI DIGITAL ialah sistem pengurusan literasi sekolah moden yang membantu murid, guru, ibu bapa dan pentadbir mengurus aktiviti bacaan, 
+              LITERASI DIGITAL ialah sistem pengurusan literasi sekolah moden yang membantu murid, guru, ibu bapa dan pentadbir mengurus aktiviti bacaan,
               koleksi buku, program literasi serta memantau kemajuan pembelajaran melalui satu platform bersepadu.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">

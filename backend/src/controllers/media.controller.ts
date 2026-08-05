@@ -44,7 +44,8 @@ export async function getMediaFileController(req: Request, res: Response, next: 
   try {
     const file = await getMediaReadFile(routeKey(req.params.key));
     res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Disposition", "inline");
     res.sendFile(file.path, (caught) => {

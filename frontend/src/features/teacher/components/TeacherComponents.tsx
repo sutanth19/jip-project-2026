@@ -1,0 +1,10 @@
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { DataTable } from "@/components/shared/DataTable";
+import { text, recordId, recordTitle, safeEntries } from "@/features/teacher/utils/teacher-record";
+import type { TeacherRecord } from "@/features/teacher/types/teacher.types";
+
+export function TeacherStats({ items }: { items: { label: string; value: unknown }[] }) { return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <Card key={item.label}><CardHeader className="pb-2"><CardDescription>{item.label}</CardDescription><CardTitle className="text-2xl">{text(item.value)}</CardTitle></CardHeader></Card>)}</div>; }
+export function TeacherTable({ rows, detailPath, emptyMessage }: { rows: TeacherRecord[]; detailPath?: (row: TeacherRecord) => string; emptyMessage: string }) { return <DataTable rows={rows} getRowKey={recordId} emptyMessage={emptyMessage} columns={[{ key: "title", header: "Rekod", render: (row) => detailPath ? <Link className="font-medium text-primary underline-offset-4 hover:underline" to={detailPath(row)}>{recordTitle(row)}</Link> : recordTitle(row) }, { key: "status", header: "Status", render: (row) => typeof row.status === "string" ? <StatusBadge status={row.status} /> : "—" }, { key: "updated", header: "Dikemas kini", render: (row) => text(row.updatedAt ?? row.createdAt ?? row.submittedAt ?? row.observedAt) }]}/>; }
+export function SafeDetails({ record }: { record: TeacherRecord }) { return <Card><CardContent className="grid gap-3 p-6 sm:grid-cols-2">{safeEntries(record).map(([key, value]) => <div key={key} className="border-b border-border pb-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{key.replace(/([A-Z])/g, " $1")}</p><p className="mt-1 break-words text-sm text-foreground">{typeof value === "object" && value !== null ? "Data tersedia" : text(value)}</p></div>)}</CardContent></Card>; }

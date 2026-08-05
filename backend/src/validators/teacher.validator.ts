@@ -46,9 +46,9 @@ const avatarSchema = z
 export const createTeacherSchema = z
   .object({
     schoolId: z.string().uuid("ID sekolah tidak sah."),
-    teacherId: teacherIdSchema,
+    teacherId: teacherIdSchema.optional(),
     fullName: fullNameSchema,
-    gender: z.nativeEnum(Gender),
+    gender: z.nativeEnum(Gender).default(Gender.FEMALE),
     email: emailSchema,
     phone: phoneSchema.optional(),
     position: positionSchema.optional(),
@@ -70,6 +70,7 @@ export const teacherGrantParamsSchema = teacherIdParamsSchema
 
 export const updateTeacherSchema = z
   .object({
+    schoolId: z.string().uuid("ID sekolah tidak sah.").optional(),
     fullName: fullNameSchema.optional(),
     email: emailSchema.optional(),
     phone: phoneSchema.nullable().optional(),

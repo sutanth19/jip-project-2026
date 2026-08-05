@@ -13,6 +13,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { DashboardThemeToggle } from "@/components/dashboard/DashboardThemeToggle"
+import { NotificationBell } from "@/features/notifications/components/NotificationBell"
 
 type BreadcrumbRoute = {
   path: string
@@ -21,6 +22,45 @@ type BreadcrumbRoute = {
 
 const breadcrumbRoutes: BreadcrumbRoute[] = [
   { path: "/dashboard", label: "Dashboard" },
+  { path: "/curriculum", label: "Kurikulum" },
+  { path: "/curriculum/versions", label: "Versi" },
+  { path: "/curriculum/programmes", label: "Program" },
+  { path: "/curriculum/years", label: "Tahun" },
+  { path: "/curriculum/remedial-skills", label: "Kemahiran Pemulihan" },
+  { path: "/curriculum/content-standards", label: "Standard Kandungan" },
+  { path: "/curriculum/learning-standards", label: "Standard Pembelajaran" },
+  { path: "/curriculum/objectives", label: "Objektif" },
+  { path: "/question-bank", label: "Bank Soalan" },
+  { path: "/activity-templates", label: "Templat Aktiviti" },
+  { path: "/digital-activities", label: "Aktiviti Digital" },
+  { path: "/admin", label: "Admin" },
+  { path: "/admin/aktiviti", label: "Aktiviti" },
+  { path: "/admin/aktiviti/cipta", label: "Pilih Jenis Aktiviti" },
+  { path: "/admin/aktiviti/cipta/membaca", label: "Galeri Templat Membaca" },
+  { path: "/admin/aktiviti/cipta/membaca/seret-suku-kata", label: "Cipta Aktiviti Seret Suku Kata" },
+  { path: "/admin/aktiviti/cipta/menulis", label: "Galeri Templat Menulis" },
+  { path: "/admin/sekolah", label: "Sekolah" },
+  { path: "/admin/pentadbir", label: "Pentadbir" },
+  { path: "/admin/guru", label: "Guru" },
+  { path: "/admin/murid", label: "Murid" },
+  { path: "/admin/ibu-bapa", label: "Ibu Bapa" },
+  { path: "/admin/kelas", label: "Kelas" },
+  { path: "/admin/tugasan", label: "Tugasan" },
+  { path: "/admin/penghantaran", label: "Penghantaran" },
+  { path: "/admin/penilaian", label: "Penilaian" },
+  { path: "/admin/pbd", label: "PBD" },
+  { path: "/admin/laporan", label: "Laporan" },
+  { path: "/admin/notifikasi", label: "Notifikasi" },
+  { path: "/admin/pengumuman", label: "Pengumuman" },
+  { path: "/admin/ai", label: "AI" },
+  { path: "/admin/audit", label: "Audit" },
+  { path: "/admin/tetapan", label: "Tetapan" },
+  { path: "/admin/profil", label: "Profil" },
+  { path: "/guru", label: "Guru" },
+  { path: "/guru/kelas", label: "Kelas" },
+  { path: "/guru/kelas/tambah", label: "Tambah Kelas" },
+  { path: "/guru/murid", label: "Murid" },
+  { path: "/guru/murid/tambah", label: "Tambah Murid" },
   { path: "/dashboard/sekolah", label: "Pengurusan Sekolah" },
   { path: "/dashboard/guru", label: "Pengurusan Guru" },
   { path: "/dashboard/kurikulum", label: "Kurikulum Pemulihan" },
@@ -67,7 +107,7 @@ export function DashboardTopbar() {
     : [{ path: "/dashboard", label: "Dashboard" }]
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-sidebar/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/80 sm:px-6 lg:px-8">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <SidebarTrigger className="-ml-1 shrink-0" />
         <Separator
@@ -98,6 +138,7 @@ export function DashboardTopbar() {
         </Breadcrumb>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        <NotificationBell />
         <DashboardThemeToggle />
       </div>
     </header>

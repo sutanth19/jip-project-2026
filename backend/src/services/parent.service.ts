@@ -17,6 +17,7 @@ const parentSelect = {
   id: true, userId: true, fullName: true, phone: true, occupation: true, address: true, avatar: true,
   createdAt: true, updatedAt: true,
   user: { select: { id: true, role: true, email: true, accountStatus: true, isFirstLogin: true, lastLogin: true, passwordHash: true } },
+  students: { select: { relationship: true } },
   _count: { select: { students: true } },
 } satisfies Prisma.ParentSelect;
 
@@ -73,11 +74,11 @@ function setupExpiryHours(value: number | undefined): number {
 export interface ParentResponse {
   id: string; userId: string; fullName: string; phone: string; email: string | null; occupation: string | null;
   address: string | null; avatar: string | null; accountStatus: AccountStatus; isFirstLogin: boolean;
-  lastLogin: Date | null; studentCount: number; createdAt: Date; updatedAt: Date;
+  lastLogin: Date | null; studentCount: number; relationship: ParentRelationship | null; createdAt: Date; updatedAt: Date;
 }
 export interface ParentSummaryResponse {
   id: string; fullName: string; phone: string; email: string | null; occupation: string | null;
-  avatar: string | null; accountStatus: AccountStatus; studentCount: number;
+  avatar: string | null; accountStatus: AccountStatus; studentCount: number; relationship: ParentRelationship | null;
 }
 export interface ParentStudentResponse {
   id: string;
@@ -99,11 +100,12 @@ export interface ParentDetailResponse extends ParentResponse {
 }
 
 function response(record: ParentRecord): ParentResponse {
+  const relationship = record.students?.[0]?.relationship ?? null;
   return {
     id: record.id, userId: record.userId, fullName: record.fullName, phone: record.phone, email: record.user.email,
     occupation: record.occupation, address: record.address, avatar: record.avatar, accountStatus: record.user.accountStatus,
     isFirstLogin: record.user.isFirstLogin, lastLogin: record.user.lastLogin, studentCount: record._count.students,
-    createdAt: record.createdAt, updatedAt: record.updatedAt,
+    relationship, createdAt: record.createdAt, updatedAt: record.updatedAt,
   };
 }
 function summary(record: ParentRecord): ParentSummaryResponse {
@@ -120,6 +122,67 @@ const managementRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 const readRoles: UserRole[] = [...managementRoles, UserRole.TEACHER];
 function requireManagementRole(context: ParentAuditContext): void {
   if (!managementRoles.includes(actor(context).role)) throw forbidden();
+}
+function requireWriteRole(context: ParentAuditContext): void {
+  if (actor(context).role === UserRole.TEACHER) return;
+  requireManagementRole(context);
+}
+async function resolveTeacherSchoolId(context: ParentAuditContext): Promise<string> {
+  const teacher = await prisma.teacher.findUnique({ where: { id: actor(context).profileId }, select: { id: true, schoolId: true } });
+  if (!teacher?.schoolId) throw forbidden();
+  return teacher.schoolId;
+}
+async function findParentForTeacherWrite(parentId: string, context: ParentAuditContext): Promise<ParentDetailRecord> {
+  const record = await prisma.parent.findUnique({ where: { id: parentId }, select: parentDetailSelect });
+  if (!record || record.user.role !== UserRole.PARENT) throw parentNotFound();
+  const schoolId = await resolveTeacherSchoolId(context);
+  if (!record.students.some((link) => link.student.class.schoolId === schoolId)) throw teacherAccessDenied();
+  return record;
+}
+async function resolveTeacherStudentIds(studentIds: string[] | undefined, context: ParentAuditContext): Promise<string[]> {
+  const requested = [...new Set((studentIds ?? []).map((value) => value.trim()).filter(Boolean))];
+  if (requested.length === 0) return [];
+  const schoolId = await resolveTeacherSchoolId(context);
+  const students = await prisma.student.findMany({
+    where: {
+      id: { in: requested },
+      schoolId,
+      user: { accountStatus: { not: AccountStatus.ARCHIVED } },
+      class: { schoolId, accountStatus: { not: AccountStatus.ARCHIVED } },
+    },
+    select: { id: true },
+  });
+  if (students.length !== requested.length) throw studentNotFound();
+  return students.map((student) => student.id);
+}
+async function syncParentStudents(
+  tx: Prisma.TransactionClient,
+  parentId: string,
+  studentIds: string[] | undefined,
+  relationship: ParentRelationship | undefined,
+  context: ParentAuditContext,
+): Promise<void> {
+  if (studentIds === undefined) return;
+  const resolvedStudentIds = actor(context).role === UserRole.TEACHER ? await resolveTeacherStudentIds(studentIds, context) : [...new Set(studentIds.map((value) => value.trim()).filter(Boolean))];
+  if (actor(context).role === UserRole.TEACHER && resolvedStudentIds.length === 0) {
+    throw error("PARENT_STUDENT_REQUIRED", 400, "Sekurang-kurangnya seorang murid perlu dipautkan.");
+  }
+  if (resolvedStudentIds.length > 0 && !relationship) {
+    throw error("PARENT_RELATIONSHIP_REQUIRED", 400, "Hubungan ibu bapa diperlukan.");
+  }
+  const existing = await tx.parentStudent.findMany({ where: { parentId }, select: { id: true, studentId: true } });
+  const keep = new Set(resolvedStudentIds);
+  const toRemove = existing.filter((link) => !keep.has(link.studentId));
+  if (toRemove.length > 0) {
+    await tx.parentStudent.deleteMany({ where: { id: { in: toRemove.map((link) => link.id) } } });
+  }
+  for (const studentId of resolvedStudentIds) {
+    await tx.parentStudent.upsert({
+      where: { parentId_studentId: { parentId, studentId } },
+      create: { parentId, studentId, relationship: relationship ?? ParentRelationship.GUARDIAN },
+      update: { relationship: relationship ?? ParentRelationship.GUARDIAN },
+    });
+  }
 }
 export function canParentTransitionStatus(current: AccountStatus, next: AccountStatus, role: UserRole): boolean {
   if (current === AccountStatus.ACTIVE) return next === AccountStatus.SUSPENDED || next === AccountStatus.ARCHIVED;
@@ -139,7 +202,7 @@ export function sendParentSetupInvitation(_invitation: ParentSetupInvitation): I
 }
 
 export async function createParent(data: CreateParentRequest, context: ParentAuditContext, deps: ParentServiceDependencies = {}): Promise<{ parent: ParentResponse; invitation: { status: InvitationDeliveryStatus; expiresAt: Date } }> {
-  requireManagementRole(context);
+  requireWriteRole(context);
   const phone = normalizeMalaysianPhone(data.phone);
   const email = data.email ? normalizeEmail(data.email) : null;
   const now = deps.now?.() ?? new Date();
@@ -155,7 +218,19 @@ export async function createParent(data: CreateParentRequest, context: ParentAud
   try {
     record = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { role: UserRole.PARENT, email, passwordHash: null, accountStatus: AccountStatus.PENDING, isFirstLogin: true, setupToken, setupTokenExpiry: expiresAt, passwordResetToken: null, passwordResetExpiry: null } });
-      return tx.parent.create({ data: { userId: user.id, fullName: data.fullName.trim(), phone, occupation: optional(data.occupation) ?? null, address: optional(data.address) ?? null, avatar: optional(data.avatar) ?? null }, select: parentSelect });
+      const created = await tx.parent.create({ data: { userId: user.id, fullName: data.fullName.trim(), phone, occupation: optional(data.occupation) ?? null, address: optional(data.address) ?? null, avatar: optional(data.avatar) ?? null }, select: parentSelect });
+      if (actor(context).role === UserRole.TEACHER && (!data.studentIds || data.studentIds.length === 0)) {
+        throw error("PARENT_STUDENT_REQUIRED", 400, "Sekurang-kurangnya seorang murid perlu dipautkan.");
+      }
+      await syncParentStudents(tx, created.id, data.studentIds, data.relationship, context);
+      const selectedCount = data.studentIds?.length ?? 0;
+      return {
+        ...created,
+        students: data.studentIds
+          ? data.studentIds.map(() => ({ relationship: data.relationship ?? ParentRelationship.GUARDIAN }))
+          : created.students,
+        _count: { students: selectedCount || created._count.students },
+      };
     });
   } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   const status = await (deps.invitationDispatcher ?? sendParentSetupInvitation)({ parentId: record.id, email, setupToken, expiresAt });
@@ -165,10 +240,34 @@ export async function createParent(data: CreateParentRequest, context: ParentAud
 
 function where(query: ListParentsQuery, teacherId?: string): Prisma.ParentWhereInput {
   const search = query.search?.trim();
+  const searchConditions: Prisma.ParentWhereInput[] = [];
+  if (search) {
+    searchConditions.push(
+      { fullName: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search, mode: "insensitive" } },
+      { occupation: { contains: search, mode: "insensitive" } },
+      { user: { email: { contains: search, mode: "insensitive" } } },
+    );
+    if (teacherId) {
+      searchConditions.push({
+        students: {
+          some: {
+            student: {
+              OR: [
+                { fullName: { contains: search, mode: "insensitive" } },
+                { studentId: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
+      });
+    }
+  }
   return {
     user: { role: UserRole.PARENT, ...(query.status ? { accountStatus: query.status } : {}) },
     ...(teacherId ? { students: { some: { student: { class: { teacherId } } } } } : {}),
-    ...(search ? { OR: [ { fullName: { contains: search, mode: "insensitive" } }, { phone: { contains: search, mode: "insensitive" } }, { occupation: { contains: search, mode: "insensitive" } }, { user: { email: { contains: search, mode: "insensitive" } } } ] } : {}),
+    ...(query.relationship ? { students: { some: { relationship: query.relationship } } } : {}),
+    ...(searchConditions.length > 0 ? { OR: searchConditions } : {}),
   };
 }
 export async function listParents(query: ListParentsQuery, context: ParentAuditContext): Promise<{ parents: Array<ParentResponse | ParentSummaryResponse>; pagination: { page: number; limit: number; total: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean } }> {
@@ -208,8 +307,8 @@ export async function getParentStudents(parentId: string, context: ParentAuditCo
 }
 
 export async function updateParent(parentId: string, data: UpdateParentRequest, context: ParentAuditContext, deps: ParentServiceDependencies = {}): Promise<ParentResponse> {
-  requireManagementRole(context);
-  const current = await prisma.parent.findUnique({ where: { id: parentId }, select: parentSelect });
+  requireWriteRole(context);
+  const current = actor(context).role === UserRole.TEACHER ? await findParentForTeacherWrite(parentId, context) : await prisma.parent.findUnique({ where: { id: parentId }, select: parentSelect });
   if (!current || current.user.role !== UserRole.PARENT) throw parentNotFound();
   const phone = data.phone === undefined ? undefined : normalizeMalaysianPhone(data.phone);
   const email = data.email === undefined ? undefined : data.email === null ? null : normalizeEmail(data.email);
@@ -225,7 +324,16 @@ export async function updateParent(parentId: string, data: UpdateParentRequest, 
   try {
     record = await prisma.$transaction(async (tx) => {
       if (email !== undefined) await tx.user.update({ where: { id: current.userId }, data: { email } });
-      return tx.parent.update({ where: { id: parentId }, data: { ...(data.fullName !== undefined ? { fullName: data.fullName.trim() } : {}), ...(phone !== undefined ? { phone } : {}), ...(data.occupation !== undefined ? { occupation: optional(data.occupation) ?? null } : {}), ...(data.address !== undefined ? { address: optional(data.address) ?? null } : {}), ...(data.avatar !== undefined ? { avatar: optional(data.avatar) ?? null } : {}) }, select: parentSelect });
+      const updated = await tx.parent.update({ where: { id: parentId }, data: { ...(data.fullName !== undefined ? { fullName: data.fullName.trim() } : {}), ...(phone !== undefined ? { phone } : {}), ...(data.occupation !== undefined ? { occupation: optional(data.occupation) ?? null } : {}), ...(data.address !== undefined ? { address: optional(data.address) ?? null } : {}), ...(data.avatar !== undefined ? { avatar: optional(data.avatar) ?? null } : {}) }, select: parentSelect });
+      await syncParentStudents(tx, parentId, data.studentIds, data.relationship ?? updated.students[0]?.relationship ?? ParentRelationship.GUARDIAN, context);
+      const selectedCount = data.studentIds?.length;
+      return {
+        ...updated,
+        students: data.studentIds
+          ? data.studentIds.map(() => ({ relationship: data.relationship ?? updated.students[0]?.relationship ?? ParentRelationship.GUARDIAN }))
+          : updated.students,
+        _count: { students: selectedCount ?? updated._count.students },
+      };
     });
   } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   await dispatch(context, "PARENT_UPDATED", "PARENT", record.id, null, response(current), response(record), deps);
@@ -233,8 +341,8 @@ export async function updateParent(parentId: string, data: UpdateParentRequest, 
 }
 
 export async function updateParentStatus(parentId: string, status: "ACTIVE" | "SUSPENDED" | "ARCHIVED", context: ParentAuditContext, deps: ParentServiceDependencies = {}): Promise<ParentResponse> {
-  requireManagementRole(context);
-  const current = await prisma.parent.findUnique({ where: { id: parentId }, select: parentSelect });
+  requireWriteRole(context);
+  const current = actor(context).role === UserRole.TEACHER ? await findParentForTeacherWrite(parentId, context) : await prisma.parent.findUnique({ where: { id: parentId }, select: parentSelect });
   if (!current || current.user.role !== UserRole.PARENT) throw parentNotFound();
   if (!canParentTransitionStatus(current.user.accountStatus, status, actor(context).role)) throw transitionInvalid();
   const record = await prisma.$transaction(async (tx) => {
@@ -248,8 +356,8 @@ export async function updateParentStatus(parentId: string, status: "ACTIVE" | "S
 }
 
 export async function resendParentSetup(parentId: string, context: ParentAuditContext, deps: ParentServiceDependencies = {}): Promise<{ invitation: { status: InvitationDeliveryStatus; expiresAt: Date } }> {
-  requireManagementRole(context);
-  const current = await prisma.parent.findUnique({ where: { id: parentId }, select: parentSelect });
+  requireWriteRole(context);
+  const current = actor(context).role === UserRole.TEACHER ? await findParentForTeacherWrite(parentId, context) : await prisma.parent.findUnique({ where: { id: parentId }, select: parentSelect });
   if (!current || current.user.role !== UserRole.PARENT) throw parentNotFound();
   if (current.user.accountStatus === AccountStatus.ARCHIVED) throw setupResendNotAllowed();
   if (!current.user.isFirstLogin && current.user.passwordHash) throw setupComplete();
@@ -268,14 +376,17 @@ export async function resendParentSetup(parentId: string, context: ParentAuditCo
 }
 
 export async function linkParentStudent(parentId: string, studentId: string, data: LinkParentStudentRequest, context: ParentAuditContext, deps: ParentServiceDependencies = {}): Promise<{ id: string; parentId: string; studentId: string; relationship: ParentRelationship; createdAt: Date }> {
-  requireManagementRole(context);
+  requireWriteRole(context);
+  const teacherSchoolId = actor(context).role === UserRole.TEACHER ? await resolveTeacherSchoolId(context) : null;
   const [parent, student, existing] = await Promise.all([
-    prisma.parent.findUnique({ where: { id: parentId }, select: { id: true, user: { select: { role: true } } } }),
-    prisma.student.findUnique({ where: { id: studentId }, select: { id: true, schoolId: true } }),
+    prisma.parent.findUnique({ where: { id: parentId }, select: { id: true, user: { select: { role: true } }, students: { select: { student: { select: { class: { select: { schoolId: true } } } } } } } }),
+    prisma.student.findUnique({ where: { id: studentId }, select: { id: true, schoolId: true, user: { select: { accountStatus: true } }, class: { select: { accountStatus: true, schoolId: true } } } }),
     prisma.parentStudent.findUnique({ where: { parentId_studentId: { parentId, studentId } }, select: { id: true } }),
   ]);
   if (!parent || parent.user.role !== UserRole.PARENT) throw parentNotFound();
   if (!student) throw studentNotFound();
+  if (teacherSchoolId && (student.schoolId !== teacherSchoolId || student.class.schoolId !== teacherSchoolId || student.class.accountStatus === AccountStatus.ARCHIVED || student.user.accountStatus === AccountStatus.ARCHIVED)) throw teacherAccessDenied();
+  if (teacherSchoolId && !parent.students.some((link) => link.student.class.schoolId === teacherSchoolId)) throw teacherAccessDenied();
   if (existing) throw parentStudentExists();
   let link: { id: string; parentId: string; studentId: string; relationship: ParentRelationship; createdAt: Date };
   try { link = await prisma.parentStudent.create({ data: { parentId, studentId, relationship: data.relationship }, select: { id: true, parentId: true, studentId: true, relationship: true, createdAt: true } }); }
@@ -285,9 +396,11 @@ export async function linkParentStudent(parentId: string, studentId: string, dat
 }
 
 export async function unlinkParentStudent(parentId: string, studentId: string, context: ParentAuditContext, deps: ParentServiceDependencies = {}): Promise<void> {
-  requireManagementRole(context);
-  const link = await prisma.parentStudent.findUnique({ where: { parentId_studentId: { parentId, studentId } }, select: { id: true, parentId: true, studentId: true, relationship: true, createdAt: true, student: { select: { schoolId: true } } } });
+  requireWriteRole(context);
+  const teacherSchoolId = actor(context).role === UserRole.TEACHER ? await resolveTeacherSchoolId(context) : null;
+  const link = await prisma.parentStudent.findUnique({ where: { parentId_studentId: { parentId, studentId } }, select: { id: true, parentId: true, studentId: true, relationship: true, createdAt: true, student: { select: { schoolId: true, class: { select: { schoolId: true } } } }, parent: { select: { students: { select: { student: { select: { class: { select: { schoolId: true } } } } } } } } } });
   if (!link) throw parentStudentNotFound();
+  if (teacherSchoolId && (link.student.schoolId !== teacherSchoolId || link.student.class.schoolId !== teacherSchoolId || !link.parent.students.some((entry) => entry.student.class.schoolId === teacherSchoolId))) throw teacherAccessDenied();
   await prisma.parentStudent.delete({ where: { id: link.id } });
   await dispatch(context, "PARENT_STUDENT_UNLINKED", "PARENT_STUDENT", link.id, link.student.schoolId, link, null, deps);
 }

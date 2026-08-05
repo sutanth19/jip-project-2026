@@ -1,0 +1,18 @@
+import { Router } from "express";
+import * as controller from "../controllers/notification.controller.js";
+import { authenticate, requirePasswordChanged } from "../middleware/auth.middleware.js";
+const router = Router();
+router.use(authenticate, requirePasswordChanged);
+router.get("/notifications", controller.listNotificationsController);
+router.get("/notifications/unread", controller.unreadNotificationsController);
+router.get("/notifications/:id", controller.getNotificationController);
+router.post("/notifications/read", controller.markReadController);
+router.post("/notifications/read-all", controller.readAllController);
+router.post("/notifications/archive", controller.archiveController);
+router.delete("/notifications/:id", controller.deleteController);
+router.get("/preferences", controller.preferencesController);
+router.patch("/preferences", controller.updatePreferencesController);
+router.get("/announcements", controller.listAnnouncementsController);
+router.post("/announcements", controller.createAnnouncementController);
+router.post("/announcements/:id/publish", controller.publishAnnouncementController);
+export default router;

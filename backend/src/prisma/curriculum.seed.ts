@@ -1,4 +1,4 @@
-import { CurriculumRecordStatus, CurriculumStatus } from "@prisma/client";
+import { CurriculumDomain, CurriculumRecordStatus, CurriculumStatus } from "@prisma/client";
 
 import { bmPemulihan2019SeedData, type BmPemulihanSeedData } from "../data/curriculum/bm-pemulihan-2019.js";
 import { prisma } from "../config/prisma.js";
@@ -21,11 +21,20 @@ export interface CurriculumSeedResult {
     years: number;
     languageStructures: number;
     remedialSkills: number;
+    contentStandards: number;
+    learningStandards: number;
+    remedialSkillStandardMappings: number;
   };
 }
 
 export interface CurriculumSeedOptions {
   dryRun?: boolean;
+}
+
+export const BUILT_IN_BM_PEMULIHAN_VERSION_STATUS = CurriculumStatus.PUBLISHED;
+
+export function shouldPromoteBuiltInBmPemulihanVersion(status: CurriculumStatus): boolean {
+  return status === CurriculumStatus.DRAFT;
 }
 
 function issue(code: string, path: string, message: string): CurriculumSeedIssue {
@@ -104,11 +113,22 @@ export async function seedBmPemulihanCurriculum(options: CurriculumSeedOptions =
   const data = bmPemulihan2019SeedData;
   const issues = validateBmPemulihanSeedData(data);
   if (issues.length > 0) throw invalidImport(issues);
+  const publicationDate = new Date();
 
   const result: CurriculumSeedResult = {
     dryRun: options.dryRun === true,
     versionCode: data.version.code,
-    created: { subjects: 0, versions: 0, programmes: 0, years: 0, languageStructures: 0, remedialSkills: 0 },
+    created: {
+      subjects: 0,
+      versions: 0,
+      programmes: 0,
+      years: 0,
+      languageStructures: 0,
+      remedialSkills: 0,
+      contentStandards: 0,
+      learningStandards: 0,
+      remedialSkillStandardMappings: 0,
+    },
   };
   if (options.dryRun) return result;
 
@@ -123,11 +143,28 @@ export async function seedBmPemulihanCurriculum(options: CurriculumSeedOptions =
 
     let version = await tx.curriculumVersion.findUnique({ where: { code: data.version.code } });
     if (!version) {
-      version = await tx.curriculumVersion.create({ data: { ...data.version, status: CurriculumStatus.DRAFT } });
+      version = await tx.curriculumVersion.create({
+        data: {
+          ...data.version,
+          status: BUILT_IN_BM_PEMULIHAN_VERSION_STATUS,
+          publishedAt: publicationDate,
+          archivedAt: null,
+        },
+      });
       result.created.versions += 1;
     } else {
       ensureSame(version.name, data.version.name, "version.name");
       ensureSame(version.sourceYear, data.version.sourceYear, "version.sourceYear");
+      if (shouldPromoteBuiltInBmPemulihanVersion(version.status)) {
+        version = await tx.curriculumVersion.update({
+          where: { id: version.id },
+          data: {
+            status: BUILT_IN_BM_PEMULIHAN_VERSION_STATUS,
+            publishedAt: version.publishedAt ?? publicationDate,
+            archivedAt: null,
+          },
+        });
+      }
     }
 
     let programme = await tx.curriculumProgramme.findUnique({
@@ -215,6 +252,129 @@ export async function seedBmPemulihanCurriculum(options: CurriculumSeedOptions =
     if (missingSkills.length > 0) {
       await tx.remedialSkill.createMany({ data: missingSkills });
       result.created.remedialSkills += missingSkills.length;
+    }
+
+    const existingContentStandards = await tx.contentStandard.findMany({ where: { programmeId: programme.id } });
+    const contentStandardsByCode = new Map(existingContentStandards.map((standard) => [`${standard.curriculumYearId}:${standard.code}`, standard]));
+    const contentStandardsBySequence = new Map(existingContentStandards.map((standard) => [`${standard.curriculumYearId}:${standard.sequence ?? -1}`, standard]));
+    const missingContentStandards: Array<{
+      programmeId: string;
+      curriculumYearId: string;
+      code: string;
+      title: string;
+      description: string | null;
+      domain: CurriculumDomain;
+      sequence: number | null;
+      status: CurriculumRecordStatus;
+    }> = [];
+
+    for (const contentStandard of data.contentStandards) {
+      const curriculumYear = await tx.curriculumYear.findUnique({
+        where: { programmeId_yearLevel: { programmeId: programme.id, yearLevel: contentStandard.yearLevel } },
+        select: { id: true, yearLevel: true },
+      });
+      if (!curriculumYear) throw invalidImport([issue("UNKNOWN_YEAR", `contentStandards.${contentStandard.code}.yearLevel`, "Tahun kurikulum tidak wujud.")]);
+      const existing = contentStandardsByCode.get(`${curriculumYear.id}:${contentStandard.code}`);
+      if (!existing) {
+        const sameSequence = contentStandardsBySequence.get(`${curriculumYear.id}:${contentStandard.sequence}`);
+        if (sameSequence) throw invalidImport([issue("SEED_CONFLICT", `contentStandards.${contentStandard.code}.sequence`, "Turutan standard kandungan telah digunakan oleh rekod lain.")]);
+        missingContentStandards.push({
+          programmeId: programme.id,
+          curriculumYearId: curriculumYear.id,
+          code: contentStandard.code,
+          title: contentStandard.title,
+          description: null,
+          domain: contentStandard.domain,
+          sequence: contentStandard.sequence,
+          status: CurriculumRecordStatus.ACTIVE,
+        });
+      } else {
+        ensureSame(existing.title, contentStandard.title, `contentStandards.${contentStandard.code}.title`);
+        ensureSame(existing.domain, contentStandard.domain, `contentStandards.${contentStandard.code}.domain`);
+        ensureSame(existing.sequence, contentStandard.sequence, `contentStandards.${contentStandard.code}.sequence`);
+        ensureSame(existing.curriculumYearId, curriculumYear.id, `contentStandards.${contentStandard.code}.curriculumYearId`);
+      }
+    }
+    if (missingContentStandards.length > 0) {
+      await tx.contentStandard.createMany({ data: missingContentStandards });
+      result.created.contentStandards += missingContentStandards.length;
+    }
+
+    const existingContentStandardRecords = await tx.contentStandard.findMany({ where: { programmeId: programme.id } });
+    const contentStandardsByComposite = new Map(existingContentStandardRecords.map((standard) => [`${standard.curriculumYearId}:${standard.code}`, standard]));
+    let existingLearningStandards = await tx.learningStandard.findMany({ where: { contentStandard: { programmeId: programme.id } } });
+    let learningStandardsByCode = new Map(existingLearningStandards.map((standard) => [`${standard.contentStandardId}:${standard.code}`, standard]));
+    let learningStandardsBySequence = new Map(existingLearningStandards.map((standard) => [`${standard.contentStandardId}:${standard.sequence ?? -1}`, standard]));
+    const missingLearningStandards: Array<{
+      contentStandardId: string;
+      code: string;
+      description: string;
+      sequence: number | null;
+      status: CurriculumRecordStatus;
+    }> = [];
+    const pendingMappings: Array<{
+      contentStandardId: string;
+      learningStandardCode: string;
+      skillCode: string;
+    }> = [];
+
+    for (const contentStandard of data.contentStandards) {
+      const curriculumYear = await tx.curriculumYear.findUnique({
+        where: { programmeId_yearLevel: { programmeId: programme.id, yearLevel: contentStandard.yearLevel } },
+        select: { id: true },
+      });
+      if (!curriculumYear) continue;
+      const existingContentStandard = contentStandardsByComposite.get(`${curriculumYear.id}:${contentStandard.code}`);
+      if (!existingContentStandard) continue;
+
+      for (const learningStandard of contentStandard.learningStandards) {
+        const existing = learningStandardsByCode.get(`${existingContentStandard.id}:${learningStandard.code}`);
+        if (!existing) {
+          const sameSequence = learningStandardsBySequence.get(`${existingContentStandard.id}:${learningStandard.sequence}`);
+          if (sameSequence) throw invalidImport([issue("SEED_CONFLICT", `learningStandards.${learningStandard.code}.sequence`, "Turutan standard pembelajaran telah digunakan oleh rekod lain.")]);
+          missingLearningStandards.push({
+            contentStandardId: existingContentStandard.id,
+            code: learningStandard.code,
+            description: learningStandard.description,
+            sequence: learningStandard.sequence,
+            status: CurriculumRecordStatus.ACTIVE,
+          });
+        } else {
+          ensureSame(existing.description, learningStandard.description, `learningStandards.${learningStandard.code}.description`);
+          ensureSame(existing.sequence, learningStandard.sequence, `learningStandards.${learningStandard.code}.sequence`);
+        }
+        for (const skillCode of learningStandard.skillCodes) {
+          pendingMappings.push({ contentStandardId: existingContentStandard.id, learningStandardCode: learningStandard.code, skillCode });
+        }
+      }
+    }
+    if (missingLearningStandards.length > 0) {
+      await tx.learningStandard.createMany({ data: missingLearningStandards });
+      result.created.learningStandards += missingLearningStandards.length;
+      existingLearningStandards = await tx.learningStandard.findMany({ where: { contentStandard: { programmeId: programme.id } } });
+      learningStandardsByCode = new Map(existingLearningStandards.map((standard) => [`${standard.contentStandardId}:${standard.code}`, standard]));
+      learningStandardsBySequence = new Map(existingLearningStandards.map((standard) => [`${standard.contentStandardId}:${standard.sequence ?? -1}`, standard]));
+    }
+    const pendingMappingRows: Array<{
+      remedialSkillId: string;
+      learningStandardId: string;
+      isPrimary: boolean;
+      notes: string | null;
+    }> = [];
+    const pendingMappingKeys = new Set<string>();
+    for (const mapping of pendingMappings) {
+      const skill = skillsByCode.get(mapping.skillCode);
+      if (!skill) throw invalidImport([issue("UNKNOWN_SKILL", `learningStandards.${mapping.learningStandardCode}.skillCodes.${mapping.skillCode}`, "Kemahiran pemulihan tidak wujud.")]);
+      const learningStandard = learningStandardsByCode.get(`${mapping.contentStandardId}:${mapping.learningStandardCode}`);
+      if (!learningStandard) throw invalidImport([issue("UNKNOWN_LEARNING_STANDARD", `learningStandards.${mapping.learningStandardCode}`, "Standard pembelajaran tidak wujud.")]);
+      const key = `${skill.id}:${learningStandard.id}`;
+      if (pendingMappingKeys.has(key)) continue;
+      pendingMappingKeys.add(key);
+      pendingMappingRows.push({ remedialSkillId: skill.id, learningStandardId: learningStandard.id, isPrimary: true, notes: null });
+    }
+    if (pendingMappingRows.length > 0) {
+      const mappingCreated = await tx.remedialSkillStandardMapping.createMany({ data: pendingMappingRows, skipDuplicates: true });
+      result.created.remedialSkillStandardMappings += mappingCreated.count;
     }
   }, { timeout: 30_000 });
 

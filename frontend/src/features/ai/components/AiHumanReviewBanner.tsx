@@ -1,0 +1,1 @@
+export function AiHumanReviewBanner(){return <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-foreground"><strong>Draf AI — Semakan manusia diperlukan.</strong><p className="mt-1 text-muted-foreground">Semak dan betulkan kandungan sebelum digunakan.</p></div>}

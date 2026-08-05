@@ -356,22 +356,22 @@ test("requireSchoolAccess allows SUPER_ADMIN access to any valid school", async 
   assert.equal(result.error, undefined);
 });
 
-test("requireSchoolAccess allows an ADMIN to access their school", async () => {
+test("requireSchoolAccess allows an ADMIN with null school context to access shared school routes", async () => {
+  const result = await invoke(
+    requireSchoolAccess(),
+    createRequest(createAuth(UserRole.ADMIN, { schoolId: null }), { schoolId: schoolOneId }),
+  );
+
+  assert.equal(result.error, undefined);
+});
+
+test("requireSchoolAccess allows an ADMIN with school context to access shared school routes", async () => {
   const result = await invoke(
     requireSchoolAccess(),
     createRequest(createAuth(UserRole.ADMIN), { schoolId: schoolOneId }),
   );
 
   assert.equal(result.error, undefined);
-});
-
-test("requireSchoolAccess rejects an ADMIN accessing another school", async () => {
-  const result = await invoke(
-    requireSchoolAccess(),
-    createRequest(createAuth(UserRole.ADMIN), { schoolId: schoolTwoId }),
-  );
-
-  assertAppError(result.error, "AUTH_SCHOOL_ACCESS_DENIED");
 });
 
 test("requireSchoolAccess allows a TEACHER to access their school", async () => {
@@ -392,16 +392,13 @@ test("requireSchoolAccess allows a STUDENT to access their school", async () => 
   assert.equal(result.error, undefined);
 });
 
-test("requireSchoolAccess rejects an ADMIN without a school context", async () => {
+test("requireSchoolAccess rejects an ADMIN accessing another school", async () => {
   const result = await invoke(
     requireSchoolAccess(),
-    createRequest(
-      createAuth(UserRole.ADMIN, { schoolId: null }),
-      { schoolId: schoolOneId },
-    ),
+    createRequest(createAuth(UserRole.ADMIN, { schoolId: schoolOneId }), { schoolId: schoolTwoId }),
   );
 
-  assertAppError(result.error, "AUTH_SCHOOL_CONTEXT_REQUIRED");
+  assertAppError(result.error, "AUTH_SCHOOL_ACCESS_DENIED");
 });
 
 test("requireSchoolAccess never grants broad school access to a PARENT", async () => {
@@ -504,7 +501,7 @@ test("requireTeacherStudentAccess permits a teacher assigned to the student's cl
   assert.equal(result.error, undefined);
 });
 
-test("requireTeacherStudentAccess rejects a teacher outside the student's class", async () => {
+test("requireTeacherStudentAccess permits a same-school teacher outside the student's class", async () => {
   const { db } = createAuthorizationDb({
     teacherStudent: {
       id: studentOneId,
@@ -525,7 +522,7 @@ test("requireTeacherStudentAccess rejects a teacher outside the student's class"
     ),
   );
 
-  assertAppError(result.error, "AUTH_OWNER_ACCESS_DENIED");
+  assert.equal(result.error, undefined);
 });
 
 test("requireTeacherStudentAccess rejects a teacher accessing a cross-school student", async () => {

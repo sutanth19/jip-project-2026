@@ -3,7 +3,18 @@ import { AccountStatus, UserRole } from "@prisma/client";
 import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/bcrypt.js";
 
-function requireEnv(name: string, value: string | undefined): string {
+export type SuperAdminSeedConfig = {
+  email: string;
+  password: string;
+  fullName: string;
+};
+
+type SeedDependencies = {
+  prisma: typeof prisma;
+  hashPassword: typeof hashPassword;
+};
+
+export function requireEnv(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
@@ -17,28 +28,28 @@ function requireEnv(name: string, value: string | undefined): string {
   return trimmed;
 }
 
-async function main() {
-  const email = requireEnv("SEED_SUPER_ADMIN_EMAIL", process.env.SEED_SUPER_ADMIN_EMAIL)
-    .toLowerCase();
-  const password = requireEnv(
-    "SEED_SUPER_ADMIN_PASSWORD",
-    process.env.SEED_SUPER_ADMIN_PASSWORD,
-  );
-  const fullName = requireEnv("SEED_SUPER_ADMIN_NAME", process.env.SEED_SUPER_ADMIN_NAME);
+export function readSuperAdminSeedConfig(env: NodeJS.ProcessEnv = process.env): SuperAdminSeedConfig {
+  return {
+    email: requireEnv("SEED_SUPER_ADMIN_EMAIL", env.SEED_SUPER_ADMIN_EMAIL).toLowerCase(),
+    password: requireEnv("SEED_SUPER_ADMIN_PASSWORD", env.SEED_SUPER_ADMIN_PASSWORD),
+    fullName: requireEnv("SEED_SUPER_ADMIN_NAME", env.SEED_SUPER_ADMIN_NAME),
+  };
+}
+
+export async function seedSuperAdmin(config: SuperAdminSeedConfig, dependencies: SeedDependencies = { prisma, hashPassword }) {
+  const passwordHash = await dependencies.hashPassword(config.password);
 
   console.log("seed started");
-  console.log(`Super Admin email: ${email}`);
+  console.log(`Super Admin email: ${config.email}`);
 
-  const passwordHash = await hashPassword(password);
-
-  await prisma.$transaction(async (tx) => {
+  await dependencies.prisma.$transaction(async (tx) => {
     const user = await tx.user.upsert({
       where: {
-        email,
+        email: config.email,
       },
       create: {
         role: UserRole.SUPER_ADMIN,
-        email,
+        email: config.email,
         passwordHash,
         accountStatus: AccountStatus.ACTIVE,
         isFirstLogin: true,
@@ -49,7 +60,7 @@ async function main() {
       },
       update: {
         role: UserRole.SUPER_ADMIN,
-        email,
+        email: config.email,
         passwordHash,
         accountStatus: AccountStatus.ACTIVE,
         isFirstLogin: true,
@@ -67,14 +78,14 @@ async function main() {
       create: {
         userId: user.id,
         schoolId: null,
-        fullName,
+        fullName: config.fullName,
         position: "Super Administrator",
         phone: null,
         avatar: null,
       },
       update: {
         schoolId: null,
-        fullName,
+        fullName: config.fullName,
         position: "Super Administrator",
         phone: null,
         avatar: null,
@@ -86,16 +97,22 @@ async function main() {
   console.log("seed completed");
 }
 
-main()
-  .catch((error: unknown) => {
-    if (error instanceof Error) {
-      console.error(error.message);
-    } else {
-      console.error("Seed failed.");
-    }
+async function main() {
+  await seedSuperAdmin(readSuperAdminSeedConfig());
+}
 
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (process.argv[1]?.endsWith("seed.ts")) {
+  main()
+    .catch((error: unknown) => {
+      if (error instanceof Error) {
+        console.error(error.message);
+      } else {
+        console.error("Seed failed.");
+      }
+
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

@@ -1,33 +1,38 @@
 import Container from "@/components/common/Container";
 import { CircularTestimonials } from "@/components/ui/circular-testimonials";
 
+import digitalAccessImage from "@/assets/images/digital-access.jpg";
+import modulesImage from "@/assets/images/modules.jpg";
+import platformImage from "@/assets/images/platform.jpg";
+import userRolesImage from "@/assets/images/user-roles.jpg";
+
 const statistics = [
   {
     quote: "Pentadbir, guru, murid dan ibu bapa.",
     name: "4",
     designation: "Peranan Pengguna",
-    src: "/images/statistics/user-roles.jpg",
+    src: userRolesImage,
   },
   {
     quote:
       "Perpustakaan, peminjaman, kemajuan bacaan, program literasi, laporan, pemberitahuan, pengurusan pengguna dan papan pemuka.",
     name: "8",
     designation: "Modul Utama",
-    src: "/images/statistics/modules.jpg",
+    src: modulesImage,
   },
   {
     quote:
       "Semua pengurusan literasi sekolah diuruskan melalui satu sistem berpusat.",
     name: "1",
     designation: "Platform Bersepadu",
-    src: "/images/statistics/platform.jpg",
+    src: platformImage,
   },
   {
     quote:
       "Pengguna yang diberi kebenaran boleh mengakses platform pada bila-bila masa mengikut keperluan.",
     name: "24/7",
     designation: "Akses Digital",
-    src: "/images/statistics/digital-access.jpg",
+    src: digitalAccessImage,
   },
 ];
 

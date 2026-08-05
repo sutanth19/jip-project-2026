@@ -20,6 +20,22 @@ import curriculumRoutes from "./routes/curriculum.routes.js";
 import questionBankRoutes from "./routes/question-bank.routes.js";
 import activityTemplateRoutes from "./routes/activity-template.routes.js";
 import digitalActivityRoutes from "./routes/digitalActivity.routes.js";
+import assignmentRoutes from "./routes/assignment.routes.js";
+import studentAssignmentRoutes from "./routes/student-assignment.routes.js";
+import parentAssignmentRoutes from "./routes/parent-assignment.routes.js";
+import studentAttemptRoutes from "./routes/student-attempt.routes.js";
+import submissionRoutes from "./routes/submission.routes.js";
+import studentSubmissionRoutes from "./routes/student-submission.routes.js";
+import parentSubmissionRoutes from "./routes/parent-submission.routes.js";
+import assessmentRoutes from "./routes/assessment.routes.js";
+import studentAssessmentRoutes from "./routes/student-assessment.routes.js";
+import parentAssessmentRoutes from "./routes/parent-assessment.routes.js";
+import pbdRoutes from "./routes/pbd.routes.js";
+import studentProgressRoutes from "./routes/student-progress.routes.js";
+import parentProgressRoutes from "./routes/parent-progress.routes.js";
+import reportRoutes from "./routes/report.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -53,6 +69,22 @@ app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/question-bank", questionBankRoutes);
 app.use("/api/activity-templates", activityTemplateRoutes);
 app.use("/api/digital-activities", digitalActivityRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/student", studentAssignmentRoutes);
+app.use("/api/student/attempts", studentAttemptRoutes);
+app.use("/api/submissions", submissionRoutes);
+app.use("/api/student/submissions", studentSubmissionRoutes);
+app.use("/api/parent", parentAssignmentRoutes);
+app.use("/api/parent", parentSubmissionRoutes);
+app.use("/api/assessments", assessmentRoutes);
+app.use("/api/student/assessments", studentAssessmentRoutes);
+app.use("/api/parent", parentAssessmentRoutes);
+app.use("/api/pbd", pbdRoutes);
+app.use("/api/student", studentProgressRoutes);
+app.use("/api/parent", parentProgressRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api", notificationRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

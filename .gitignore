@@ -32,3 +32,6 @@ prisma/dev.db
 
 # Archive files
 *.zip
+
+# Runtime-only local media storage
+backend/storage/

@@ -9,6 +9,10 @@ import {
   type AuditEvent,
   type AuditEventDispatcher,
 } from "./audit.service.js";
+import {
+  EmailDeliveryError,
+  sendResendEmail,
+} from "./notification-email.service.js";
 import type {
   CreateAdminRequest,
   ListAdminsQuery,
@@ -99,9 +103,16 @@ export interface AdminRepository {
 
 export type InvitationDeliveryStatus = "QUEUED" | "SENT" | "DEVELOPMENT_PREVIEW" | "FAILED";
 
+export type AdminInvitationResponse = {
+  status: InvitationDeliveryStatus;
+  expiresAt: Date;
+  developmentSetupUrl?: string;
+};
+
 export interface AdminSetupInvitation {
   adminId: string;
   email: string;
+  fullName: string;
   setupToken: string;
   expiresAt: Date;
 }
@@ -315,14 +326,158 @@ function getSetupExpiryHours(value: number | undefined): number {
     : 24;
 }
 
-/**
- * Email delivery is intentionally deferred. This truthful default does not log
- * the raw token or claim that a provider has sent an invitation.
- */
-export function sendAdminSetupInvitation(
-  _invitation: AdminSetupInvitation,
-): InvitationDeliveryStatus {
-  return process.env.NODE_ENV === "production" ? "FAILED" : "DEVELOPMENT_PREVIEW";
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] ?? character);
+}
+
+function recipientDomain(email: string): string {
+  return email.includes("@") ? email.split("@").pop() ?? "unknown" : "unknown";
+}
+
+function logAdminSetupEmailResult(
+  level: "info" | "warn",
+  message: string,
+  data: {
+    adminId: string;
+    email: string;
+    providerId?: string | null;
+    reason?: string;
+    providerStatus?: number;
+  },
+): void {
+  const payload = {
+    adminId: data.adminId,
+    recipientDomain: recipientDomain(data.email),
+    ...(data.providerId ? { providerId: data.providerId } : {}),
+    ...(data.reason ? { reason: data.reason } : {}),
+    ...(data.providerStatus ? { providerStatus: data.providerStatus } : {}),
+  };
+
+  console[level](message, payload);
+}
+
+function isDevelopmentEnvironment(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.NODE_ENV === "development";
+}
+
+export function buildAdminSetupUrl(setupToken: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  const baseUrl = env.FRONTEND_URL ?? env.APP_URL ?? (isDevelopmentEnvironment(env) ? "http://localhost:5173" : undefined);
+
+  if (!baseUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL("/setup-password", baseUrl);
+    url.searchParams.set("token", setupToken);
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildAdminInvitationResponse(
+  status: InvitationDeliveryStatus,
+  expiresAt: Date,
+  setupToken: string,
+  env: NodeJS.ProcessEnv = process.env,
+): AdminInvitationResponse {
+  const response: AdminInvitationResponse = { status, expiresAt };
+
+  if (!isDevelopmentEnvironment(env)) {
+    return response;
+  }
+
+  const developmentSetupUrl = buildAdminSetupUrl(setupToken, env);
+  if (developmentSetupUrl) {
+    response.developmentSetupUrl = developmentSetupUrl;
+  }
+
+  return response;
+}
+
+export function adminSetupEmailTemplate(input: {
+  fullName: string;
+  setupUrl: string;
+  expiresAt: Date;
+}): { subject: string; html: string; text: string } {
+  const expiry = input.expiresAt.toLocaleString("ms-MY", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Kuala_Lumpur",
+  });
+  const safeName = escapeHtml(input.fullName);
+  const safeUrl = escapeHtml(input.setupUrl);
+  const subject = "Lengkapkan Penyediaan Akaun Digital MoLIB";
+  const text = [
+    `Salam ${input.fullName},`,
+    "",
+    "Akaun Admin Digital MoLIB telah dicipta untuk anda dan kini berada dalam status menunggu.",
+    "Sila cipta kata laluan anda untuk melengkapkan penyediaan akaun.",
+    `Pautan ini akan tamat tempoh pada ${expiry}.`,
+    "",
+    `Lengkapkan Akaun: ${input.setupUrl}`,
+    "",
+    "Jika anda tidak menjangkakan e-mel ini, abaikan mesej ini.",
+  ].join("\n");
+  const html = `<!doctype html><html><body><main style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#1e293b"><h1>Lengkapkan Penyediaan Akaun Digital MoLIB</h1><p>Salam ${safeName},</p><p>Akaun Admin Digital MoLIB telah dicipta untuk anda dan kini berada dalam status menunggu.</p><p>Sila cipta kata laluan anda untuk melengkapkan penyediaan akaun.</p><p>Pautan ini akan tamat tempoh pada <strong>${escapeHtml(expiry)}</strong>.</p><p><a href="${safeUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">Lengkapkan Akaun</a></p><p>Jika butang tidak berfungsi, buka pautan ini:</p><p><a href="${safeUrl}">${safeUrl}</a></p><p>Jika anda tidak menjangkakan e-mel ini, abaikan mesej ini.</p><hr><small>Digital MoLIB</small></main></body></html>`;
+
+  return { subject, html, text };
+}
+
+export async function sendAdminSetupInvitation(
+  invitation: AdminSetupInvitation,
+): Promise<InvitationDeliveryStatus> {
+  const setupUrl = buildAdminSetupUrl(invitation.setupToken);
+
+  if (!setupUrl) {
+    if (process.env.NODE_ENV !== "production") {
+      return "DEVELOPMENT_PREVIEW";
+    }
+
+    logAdminSetupEmailResult("warn", "Admin setup email delivery failed.", {
+      adminId: invitation.adminId,
+      email: invitation.email,
+      reason: "SETUP_URL_NOT_CONFIGURED",
+    });
+    return "FAILED";
+  }
+
+  const email = adminSetupEmailTemplate({
+    fullName: invitation.fullName,
+    setupUrl,
+    expiresAt: invitation.expiresAt,
+  });
+
+  try {
+    const sent = await sendResendEmail({
+      to: invitation.email,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+    logAdminSetupEmailResult("info", "Admin setup email delivered.", {
+      adminId: invitation.adminId,
+      email: invitation.email,
+      providerId: sent.providerId,
+    });
+    return "SENT";
+  } catch (error) {
+    const deliveryError = error instanceof EmailDeliveryError ? error : null;
+    logAdminSetupEmailResult("warn", "Admin setup email delivery failed.", {
+      adminId: invitation.adminId,
+      email: invitation.email,
+      reason: deliveryError?.code ?? "EMAIL_DELIVERY_FAILED",
+      providerStatus: deliveryError?.providerStatus,
+    });
+    return "FAILED";
+  }
 }
 
 const prismaAdminRepository: AdminRepository = {
@@ -534,7 +689,7 @@ export async function createAdmin(
   data: CreateAdminRequest,
   context: AdminAuditContext,
   deps: AdminServiceDependencies = {},
-): Promise<{ admin: AdminResponse; invitation: { status: InvitationDeliveryStatus; expiresAt: Date } }> {
+): Promise<{ admin: AdminResponse; invitation: AdminInvitationResponse }> {
   const repository = deps.repository ?? prismaAdminRepository;
   const now = deps.now?.() ?? new Date();
   const setupToken = (deps.setupTokenGenerator ?? generateSetupToken)();
@@ -560,6 +715,7 @@ export async function createAdmin(
   const invitationStatus = await invitationDispatcher({
     adminId: record.id,
     email: input.email,
+    fullName: record.fullName,
     setupToken,
     expiresAt: setupTokenExpiry,
   });
@@ -568,10 +724,7 @@ export async function createAdmin(
 
   return {
     admin: toResponse(record),
-    invitation: {
-      status: invitationStatus,
-      expiresAt: setupTokenExpiry,
-    },
+    invitation: buildAdminInvitationResponse(invitationStatus, setupTokenExpiry, setupToken),
   };
 }
 
@@ -677,7 +830,7 @@ export async function resendAdminSetup(
   adminId: string,
   context: AdminAuditContext,
   deps: AdminServiceDependencies = {},
-): Promise<{ invitation: { status: InvitationDeliveryStatus; expiresAt: Date } }> {
+): Promise<{ invitation: AdminInvitationResponse }> {
   const repository = deps.repository ?? prismaAdminRepository;
   const current = await assertAdminRecord(repository, adminId);
 
@@ -699,13 +852,14 @@ export async function resendAdminSetup(
   const status = await invitationDispatcher({
     adminId: record.id,
     email: record.user.email ?? "",
+    fullName: record.fullName,
     setupToken,
     expiresAt,
   });
 
   await dispatchAdminAudit(context, "ADMIN_SETUP_RESENT", record, toResponse(current), deps);
 
-  return { invitation: { status, expiresAt } };
+  return { invitation: buildAdminInvitationResponse(status, expiresAt, setupToken) };
 }
 
 export const adminStatusPolicy =
