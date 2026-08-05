@@ -16,9 +16,17 @@ import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage"
 import LoginPage from "../pages/auth/LoginPage"
 import ChangeFirstPasswordPage from "@/pages/auth/ChangeFirstPasswordPage"
 import ChangeFirstPinPage from "@/pages/auth/ChangeFirstPinPage"
+import ResetPasswordPage from "@/pages/auth/ResetPasswordPage"
 import SetupPasswordPage from "@/pages/auth/SetupPasswordPage"
 import { RequireAdmin, RequireAuth, RequireParent, RequireRole, RequireStudent, RequireTeacher } from "@/routes/guards"
 import { AdminDashboardPage } from "@/features/admin/pages/AdminDashboardPage"
+import { AdminActivityGalleryPlaceholderPage } from "@/features/admin/pages/AdminActivityGalleryPlaceholderPage"
+import { AdminActivityContentPlaceholderPage } from "@/features/admin/pages/AdminActivityContentPlaceholderPage"
+import { AdminActivityCurriculumPlaceholderPage } from "@/features/admin/pages/AdminActivityCurriculumPlaceholderPage"
+import { AdminActivityPage } from "@/features/admin/pages/AdminActivityPage"
+import { AdminActivityTypePage } from "@/features/admin/pages/AdminActivityTypePage"
+import { AdminReadingTemplateGalleryPage } from "@/features/admin/pages/AdminReadingTemplateGalleryPage"
+import { AdminReadingTemplateWizardPlaceholderPage } from "@/features/admin/pages/AdminReadingTemplateWizardPlaceholderPage"
 import { AdminEntityDetailPage } from "@/features/admin/pages/AdminEntityDetailPage"
 import { AdminEntityFormPage } from "@/features/admin/pages/AdminEntityFormPage"
 import { AdminEntityListPage } from "@/features/admin/pages/AdminEntityListPage"
@@ -32,6 +40,15 @@ import { CurriculumHomePage } from "@/features/builder/pages/CurriculumHomePage"
 import { CurriculumNestedPage } from "@/features/builder/pages/CurriculumNestedPage"
 import { DigitalActivityPreviewPage } from "@/features/builder/pages/DigitalActivityPreviewPage"
 import { TeacherAssignmentFormPage, TeacherDashboardPage, TeacherDetailPage, TeacherListPage, TeacherPbdPage, TeacherProfilePage, TeacherReportsPage } from "@/features/teacher/pages/TeacherPages"
+import { TeacherClassListPage } from "@/features/teacher/pages/TeacherClassPages"
+import { TeacherClassCreatePage } from "@/features/teacher/pages/TeacherClassCreatePage"
+import { TeacherClassDetailPage } from "@/features/teacher/pages/TeacherClassDetailPage"
+import { TeacherClassEditPage } from "@/features/teacher/pages/TeacherClassEditPage"
+import { TeacherParentCreatePage, TeacherParentDetailPage, TeacherParentEditPage, TeacherParentListPage } from "@/features/teacher/pages/TeacherParentPages"
+import { TeacherStudentCreatePage } from "@/features/teacher/pages/TeacherStudentCreatePage"
+import { TeacherStudentDetailPage } from "@/features/teacher/pages/TeacherStudentDetailPage"
+import { TeacherStudentEditPage } from "@/features/teacher/pages/TeacherStudentEditPage"
+import { TeacherStudentListPage } from "@/features/teacher/pages/TeacherStudentPages"
 import { StudentAssignmentDetailPage, StudentDashboardPage, StudentDetailPage, StudentListPage, StudentPlayerPage, StudentProgressPage } from "@/features/student/pages/StudentPages"
 import { ParentChildPage, ParentChildListPage, ParentChildrenPage, ParentDashboardPage, ParentProfilePage, ParentProgressPage, ParentReportPage, ParentSimpleListPage } from "@/features/parent/pages/ParentPages"
 import { NotificationCentrePage, NotificationPreferencesPage } from "@/features/notifications/pages/NotificationPages"
@@ -69,6 +86,16 @@ const router = createBrowserRouter([
           {
             index: true,
             element: <ForgotPasswordPage />,
+          },
+        ],
+      },
+      {
+        path: "reset-password",
+        element: <AuthLayout />,
+        children: [
+          {
+            index: true,
+            element: <ResetPasswordPage />,
           },
         ],
       },
@@ -257,11 +284,19 @@ const router = createBrowserRouter([
         ),
         children: [
           { index: true, element: <TeacherDashboardPage /> },
-          { path: "kelas", element: <TeacherListPage resource="classes" /> },
-          { path: "kelas/:classId", element: <TeacherDetailPage resource="classes" /> },
+          { path: "kelas", element: <TeacherClassListPage /> },
+          { path: "kelas/tambah", element: <TeacherClassCreatePage /> },
+          { path: "kelas/:classId", element: <TeacherClassDetailPage /> },
+          { path: "kelas/:classId/edit", element: <TeacherClassEditPage /> },
           { path: "kelas/:classId/murid/:studentId", element: <TeacherDetailPage resource="students" /> },
-          { path: "murid", element: <TeacherListPage resource="students" /> },
-          { path: "murid/:studentId", element: <TeacherDetailPage resource="students" /> },
+          { path: "ibu-bapa", element: <TeacherParentListPage /> },
+          { path: "ibu-bapa/tambah", element: <TeacherParentCreatePage /> },
+          { path: "ibu-bapa/:parentId", element: <TeacherParentDetailPage /> },
+          { path: "ibu-bapa/:parentId/edit", element: <TeacherParentEditPage /> },
+          { path: "murid", element: <TeacherStudentListPage /> },
+          { path: "murid/tambah", element: <TeacherStudentCreatePage /> },
+          { path: "murid/:studentId", element: <TeacherStudentDetailPage /> },
+          { path: "murid/:studentId/edit", element: <TeacherStudentEditPage /> },
           { path: "aktiviti", element: <TeacherListPage resource="activities" /> },
           { path: "aktiviti/:activityId", element: <TeacherDetailPage resource="activities" /> },
           { path: "aktiviti/:activityId/preview", element: <DigitalActivityPreviewPage /> },
@@ -294,6 +329,14 @@ const router = createBrowserRouter([
         ),
         children: [
           { index: true, element: <AdminDashboardPage /> },
+          { path: "aktiviti", element: <AdminActivityPage /> },
+          { path: "aktiviti/cipta", element: <AdminActivityTypePage /> },
+          { path: "aktiviti/cipta/membaca", element: <AdminReadingTemplateGalleryPage /> },
+          { path: "aktiviti/cipta/membaca/seret-suku-kata", element: <AdminReadingTemplateWizardPlaceholderPage /> },
+          { path: "aktiviti/:activityId/cipta/maklumat", element: <AdminReadingTemplateWizardPlaceholderPage /> },
+          { path: "aktiviti/:activityId/cipta/kurikulum", element: <AdminActivityCurriculumPlaceholderPage /> },
+          { path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPlaceholderPage /> },
+          { path: "aktiviti/cipta/menulis", element: <AdminActivityGalleryPlaceholderPage category="WRITING" /> },
           { path: "sekolah", element: <AdminEntityListPage entityKey="schools" /> },
           { path: "sekolah/tambah", element: <AdminEntityFormPage entityKey="schools" mode="create" /> },
           { path: "sekolah/:id", element: <AdminEntityDetailPage entityKey="schools" /> },

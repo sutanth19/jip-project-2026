@@ -11,34 +11,34 @@ type FaqItem = {
 
 const faqItems: FaqItem[] = [
   {
-    question: "Who can use Digital MoLIB?",
+    question: "Siapakah yang boleh menggunakan LITERASI DIGITAL?",
     answer:
-      "Digital MoLIB is designed for school administrators, teachers, students, and parents, providing each user with role-based access and features.",
+      "LITERASI DIGITAL direka untuk digunakan oleh pentadbir sekolah, guru, murid dan ibu bapa. Setiap pengguna mempunyai akses serta ciri-ciri yang disesuaikan mengikut peranan masing-masing.",
   },
   {
-    question: "Does Digital MoLIB support both physical and digital books?",
+    question: "Adakah LITERASI DIGITAL menyokong buku fizikal dan buku digital?",
     answer:
-      "Yes. Schools can manage physical books, digital resources, and borrowing activities within a single platform.",
+      "Ya. LITERASI DIGITAL membolehkan sekolah mengurus buku fizikal, buku digital, sumber pembelajaran digital serta aktiviti peminjaman melalui satu platform bersepadu.",
   },
   {
-    question: "Can parents monitor their children's reading progress?",
+    question: "Adakah ibu bapa boleh memantau kemajuan bacaan anak-anak mereka?",
     answer:
-      "Yes. Parents can view reading activities, achievements, and literacy progress through their own dashboard.",
+      "Ya. Ibu bapa boleh memantau aktiviti bacaan, pencapaian serta perkembangan literasi anak-anak melalui papan pemuka (dashboard) mereka sendiri.",
   },
   {
-    question: "Can teachers generate reports?",
+    question: "Adakah guru boleh menjana laporan?",
     answer:
-      "Yes. Teachers and administrators can generate literacy reports, borrowing reports, and student reading summaries.",
+      "Ya. Guru dan pentadbir boleh menjana laporan literasi, laporan peminjaman buku serta ringkasan kemajuan bacaan murid dengan mudah melalui sistem.",
   },
   {
-    question: "Is Digital MoLIB secure?",
+    question: "Adakah LITERASI DIGITAL selamat digunakan?",
     answer:
-      "Yes. The system uses authentication and role-based permissions to protect school data and user information.",
+      "Ya. LITERASI DIGITAL menggunakan sistem pengesahan pengguna dan kawalan akses mengikut peranan bagi melindungi data sekolah serta maklumat pengguna daripada capaian yang tidak dibenarkan.",
   },
   {
-    question: "Can Digital MoLIB be accessed on mobile devices?",
+    question: "Adakah LITERASI DIGITAL boleh diakses menggunakan peranti mudah alih?",
     answer:
-      "Yes. The platform is fully responsive and can be accessed from desktops, tablets, and smartphones.",
+      "Ya. LITERASI DIGITAL direka bentuk secara responsif dan boleh diakses melalui komputer, komputer riba, tablet serta telefon pintar pada bila-bila masa dan di mana sahaja.",
   },
 ];
 
@@ -50,14 +50,13 @@ export default function Faq() {
       <Container className="py-10 md:py-14 lg:py-16">
         <div className="mx-auto max-w-3xl text-center">
           <span className="mb-4 inline-flex rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
-            Frequently Asked Questions
+            Soalan Lazim (FAQ)
           </span>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Everything You Need to Know About Digital MoLIB
+            Segala Yang Perlu Anda Ketahui Mengenai LITERASI DIGITAL
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            Find answers to the most common questions about Digital MoLIB and
-            how it supports literacy management in schools.
+            Dapatkan jawapan kepada soalan-soalan yang sering ditanya mengenai LITERASI DIGITAL serta bagaimana sistem ini membantu pengurusan literasi di sekolah dengan lebih cekap.
           </p>
         </div>
 

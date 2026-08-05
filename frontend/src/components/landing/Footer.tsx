@@ -31,18 +31,17 @@ export default function Footer() {
               to="/"
               className="mb-4 inline-flex text-xl font-bold tracking-wide text-foreground transition-colors hover:text-primary"
             >
-              Digital MoLIB
+              LITERASI DIGITAL
             </Link>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-              A modern School Literacy Management System that empowers
-              administrators, teachers, students, and parents through one
-              integrated digital platform.
+              Sistem pengurusan literasi sekolah moden yang membantu pentadbir, guru, murid dan ibu bapa mengurus aktiviti bacaan,
+              koleksi buku serta program literasi melalui satu platform digital bersepadu.
             </p>
           </div>
 
           <div>
             <h2 className="mb-4 text-sm font-semibold tracking-wider text-foreground uppercase">
-              Quick Links
+              PAUTAN PANTAS
             </h2>
             <ul className="space-y-3">
               {quickLinks.map(({ label, to }) => (
@@ -57,7 +56,7 @@ export default function Footer() {
 
           <div>
             <h2 className="mb-4 text-sm font-semibold tracking-wider text-foreground uppercase">
-              Platform
+              MODUL SISTEM
             </h2>
             <ul className="space-y-3">
               {platformLinks.map(({ label, to }) => (
@@ -72,7 +71,7 @@ export default function Footer() {
 
           <div>
             <h2 className="mb-4 text-sm font-semibold tracking-wider text-foreground uppercase">
-              Contact
+              Hubungi Kami
             </h2>
             <ul className="space-y-3">
               <li>
@@ -102,7 +101,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          <p>© 2026 Digital MoLIB.</p>
+          <p>©️ 2026 Digital MoLIB.</p>
           <p>All rights reserved.</p>
         </div>
       </Container>

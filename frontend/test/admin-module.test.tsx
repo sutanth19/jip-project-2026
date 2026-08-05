@@ -846,23 +846,8 @@ describe("Phase 27B Admin module contracts", () => {
     expect(expiredMarkup).toContain("Hantar Semula Setup");
   });
 
-  it("shows development setup copy action only when developmentSetupUrl exists", () => {
-    const withDevelopmentUrl = renderToStaticMarkup(
-      <MemoryRouter>
-        <AdminAccountDetailView
-          detail={{ ...adminDetailDto, setupStatus: "PENDING" }}
-          path="/admin/pentadbir"
-          statusPending={false}
-          resendPending={false}
-          developmentSetupUrl="http://localhost:5173/setup-password?token=development-token"
-          onStatusChange={async () => true}
-          onResendSetup={() => undefined}
-          onCopyDevelopmentSetupUrl={() => undefined}
-          onArchive={async () => true}
-        />
-      </MemoryRouter>,
-    );
-    const withoutDevelopmentUrl = renderToStaticMarkup(
+  it("does not expose development setup URL actions on the Admin detail setup card", () => {
+    const markup = renderToStaticMarkup(
       <MemoryRouter>
         <AdminAccountDetailView
           detail={{ ...adminDetailDto, setupStatus: "PENDING" }}
@@ -876,20 +861,23 @@ describe("Phase 27B Admin module contracts", () => {
       </MemoryRouter>,
     );
 
-    expect(withDevelopmentUrl).toContain("Pautan setup pembangunan");
-    expect(withDevelopmentUrl).toContain("Pembangunan Sahaja");
-    expect(withDevelopmentUrl).toContain("Salin Pautan Setup");
-    expect(withDevelopmentUrl).not.toContain("development-token");
-    expect(withoutDevelopmentUrl).not.toContain("Pautan setup pembangunan");
-    expect(withoutDevelopmentUrl).not.toContain("Salin Pautan Setup");
+    expect(markup).toContain("Menunggu");
+    expect(markup).toContain("Hantar Semula Setup");
+    expect(markup).toContain("Jemputan e-mel telah dihantar kepada pentadbir. Akaun akan diaktifkan selepas pengguna melengkapkan penyediaan akaun melalui pautan dalam e-mel.");
+    expect(markup).not.toContain("Pautan setup pembangunan");
+    expect(markup).not.toContain("Pembangunan Sahaja");
+    expect(markup).not.toContain("Gunakan pautan ini hanya untuk ujian pembangunan tempatan.");
+    expect(markup).not.toContain("Salin Pautan Setup");
+    expect(markup).not.toContain("setup-password");
+    expect(markup).not.toContain("development-token");
   });
 
   it("uses the real resend setup invitation status before showing delivery success", () => {
     const page = readFileSync(new URL("../src/features/admin/pages/AdminEntityDetailPage.tsx", import.meta.url), "utf8");
 
     expect(page).toContain('invitationStatus === "SENT"');
-    expect(page).toContain("setDevelopmentSetupUrl(getDevelopmentSetupUrl(result))");
-    expect(page).toContain("navigator.clipboard.writeText(developmentSetupUrl)");
+    expect(page).not.toContain("setDevelopmentSetupUrl(getDevelopmentSetupUrl(result))");
+    expect(page).not.toContain("navigator.clipboard.writeText(developmentSetupUrl)");
     expect(page).toContain("E-mel penyediaan tidak dapat dihantar. Sila cuba lagi.");
     expect(page).toContain('toast.success("Jemputan persediaan dihantar semula.")');
     expect(page).toContain('toast.error("E-mel penyediaan tidak dapat dihantar", "Sila cuba lagi.")');
@@ -1241,7 +1229,7 @@ describe("Phase 27B Admin module contracts", () => {
     expect(managementLayout).toContain("mx-auto w-full max-w-7xl bg-background px-4 pb-6 pt-5 sm:px-6 lg:px-8");
     expect(managementLayout).toContain("flex min-h-9 flex-wrap items-center gap-2 text-sm");
     expect(managementLayout).toContain("mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between");
-    expect(countOccurrences(formPage, "adminManagementPageContainerClass")).toBe(5);
+    expect(countOccurrences(formPage, "adminManagementPageContainerClass")).toBe(7);
     expect(detailPage).toContain("adminManagementPageContainerClass");
     expect(formPage).toContain('"px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0"');
     expect(detailPage).toContain('"px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0"');
@@ -1398,20 +1386,31 @@ describe("Phase 27B Admin module contracts", () => {
     expect(page).toContain("createMutation.mutateAsync(payload)");
     expect(page).toContain('toast.success("Pentadbir berjaya dicipta.", invitationDescription)');
     expect(page).toContain('const invitationSent = invitationStatus === "SENT"');
-    expect(page).toContain("getDevelopmentSetupUrl(created as Record<string, unknown>)");
-    expect(page).toContain("developmentSetupUrl");
+    expect(page).toContain("invitationStatus");
+    expect(page).not.toContain("getDevelopmentSetupUrl(created as Record<string, unknown>)");
     expect(page).toContain("Pentadbir berjaya dicipta dan e-mel penyediaan telah dihantar.");
     expect(page).toContain("Pentadbir berjaya dicipta, tetapi e-mel penyediaan tidak dapat dihantar.");
     expect(routes).toContain('path: "setup-password"');
     expect(routes).toContain("<SetupPasswordPage />");
-    expect(page).toContain("navigate(`${config.path}/${createdId}`, { replace: true })");
+    expect(page).toContain("detailPath: `${config.path}/${createdId}`");
     expect(form).toContain("buildAdminCreatePayload(values)");
-    expect(form).toContain("Pautan setup pembangunan");
-    expect(form).toContain("Pembangunan Sahaja");
-    expect(form).toContain("Salin Pautan Setup");
-    expect(form).toContain("Buka Pautan Setup");
-    expect(form).toContain("navigator.clipboard.writeText(successResult.developmentSetupUrl)");
-    expect(form).toContain('window.open(successResult.developmentSetupUrl, "_blank", "noopener,noreferrer")');
+    expect(form).toContain("CreateSuccessDialog");
+    expect(form).toContain("E-mel jemputan telah dihantar kepada pengguna untuk melengkapkan penyediaan akaun dan mencipta kata laluan..");
+    expect(form).toContain("Pengguna perlu membuka e-mel tersebut untuk mencipta kata laluan dan melengkapkan penyediaan akaun.");
+    expect(form).toContain("Akaun pentadbir berjaya dicipta, tetapi e-mel penyediaan gagal dihantar.");
+    expect(form).toContain("Lihat Butiran");
+    expect(form).toContain("Selesai");
+    expect(form).toContain("<Link to={result.detailPath}>Lihat Butiran</Link>");
+    expect(form).toContain("navigate(path, { replace: true })");
+    expect(form).toContain("onDone={handleSuccessDone}");
+    expect(form).not.toContain("Pautan setup pembangunan");
+    expect(form).not.toContain("Pembangunan Sahaja");
+    expect(form).not.toContain("Salin Pautan Setup");
+    expect(form).not.toContain("Buka Pautan Setup");
+    expect(form).not.toContain("navigator.clipboard.writeText(successResult.developmentSetupUrl)");
+    expect(form).not.toContain('window.open(successResult.developmentSetupUrl, "_blank", "noopener,noreferrer")');
+    expect(form).not.toContain("localhost:5173/setup-password");
+    expect(form).not.toContain("setup-password?token");
     expect(form).not.toContain("localStorage");
     expect(form).not.toContain("await onSubmit(payload)");
   });

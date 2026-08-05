@@ -1,0 +1,870 @@
+import { readFileSync } from "node:fs";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+
+import {
+  AdminActivityCard,
+  AdminActivityFilters,
+  AdminActivityManagementView,
+  AdminActivityResultsHeader,
+  AdminActivitySummarySection,
+} from "@/features/admin/components/AdminActivityManagement";
+import {
+  AdminActivityGalleryPlaceholder,
+  AdminActivityTypePage,
+} from "@/features/admin/components/AdminActivityTypeSelection";
+import {
+  AdminReadingTemplateGallery,
+  ReadingTemplatePreviewContent,
+} from "@/features/admin/components/AdminReadingTemplateGallery";
+import {
+  adminActivityCategoryTabs,
+  adminActivityQueryFromSearchParams,
+  getAdminActivityResetQuery,
+  getAdminActivityResultRange,
+  getAdminActivityStatusLabel,
+  getAdminActivityTemplateOptionLabel,
+  getAdminActivityThumbnail,
+  type AdminActivityListResult,
+  type AdminActivityRecord,
+  type AdminActivitySummary,
+  type AdminActivityTemplateOption,
+} from "@/features/admin/utils/admin-activity";
+import { adminActivityTypeOptions } from "@/features/admin/utils/admin-activity-type";
+import {
+  availableReadingTemplates,
+  defaultReadingTemplateGalleryFilters,
+  filterReadingTemplates,
+  hasActiveReadingTemplateFilters,
+  roadmapReadingTemplates,
+} from "@/features/admin/utils/admin-reading-template-gallery";
+import {
+  activityBasicInfoDefaults,
+  activityWizardSteps,
+  buildSeretSukuKataCreatePayload,
+  buildSeretSukuKataUpdatePayload,
+  getActivityWizardProgress,
+  getActivityWizardStepStates,
+  findPemulihanProgramme,
+  findSeretSukuKataTemplate,
+  getActivityBasicInfoFormValues,
+  PEMULIHAN_KHAS_PROGRAMME_CODE,
+  SERET_SUKU_KATA_RENDERER_KEY,
+  SERET_SUKU_KATA_TEMPLATE_CODE,
+} from "@/features/admin/utils/admin-activity-create";
+import {
+  buildActivityCurriculumLinkPayload,
+  deriveMappedContentStandards,
+  deriveMappedLearningStandards,
+  formatCurriculumSummary,
+  type AdminContentStandardOption,
+  type AdminLearningStandardOption,
+  type AdminSkillLearningStandardMapping,
+} from "@/features/admin/utils/admin-activity-curriculum";
+import { PencilLine } from "lucide-react";
+
+const sampleActivity: AdminActivityRecord = {
+  id: "activity-1",
+  title: "Baca dan Susun",
+  status: "PUBLISHED",
+  updatedAt: "2026-08-04T09:00:00.000Z",
+  createdAt: "2026-08-01T09:00:00.000Z",
+  publishedAt: "2026-08-04T10:00:00.000Z",
+  difficulty: "BASIC",
+  template: {
+    id: "template-1",
+    name: "Bacaan Asas",
+    category: "READING",
+    rendererKey: "reading",
+  },
+  curriculumLinks: [
+    {
+      isPrimary: true,
+      curriculumYear: { yearLevel: 2, name: "Tahun 2" },
+      remedialSkill: { name: "Mengecam suku kata" },
+    },
+  ],
+  items: [{ id: "item-1" }, { id: "item-2" }],
+  media: [
+    {
+      id: "media-1",
+      mediaRole: "COVER_IMAGE",
+      url: "/media/activity-cover.png",
+      altText: "Kulit aktiviti",
+      label: "Cover",
+    },
+  ],
+};
+
+const sampleSummary: AdminActivitySummary = {
+  total: 24,
+  published: 12,
+  draft: 8,
+  archived: 4,
+};
+
+const sampleTemplates: AdminActivityTemplateOption[] = [
+  { id: "template-1", name: "Bacaan Asas", category: "READING", rendererKey: "reading" },
+  { id: "template-2", name: "Latihan Menulis", category: "WRITING", rendererKey: "copy-writing" },
+];
+
+const sampleListResult: AdminActivityListResult = {
+  items: [sampleActivity],
+  meta: {
+    page: 1,
+    limit: 12,
+    total: 24,
+    totalPages: 2,
+    hasNextPage: true,
+    hasPreviousPage: false,
+  },
+};
+
+describe("Admin activity management page", () => {
+  it("keeps the admin route protected and preserves existing activity routes", () => {
+    const routes = readFileSync(new URL("../src/routes/index.tsx", import.meta.url), "utf8");
+    const guards = readFileSync(new URL("../src/routes/guards.tsx", import.meta.url), "utf8");
+
+    expect(routes).toContain('{ path: "aktiviti", element: <AdminActivityPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/cipta", element: <AdminActivityTypePage /> }');
+    expect(routes).toContain('{ path: "aktiviti/cipta/membaca", element: <AdminReadingTemplateGalleryPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/cipta/membaca/seret-suku-kata", element: <AdminReadingTemplateWizardPlaceholderPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/maklumat", element: <AdminReadingTemplateWizardPlaceholderPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/cipta/menulis", element: <AdminActivityGalleryPlaceholderPage category="WRITING" /> }');
+    expect(routes).not.toContain('aktiviti/cipta/mengira');
+    expect(routes).toContain('path: "digital-activities"');
+    expect(routes).toContain('{ path: "create", element: <RequireRole roles={["SUPER_ADMIN", "ADMIN"]}><BuilderFormPage entityKey="digitalActivities" mode="create" /></RequireRole> }');
+    expect(routes).toContain('path: "activity-templates"');
+    expect(routes).toContain('{ path: "aktiviti", element: <TeacherListPage resource="activities" /> }');
+    expect(routes).toContain('<RequireAdmin>');
+    expect(guards).toContain('return <RequireRole roles={["SUPER_ADMIN", "ADMIN"]}>{renderGuardChild(props.children)}</RequireRole>;');
+    expect(guards).toContain('return <RequireRole roles={["TEACHER"]}>{renderGuardChild(props.children)}</RequireRole>;');
+    expect(guards).toContain('return <RequireRole roles={["STUDENT"]}>{renderGuardChild(props.children)}</RequireRole>;');
+    expect(guards).toContain('return <RequireRole roles={["PARENT"]}>{renderGuardChild(props.children)}</RequireRole>;');
+  });
+
+  it("keeps the admin sidebar activity entry while leaving teacher activity navigation unchanged", () => {
+    const sidebar = readFileSync(new URL("../src/components/dashboard/Sidebar.tsx", import.meta.url), "utf8");
+
+    expect(sidebar).toContain('title: "Aktiviti"');
+    expect(sidebar).toContain('url: "/admin/aktiviti"');
+    expect(sidebar).toContain('roles: ["SUPER_ADMIN", "ADMIN"]');
+    expect(sidebar).toContain('url: "/guru/ibu-bapa"');
+    expect(sidebar).toContain('url: "/digital-activities"');
+  });
+
+  it("parses URL query state and keeps category filters in search params", () => {
+    const query = adminActivityQueryFromSearchParams(new URLSearchParams("page=2&templateCategory=WRITING&status=PUBLISHED&sortBy=title&sortOrder=asc"));
+
+    expect(query.page).toBe(2);
+    expect(query.templateCategory).toBe("WRITING");
+    expect(query.status).toBe("PUBLISHED");
+    expect(query.sortBy).toBe("title");
+    expect(query.sortOrder).toBe("asc");
+  });
+
+  it("defaults to the first supported activity category when no category is present", () => {
+    const query = adminActivityQueryFromSearchParams(new URLSearchParams(""));
+
+    expect(query.templateCategory).toBe("READING");
+  });
+
+  it("maps central activity labels and template options safely", () => {
+    expect(getAdminActivityStatusLabel("IN_REVIEW")).toBe("Dalam Semakan");
+    expect(getAdminActivityTemplateOptionLabel(sampleTemplates[1])).toContain("Menulis");
+    expect(adminActivityCategoryTabs.map((tab) => tab.label)).toEqual(["Membaca", "Menulis"]);
+    expect(adminActivityCategoryTabs).not.toContainEqual(expect.objectContaining({ label: "Semua Aktiviti" }));
+    expect(adminActivityCategoryTabs).not.toContainEqual(expect.objectContaining({ label: "Mengira" }));
+  });
+
+  it("uses the real cover image first for thumbnail fallback", () => {
+    expect(getAdminActivityThumbnail(sampleActivity)?.src).toBe("/media/activity-cover.png");
+  });
+
+  it("renders the management header, summary cards, and create action", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <AdminActivityManagementView
+          query={{ page: 1, limit: 12, sortBy: "updatedAt", sortOrder: "desc" }}
+          summary={sampleSummary}
+          summaryLoading={false}
+          summaryError={false}
+          activities={sampleListResult}
+          templates={sampleTemplates}
+          isLoading={false}
+          isError={false}
+          onRetrySummary={() => undefined}
+          onRetryActivities={() => undefined}
+          onChange={() => undefined}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("Pengurusan Aktiviti");
+    expect(markup).toContain("Cipta Aktiviti");
+    expect(markup).toContain("Jumlah Aktiviti");
+    expect(markup).toContain("Diarkibkan");
+    expect(markup).toContain('href="/admin/aktiviti/cipta"');
+    expect(markup).not.toContain("Semua Aktiviti");
+  });
+
+  it("renders the Admin activity type selection page with available and disabled categories", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <AdminActivityTypePage />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("Pilih Jenis Aktiviti");
+    expect(markup).toContain("Pilih kategori aktiviti yang ingin dicipta");
+    expect(markup).toContain("Kembali ke Pengurusan Aktiviti");
+    expect(markup).toContain('href="/admin/aktiviti"');
+    expect(markup).toContain("Membaca");
+    expect(markup).toContain("Menulis");
+    expect(markup).toContain("Mengira");
+    expect(markup).toContain("Pilih Membaca");
+    expect(markup).toContain("Pilih Menulis");
+    expect(markup).toContain('href="/admin/aktiviti/cipta/membaca"');
+    expect(markup).toContain('href="/admin/aktiviti/cipta/menulis"');
+    expect(markup).toContain("Akan Datang");
+    expect(markup).toContain("Belum Tersedia");
+    expect(markup).toContain("disabled");
+    expect(markup).not.toContain('href="/admin/aktiviti/cipta/mengira"');
+  });
+
+  it("keeps category cards reusable and responsive without duplicated route-specific markup", () => {
+    const componentSource = readFileSync(new URL("../src/features/admin/components/AdminActivityTypeSelection.tsx", import.meta.url), "utf8");
+    const routes = readFileSync(new URL("../src/routes/index.tsx", import.meta.url), "utf8");
+
+    expect(adminActivityTypeOptions.map((option) => option.title)).toEqual(["Membaca", "Menulis", "Mengira"]);
+    expect(adminActivityTypeOptions.find((option) => option.title === "Mengira")?.status).toBe("COMING_SOON");
+    expect(componentSource).toContain("function ActivityCategoryCard");
+    expect(componentSource).toContain("adminActivityTypeOptions.map");
+    expect(componentSource).toContain("grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3");
+    expect(componentSource).toContain("flex h-full flex-col");
+    expect(componentSource).toContain("mt-auto pt-6");
+    expect(routes).not.toContain('category="COUNTING"');
+  });
+
+  it("renders safe Membaca and Menulis placeholder routes with back actions", () => {
+    const menulisMarkup = renderToStaticMarkup(
+      <MemoryRouter>
+        <AdminActivityGalleryPlaceholder
+          title="Galeri Templat Menulis"
+          description="Templat aktiviti Menulis akan disediakan dalam fasa seterusnya."
+          icon={PencilLine}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(menulisMarkup).toContain("Galeri Templat Menulis");
+    expect(menulisMarkup).toContain("Templat aktiviti Menulis akan disediakan dalam fasa seterusnya.");
+    expect(menulisMarkup).toContain('href="/admin/aktiviti/cipta"');
+  });
+
+  it("registers topbar metadata for Admin activity creation without Dashboard fallback", () => {
+    const topbar = readFileSync(new URL("../src/components/dashboard/DashboardTopbar.tsx", import.meta.url), "utf8");
+
+    expect(topbar).toContain('{ path: "/admin/aktiviti/cipta", label: "Pilih Jenis Aktiviti" }');
+    expect(topbar).toContain('{ path: "/admin/aktiviti/cipta/membaca", label: "Galeri Templat Membaca" }');
+    expect(topbar).toContain('{ path: "/admin/aktiviti/cipta/membaca/seret-suku-kata", label: "Cipta Aktiviti Seret Suku Kata" }');
+    expect(topbar).toContain('{ path: "/admin/aktiviti/cipta/menulis", label: "Galeri Templat Menulis" }');
+  });
+
+  it("renders the Membaca template gallery with Seret Suku Kata from the trusted registry source", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <AdminReadingTemplateGallery />
+      </MemoryRouter>,
+    );
+    const source = readFileSync(new URL("../src/features/admin/components/AdminReadingTemplateGallery.tsx", import.meta.url), "utf8");
+
+    expect(markup).toContain("Galeri Templat Membaca");
+    expect(markup).toContain("Pilih templat Membaca yang ingin digunakan");
+    expect(markup).toContain("Kembali");
+    expect(markup).toContain('href="/admin/aktiviti/cipta"');
+    expect(markup).toContain("Cari templat Membaca");
+    expect(markup).toContain("Jenis interaksi");
+    expect(markup).toContain("Sumber templat");
+    expect(source).toContain("Semua interaksi");
+    expect(source).toContain("Semua sumber");
+    expect(markup).toContain("Reset");
+    expect(markup).toContain("Seret Suku Kata");
+    expect(markup).toContain("Lengkapkan perkataan dengan menyeret suku kata yang betul ke ruang jawapan.");
+    expect(markup).toContain("Guna Templat");
+    expect(markup).toContain("Pratonton");
+    expect(markup).toContain('href="/admin/aktiviti/cipta/membaca/seret-suku-kata"');
+    expect(markup).not.toContain("Gunakan templat yang tersedia");
+    expect(markup).not.toContain("Tersedia Sekarang");
+    expect(markup).not.toContain("1 daripada 1 templat tersedia");
+    expect(markup).not.toContain("rating");
+    expect(markup).not.toContain("penggunaan");
+  });
+
+  it("filters available Membaca templates without counting roadmap cards", () => {
+    expect(availableReadingTemplates).toHaveLength(1);
+    expect(availableReadingTemplates[0]).toMatchObject({
+      title: "Seret Suku Kata",
+      templateCode: "ARRANGE_SYLLABLES",
+      rendererKey: "arrange-syllables",
+      sourceLabel: "Templat Sistem",
+      status: "AVAILABLE",
+    });
+    expect(roadmapReadingTemplates.every((template) => template.status === "COMING_SOON")).toBe(true);
+    expect(filterReadingTemplates(availableReadingTemplates, defaultReadingTemplateGalleryFilters)).toHaveLength(1);
+    expect(filterReadingTemplates(availableReadingTemplates, { ...defaultReadingTemplateGalleryFilters, search: "tidak wujud" })).toHaveLength(0);
+    expect(filterReadingTemplates(availableReadingTemplates, { ...defaultReadingTemplateGalleryFilters, interaction: "DRAG_DROP" })).toHaveLength(1);
+    expect(filterReadingTemplates(availableReadingTemplates, { ...defaultReadingTemplateGalleryFilters, source: "SYSTEM_TEMPLATE" })).toHaveLength(1);
+    expect(hasActiveReadingTemplateFilters(defaultReadingTemplateGalleryFilters)).toBe(false);
+    expect(hasActiveReadingTemplateFilters({ ...defaultReadingTemplateGalleryFilters, search: "Seret" })).toBe(true);
+  });
+
+  it("uses the local Seret Suku Kata image and removes all gallery-specific thumbnail management", () => {
+    const pageSource = readFileSync(new URL("../src/features/admin/pages/AdminReadingTemplateGalleryPage.tsx", import.meta.url), "utf8");
+    const componentSource = readFileSync(new URL("../src/features/admin/components/AdminReadingTemplateGallery.tsx", import.meta.url), "utf8");
+
+    expect(componentSource).toContain('import seretSukuKataThumbnail from "@/assets/images/img_.seret.png"');
+    expect(componentSource).toContain('alt="Pratonton templat Seret Suku Kata"');
+    expect(componentSource).toContain("lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(12rem,0.55fr)]");
+    expect(componentSource).toContain("object-contain");
+    expect(componentSource).not.toContain("Muat Naik Thumbnail");
+    expect(componentSource).not.toContain("Ganti Thumbnail");
+    expect(componentSource).not.toContain("Buang Thumbnail");
+    expect(componentSource).not.toContain("type=\"file\"");
+    expect(componentSource).not.toContain("dataTransfer.files");
+    expect(componentSource).not.toContain("uploadMediaFile");
+    expect(componentSource).not.toContain("useAuthStore");
+    expect(pageSource).toContain("<AdminReadingTemplateGallery />");
+    expect(pageSource).not.toContain("useQuery");
+    expect(pageSource).not.toContain("useMutation");
+    expect(pageSource).not.toContain("uploadMediaFile");
+  });
+
+  it("renders roadmap Membaca templates as disabled coming-soon cards without routes", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <AdminReadingTemplateGallery />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("Akan Datang");
+    expect(markup).toContain("Baca Perkataan");
+    expect(markup).toContain("Padankan Bunyi");
+    expect(markup).toContain("Susun Perkataan");
+    expect(markup).toContain("Belum Tersedia");
+    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("/admin/aktiviti/cipta/membaca/baca-perkataan");
+    expect(markup).not.toContain("/admin/aktiviti/cipta/membaca/padankan-bunyi");
+    expect(markup).not.toContain("/admin/aktiviti/cipta/membaca/susun-perkataan");
+  });
+
+  it("renders a safe non-persistent Seret Suku Kata preview dialog", () => {
+    const markup = renderToStaticMarkup(
+      <ReadingTemplatePreviewContent selectedAnswer={null} onSelectAnswer={() => undefined} />,
+    );
+    const source = readFileSync(new URL("../src/features/admin/components/AdminReadingTemplateGallery.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("Pratonton Templat");
+    expect(source).toContain("Contoh interaksi murid untuk Seret Suku Kata.");
+    expect(markup).toContain("cawan");
+    expect(markup).toContain("ca + ____");
+    expect(markup).toContain("wan");
+    expect(markup).toContain("ki");
+    expect(markup).toContain("tu");
+    expect(markup).toContain("ri");
+    expect(markup).toContain("Tiada skor, percubaan atau rekod murid dicipta.");
+    expect(source).toContain("Tutup");
+    expect(source).toContain("Guna Templat");
+    expect(source).toContain('/admin/aktiviti/cipta/membaca/seret-suku-kata');
+    expect(source).not.toContain("apiRequest");
+    expect(source).not.toContain("useMutation");
+    expect(source).not.toContain("StudentAttempt");
+    expect(source).not.toContain("createDigitalActivity");
+    expect(source).not.toContain("saveScore");
+  });
+
+  it("renders the Sprint 4.1 Seret Suku Kata Step 1 route without query-step navigation", () => {
+    const pageSource = readFileSync(
+      new URL("../src/features/admin/pages/AdminReadingTemplateWizardPlaceholderPage.tsx", import.meta.url),
+      "utf8",
+    );
+    const wizardSource = readFileSync(
+      new URL("../src/features/admin/components/AdminActivityCreateWizard.tsx", import.meta.url),
+      "utf8",
+    );
+    const apiSource = readFileSync(new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url), "utf8");
+
+    expect(pageSource).toContain("<AdminActivityCreateWizardPage />");
+    expect(wizardSource).toContain("Lengkapkan maklumat asas untuk membina aktiviti Seret Suku Kata.");
+    expect(wizardSource).toContain("Templat Dipilih");
+    expect(wizardSource).toContain("Maklumat Aktiviti");
+    expect(wizardSource).toContain("Nama Aktiviti");
+    expect(wizardSource).toContain("Penerangan");
+    expect(wizardSource).toContain("Arahan kepada Murid");
+    expect(wizardSource).toContain("Tahap Kesukaran");
+    expect(wizardSource).toContain("Anggaran Masa");
+    expect(wizardSource).toContain("Simpan dan Seterusnya");
+    expect(wizardSource).toContain("Buang perubahan?");
+    expect(wizardSource).toContain("Menyimpan Aktiviti...");
+    expect(wizardSource).toContain("navigate(stepTwoPath(savedActivity.id)");
+    expect(wizardSource).toContain("saveActivity.isPending");
+    expect(wizardSource).toContain("updateAdminDigitalActivity");
+    expect(wizardSource).toContain("buildSeretSukuKataUpdatePayload");
+    expect(wizardSource).toContain("getActivityBasicInfoFormValues");
+    expect(wizardSource).toContain("navigate(isEditMode ? stepTwoPath(activityId) : galleryPath)");
+    expect(wizardSource).toContain('queryKey: adminActivityCreateQueryKeys.activityDetail(activityId)');
+    expect(wizardSource).toContain("getActivityCreateErrorMessage");
+    expect(apiSource).toContain('apiRequest<ActivityPayload>("/digital-activities"');
+    expect(apiSource).toContain('`/digital-activities/${activityId}`');
+    expect(apiSource).toContain('method: "PATCH"');
+    expect(pageSource).not.toContain("useSearchParams");
+    expect(wizardSource).not.toContain("useSearchParams");
+    expect(wizardSource).not.toContain("Simpan Draf");
+    expect(wizardSource).not.toContain("Next");
+    expect(wizardSource).not.toContain("Publish");
+    expect(wizardSource).not.toContain('queryKey: adminActivityCreateQueryKeys.activityList');
+    expect(wizardSource).not.toContain('queryKey: adminActivityCreateQueryKeys.activitySummary');
+    expect(wizardSource).not.toContain('queryKey: adminActivityCreateQueryKeys.builderActivityList');
+  });
+
+  it("maps the Step 1 payload to the real DigitalActivity create contract", () => {
+    const payload = buildSeretSukuKataCreatePayload({
+      values: activityBasicInfoDefaults,
+      programmeId: "programme-real-id",
+      activityTemplateId: "template-real-id",
+    });
+
+    expect(activityWizardSteps.map((step) => step.label)).toEqual(["Maklumat", "Kurikulum", "Kandungan", "Tetapan", "Pratonton", "Terbitkan"]);
+    expect(payload).toMatchObject({
+      title: "Seret Suku Kata",
+      programmeId: "programme-real-id",
+      activityTemplateId: "template-real-id",
+      difficulty: "BASIC",
+      scoringMode: "TOTAL_SCORE",
+      reviewMode: "AUTO",
+      totalMarks: 1,
+      masteryThreshold: 80,
+      estimatedMinutes: 10,
+      attemptsAllowed: 1,
+      timeLimitSeconds: null,
+      shuffleItems: true,
+      showImmediateFeedback: true,
+      allowRetry: true,
+      configuration: {
+        shuffleSyllables: true,
+        showReferenceImage: false,
+        playReferenceAudio: false,
+        attemptsAllowed: 1,
+      },
+      rewardConfiguration: null,
+      presentationSettings: null,
+    });
+    expect(payload).not.toHaveProperty("category");
+    expect(payload).not.toHaveProperty("templateCode");
+    expect(payload).not.toHaveProperty("rendererKey");
+    expect(payload).not.toHaveProperty("curriculumYearId");
+    expect(payload).not.toHaveProperty("items");
+    expect(payload).not.toHaveProperty("media");
+  });
+
+  it("builds the Step 1 update payload and maps saved draft values back into the form", () => {
+    expect(buildSeretSukuKataUpdatePayload({
+      values: {
+        title: "Seret Suku Kata Tahun 1",
+        description: "Aktiviti literasi",
+        instructions: "Seret suku kata yang betul.",
+        difficulty: "INTERMEDIATE",
+        estimatedMinutes: "15",
+      },
+    })).toEqual({
+      title: "Seret Suku Kata Tahun 1",
+      description: "Aktiviti literasi",
+      instructions: "Seret suku kata yang betul.",
+      difficulty: "INTERMEDIATE",
+      estimatedMinutes: 15,
+    });
+
+    expect(getActivityBasicInfoFormValues({
+      title: "Aktiviti Draf",
+      description: "Penerangan draf",
+      instructions: "Arahan draf",
+      difficulty: "ADVANCED",
+      estimatedMinutes: 20,
+    })).toEqual({
+      title: "Aktiviti Draf",
+      description: "Penerangan draf",
+      instructions: "Arahan draf",
+      difficulty: "ADVANCED",
+      estimatedMinutes: "20",
+    });
+  });
+
+  it("resolves the real Pemulihan programme and ARRANGE_SYLLABLES template by trusted identifiers", () => {
+    expect(PEMULIHAN_KHAS_PROGRAMME_CODE).toBe("BM-PEMULIHAN");
+    expect(SERET_SUKU_KATA_TEMPLATE_CODE).toBe("ARRANGE_SYLLABLES");
+    expect(SERET_SUKU_KATA_RENDERER_KEY).toBe("arrange-syllables");
+    expect(findPemulihanProgramme([
+      {
+        id: "programme-1",
+        code: "BM-PEMULIHAN",
+        name: "Program Pemulihan Khas",
+        status: "ACTIVE",
+        version: { status: "PUBLISHED" },
+      },
+    ])?.id).toBe("programme-1");
+    expect(findPemulihanProgramme([
+      {
+        id: "programme-1",
+        code: "BM-PEMULIHAN",
+        name: "Program Pemulihan Khas",
+        status: "ACTIVE",
+        version: { status: "DRAFT" },
+      },
+    ])).toBeNull();
+    expect(findSeretSukuKataTemplate([
+      { id: "template-1", code: "ARRANGE_SYLLABLES", name: "Arrange Syllables", rendererKey: "arrange-syllables" },
+    ])?.id).toBe("template-1");
+    expect(findSeretSukuKataTemplate([
+      { id: "template-2", code: "OTHER_TEMPLATE", name: "Arrange Syllables", rendererKey: "other-renderer" },
+    ])).toBeNull();
+  });
+
+  it("implements Step 2 curriculum loading while keeping Step 3 as a placeholder route", () => {
+    const routeSource = readFileSync(new URL("../src/routes/index.tsx", import.meta.url), "utf8");
+    const pageSource = readFileSync(
+      new URL("../src/features/admin/pages/AdminActivityCurriculumPlaceholderPage.tsx", import.meta.url),
+      "utf8",
+    );
+    const contentPageSource = readFileSync(
+      new URL("../src/features/admin/pages/AdminActivityContentPlaceholderPage.tsx", import.meta.url),
+      "utf8",
+    );
+    const apiSource = readFileSync(new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url), "utf8");
+
+    expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/maklumat", element: <AdminReadingTemplateWizardPlaceholderPage /> }');
+    expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/kurikulum", element: <AdminActivityCurriculumPlaceholderPage /> }');
+    expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPlaceholderPage /> }');
+    expect(pageSource).toContain('const stepOnePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/maklumat`;');
+    expect(pageSource).toContain("getAdminDigitalActivity(activityId)");
+    expect(pageSource).toContain("listAdminCurriculumYears");
+    expect(pageSource).toContain("listAdminRemedialSkills");
+    expect(pageSource).toContain("listAdminContentStandards");
+    expect(pageSource).toContain("listAdminLearningStandards");
+    expect(pageSource).toContain("addAdminActivityCurriculumLink");
+    expect(pageSource).toContain("removeAdminActivityCurriculumLink");
+    expect(pageSource).toContain("buildActivityCurriculumLinkPayload");
+    expect(pageSource).toContain("RemedialSkillSelect");
+    expect(pageSource).toContain("Cari kod atau nama kemahiran…");
+    expect(pageSource).toContain("max-h-80 overflow-y-auto");
+    expect(pageSource).toContain("Pemetaan Tahun DSKP");
+    expect(pageSource).toContain("Digunakan untuk menentukan Standard Kandungan dan Standard Pembelajaran KSSR yang berkaitan.");
+    expect(pageSource).toContain("Pemetaan kurikulum belum tersedia");
+    expect(pageSource).toContain("Kemahiran ini belum mempunyai pemetaan Standard Kandungan dan Standard Pembelajaran bagi tahun yang dipilih.");
+    expect(pageSource).toContain("Simpan dan Seterusnya");
+    expect(pageSource).toContain("Pilihan kurikulum yang belum disimpan akan hilang");
+    expect(pageSource).toContain("navigate(stepThreePath(activityId))");
+    expect(pageSource).toContain("navigate(stepOnePath(activityId))");
+    expect(pageSource).toContain("progress={getActivityWizardProgress(activity.data)}");
+    expect(contentPageSource).toContain("progress={progress}");
+    expect(contentPageSource).toContain("Kurikulum belum lengkap");
+    expect(pageSource).not.toContain("useSearchParams");
+    expect(pageSource).not.toContain("mutateAsync(buildSeretSukuKataCreatePayload");
+    expect(apiSource).toContain('`/digital-activities/${activityId}/curriculum-links`');
+    expect(contentPageSource).toContain("Langkah Kandungan akan dilaksanakan dalam Sprint seterusnya.");
+  });
+
+  it("derives wizard progress and accessibility from persisted activity state instead of the current route", () => {
+    expect(getActivityWizardProgress({ id: "activity-1", curriculumLinks: [] })).toEqual({
+      hasDraft: true,
+      hasCurriculumLink: false,
+    });
+
+    expect(getActivityWizardProgress({
+      id: "activity-1",
+      curriculumLinks: [{ id: "link-1", isPrimary: true }],
+    })).toEqual({
+      hasDraft: true,
+      hasCurriculumLink: true,
+    });
+
+    expect(getActivityWizardStepStates({
+      activeStep: "information",
+      progress: { hasDraft: true, hasCurriculumLink: false },
+      stepLinks: {
+        curriculum: "/admin/aktiviti/activity-1/cipta/kurikulum",
+        content: "/admin/aktiviti/activity-1/cipta/kandungan",
+      },
+    }).map((step) => ({
+      key: step.key,
+      isCurrent: step.isCurrent,
+      isCompleted: step.isCompleted,
+      isAccessible: step.isAccessible,
+      isLocked: step.isLocked,
+    }))).toEqual([
+      { key: "information", isCurrent: true, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "curriculum", isCurrent: false, isCompleted: false, isAccessible: true, isLocked: false },
+      { key: "content", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+      { key: "settings", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+      { key: "preview", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+      { key: "publish", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+    ]);
+
+    expect(getActivityWizardStepStates({
+      activeStep: "curriculum",
+      progress: { hasDraft: true, hasCurriculumLink: true },
+      stepLinks: {
+        information: "/admin/aktiviti/activity-1/cipta/maklumat",
+        content: "/admin/aktiviti/activity-1/cipta/kandungan",
+      },
+    }).map((step) => ({
+      key: step.key,
+      isCurrent: step.isCurrent,
+      isCompleted: step.isCompleted,
+      isAccessible: step.isAccessible,
+      isLocked: step.isLocked,
+    }))).toEqual([
+      { key: "information", isCurrent: false, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "curriculum", isCurrent: true, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "content", isCurrent: false, isCompleted: false, isAccessible: true, isLocked: false },
+      { key: "settings", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+      { key: "preview", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+      { key: "publish", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+    ]);
+  });
+
+  it("keeps all official BM Pemulihan skills available from the real seed source in sequence order", () => {
+    const seedSource = readFileSync(
+      new URL("../../backend/src/data/curriculum/bm-pemulihan-2019.ts", import.meta.url),
+      "utf8",
+    );
+    const skillMatches = [...seedSource.matchAll(/\{ code: "(KP(?:-PRA|\d{2}))", sequence: (\d+), name: "([^"]+)"/g)];
+    const codes = skillMatches.map((match) => match[1]);
+
+    expect(skillMatches).toHaveLength(33);
+    expect(codes[0]).toBe("KP-PRA");
+    expect(codes[1]).toBe("KP01");
+    expect(codes.at(-1)).toBe("KP32");
+    expect(seedSource).toContain('{ code: "KP-PRA", sequence: 0, name: "Prabacaan dan Pratulisan"');
+    expect(seedSource).toContain('{ code: "KP32", sequence: 32, name: "Bacaan dan pemahaman"');
+  });
+
+  it("builds the curriculum-link payload from the required Step 2 selections only", () => {
+    expect(buildActivityCurriculumLinkPayload({
+      curriculumYearId: "11111111-1111-4111-8111-111111111111",
+      remedialSkillId: "22222222-2222-4222-8222-222222222222",
+      contentStandardId: "33333333-3333-4333-8333-333333333333",
+      learningStandardId: "44444444-4444-4444-8444-444444444444",
+    })).toEqual({
+      curriculumYearId: "11111111-1111-4111-8111-111111111111",
+      remedialSkillId: "22222222-2222-4222-8222-222222222222",
+      contentStandardId: "33333333-3333-4333-8333-333333333333",
+      learningStandardId: "44444444-4444-4444-8444-444444444444",
+      isPrimary: true,
+    });
+  });
+
+  it("derives mapped content standards, mapped learning standards, and a readable curriculum summary", () => {
+    const contentStandards: AdminContentStandardOption[] = [
+      {
+        id: "content-1",
+        programmeId: "programme-1",
+        curriculumYearId: "year-1",
+        code: "SK 1",
+        title: "Bunyi Asas",
+        description: null,
+        domain: "READING",
+        sequence: 1,
+        status: "ACTIVE",
+        year: { id: "year-1", yearLevel: 1, name: "Tahun 1", sequence: 1 },
+      },
+      {
+        id: "content-2",
+        programmeId: "programme-1",
+        curriculumYearId: "year-2",
+        code: "SK 2",
+        title: "Suku Kata",
+        description: null,
+        domain: "READING",
+        sequence: 2,
+        status: "ACTIVE",
+        year: { id: "year-2", yearLevel: 2, name: "Tahun 2", sequence: 2 },
+      },
+    ];
+
+    const learningStandards: AdminLearningStandardOption[] = [
+      {
+        id: "learning-1",
+        contentStandardId: "content-1",
+        code: "SP 1",
+        description: "Membaca bunyi asas",
+        sequence: 1,
+        status: "ACTIVE",
+        contentStandard: { id: "content-1", code: "SK 1", title: "Bunyi Asas", domain: "READING" },
+        year: { id: "year-1", yearLevel: 1, name: "Tahun 1", sequence: 1 },
+        programme: { id: "programme-1", code: "BM-PEMULIHAN" },
+      },
+      {
+        id: "learning-2",
+        contentStandardId: "content-2",
+        code: "SP 2",
+        description: "Membaca suku kata",
+        sequence: 2,
+        status: "ACTIVE",
+        contentStandard: { id: "content-2", code: "SK 2", title: "Suku Kata", domain: "READING" },
+        year: { id: "year-2", yearLevel: 2, name: "Tahun 2", sequence: 2 },
+        programme: { id: "programme-1", code: "BM-PEMULIHAN" },
+      },
+    ];
+
+    const mappings: AdminSkillLearningStandardMapping[] = [
+      {
+        id: "mapping-1",
+        remedialSkillId: "skill-1",
+        learningStandardId: "learning-1",
+        isPrimary: true,
+        notes: null,
+        learningStandard: { id: "learning-1", code: "SP 1", description: "Membaca bunyi asas", sequence: 1, status: "ACTIVE" },
+        contentStandard: { id: "content-1", code: "SK 1", title: "Bunyi Asas", domain: "READING" },
+        year: { id: "year-1", yearLevel: 1, name: "Tahun 1", sequence: 1 },
+      },
+    ];
+
+    expect(deriveMappedContentStandards({
+      contentStandards,
+      mappings,
+      curriculumYearId: "year-1",
+    }).map((item) => item.id)).toEqual(["content-1"]);
+
+    expect(deriveMappedLearningStandards({
+      learningStandards,
+      mappings,
+      contentStandardId: "content-1",
+    }).map((item) => item.id)).toEqual(["learning-1"]);
+
+    expect(formatCurriculumSummary({
+      year: { id: "year-1", programmeId: "programme-1", yearLevel: 1, name: "Tahun 1", sequence: 1, status: "ACTIVE" },
+      skill: { id: "skill-1", programmeId: "programme-1", languageStructureId: "structure-1", code: "KP01", sequence: 1, name: "Huruf vokal", description: null, status: "ACTIVE", isPreparatory: false },
+      contentStandard: contentStandards[0],
+      learningStandard: learningStandards[0],
+    })).toContain("Tahun 1");
+  });
+
+  it("keeps the Membaca gallery scoped to supported filters and responsive production layout", () => {
+    const source = readFileSync(new URL("../src/features/admin/components/AdminReadingTemplateGallery.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("space-y-6");
+    expect(source).toContain("AvailableReadingTemplateCard");
+    expect(source).toContain("grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3");
+    expect(source).toContain("Thumbnail");
+    expect(source).toContain("lg:border-l lg:border-border lg:pl-6");
+    expect(source).toContain("h-12 w-full gap-2");
+    expect(source).not.toContain("Tahun");
+    expect(source).not.toContain("Kemahiran");
+    expect(source).not.toContain("Tahap");
+    expect(source).not.toContain("Math.random");
+    expect(source).not.toContain("/media/upload");
+    expect(source).not.toContain("/activity-templates/");
+  });
+
+  it("renders supported underline category tabs and compact filters only", () => {
+    const markup = renderToStaticMarkup(
+      <AdminActivityFilters
+        query={{ page: 1, limit: 12, templateCategory: "READING", sortBy: "updatedAt", sortOrder: "desc" }}
+        templates={sampleTemplates}
+        onChange={() => undefined}
+      />,
+    );
+    const source = readFileSync(new URL("../src/features/admin/components/AdminActivityManagement.tsx", import.meta.url), "utf8");
+
+    expect(markup).toContain("Cari nama aktiviti");
+    expect(markup).toContain("Reset");
+    expect(markup).toContain("Membaca");
+    expect(markup).toContain("Menulis");
+    expect(markup).not.toContain("Semua Aktiviti");
+    expect(markup).not.toContain("Mengira");
+    expect(source).toContain("border-b border-border bg-transparent p-0");
+    expect(source).not.toContain("rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5");
+    expect(source).toContain('placeholder="Semua templat"');
+    expect(markup).not.toContain("Kemahiran");
+    expect(markup).not.toContain("Tahun");
+  });
+
+  it("resets search filters without changing the selected activity category", () => {
+    const reset = getAdminActivityResetQuery({
+      page: 3,
+      limit: 12,
+      search: "suku kata",
+      status: "DRAFT",
+      activityTemplateId: "template-1",
+      templateCategory: "WRITING",
+      sortBy: "title",
+      sortOrder: "asc",
+    });
+
+    expect(reset).toMatchObject({
+      page: 1,
+      search: undefined,
+      status: undefined,
+      activityTemplateId: undefined,
+      templateCategory: "WRITING",
+      sortBy: "updatedAt",
+      sortOrder: "desc",
+    });
+  });
+
+  it("renders real activity data with preview and edit actions", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <AdminActivityCard activity={sampleActivity} />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("Baca dan Susun");
+    expect(markup).toContain("Bacaan Asas");
+    expect(markup).toContain("Mengecam suku kata");
+    expect(markup).toContain("Tahun 2");
+    expect(markup).toContain("Pratonton");
+    expect(markup).toContain("Edit");
+    expect(markup).toContain('href="/digital-activities/activity-1/preview"');
+    expect(markup).toContain('href="/digital-activities/activity-1/edit"');
+  });
+
+  it("renders summary cards without using paginated item counts as fake totals", () => {
+    const summaryMarkup = renderToStaticMarkup(
+      <AdminActivitySummarySection summary={sampleSummary} isLoading={false} />,
+    );
+
+    expect(summaryMarkup).toContain("24");
+    expect(summaryMarkup).toContain("12");
+    expect(summaryMarkup).toContain("8");
+    expect(summaryMarkup).toContain("4");
+    expect(summaryMarkup).toContain("bg-secondary/10");
+    expect(summaryMarkup).toContain("bg-accent/10");
+    expect(summaryMarkup).toContain("bg-muted");
+    expect(sampleListResult.items).toHaveLength(1);
+  });
+
+  it("renders one concise activity result range without a duplicate count label", () => {
+    const markup = renderToStaticMarkup(
+      <AdminActivityResultsHeader
+        meta={sampleListResult.meta}
+        query={{ page: 1, limit: 12, templateCategory: "READING", sortBy: "updatedAt", sortOrder: "desc" }}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(getAdminActivityResultRange(sampleListResult.meta)).toBe("Menunjukkan 1-12 daripada 24 aktiviti");
+    expect(markup).toContain("Menunjukkan 1-12 daripada 24 aktiviti");
+    expect(markup).not.toContain(">24 aktiviti<");
+    expect(getAdminActivityResultRange({ ...sampleListResult.meta, total: 0 })).toBe("0 aktiviti ditemui");
+  });
+
+  it("keeps empty and filtered-empty copy aligned with the admin activity page", () => {
+    const pageSource = readFileSync(new URL("../src/features/admin/components/AdminActivityManagement.tsx", import.meta.url), "utf8");
+
+    expect(pageSource).toContain("Tiada aktiviti lagi");
+    expect(pageSource).toContain("Tiada aktiviti ditemui");
+    expect(pageSource).toContain("Aktiviti tidak dapat dimuatkan");
+  });
+});

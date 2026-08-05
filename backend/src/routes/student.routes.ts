@@ -23,11 +23,12 @@ const resetPinRateLimiter = rateLimit({
 });
 const managementRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 const readRoles = [...managementRoles, UserRole.TEACHER];
+const createRoles = [...managementRoles, UserRole.TEACHER];
 const teacherStudentAccess = requireTeacherStudentAccess({ key: "studentProfileId", bypassRoles: managementRoles });
 
 router.use(authenticate, requirePasswordChanged);
 
-router.post("/", requireRole(...managementRoles), createStudentController);
+router.post("/", requireRole(...createRoles), createStudentController);
 router.get("/", requireRole(...readRoles), getStudentsController);
 
 router.get("/:studentProfileId/parents", requireRole(...readRoles), teacherStudentAccess, getStudentParentsController);
@@ -35,7 +36,7 @@ router.post("/:studentProfileId/parents/:parentId", requireRole(...managementRol
 router.delete("/:studentProfileId/parents/:parentId", requireRole(...managementRoles), unlinkStudentParentController);
 router.post("/:studentProfileId/reset-pin", requireRole(...readRoles), teacherStudentAccess, resetPinRateLimiter, resetStudentPinController);
 router.patch("/:studentProfileId/class", requireRole(...managementRoles), transferStudentClassController);
-router.patch("/:studentProfileId/status", requireRole(...managementRoles), updateStudentStatusController);
+router.patch("/:studentProfileId/status", requireRole(...readRoles), teacherStudentAccess, updateStudentStatusController);
 router.get("/:studentProfileId", requireRole(...readRoles), teacherStudentAccess, getStudentByIdController);
 router.patch("/:studentProfileId", requireRole(...readRoles), teacherStudentAccess, updateStudentController);
 

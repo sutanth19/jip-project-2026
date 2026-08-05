@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { accountStatuses } from "@/features/admin/config";
+import { useDebouncedSearchInput } from "@/features/admin/hooks/use-debounced-search-input";
 import type { AdminEntityConfig, AdminListQuery } from "@/features/admin/types/admin.types";
 import { adminStatusFilterOptions } from "@/features/admin/utils/admin-status";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,11 @@ export function AdminFilterBar({
   useAdminStatusSelect = false,
 }: AdminFilterBarProps) {
   const nativeOptions = accountStatuses;
+  const {
+    searchInput,
+    handleSearchInputChange,
+    resetSearchInput,
+  } = useDebouncedSearchInput({ value: query.search, onChange });
 
   return (
     <div
@@ -39,8 +45,8 @@ export function AdminFilterBar({
           <span className="sr-only">Cari {config.title}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={query.search ?? ""}
-            onChange={(event) => onChange({ search: event.target.value, page: 1 })}
+            value={searchInput}
+            onChange={handleSearchInputChange}
             placeholder={searchPlaceholder ?? `Cari ${config.title.toLowerCase()}...`}
             className="!bg-background/40 pl-9 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
           />
@@ -85,7 +91,10 @@ export function AdminFilterBar({
         type="button"
         variant="outline"
         className="w-full sm:w-auto"
-        onClick={() => onChange({ search: undefined, status: undefined, page: 1 })}
+        onClick={() => {
+          resetSearchInput();
+          onChange({ search: undefined, status: undefined, page: 1 });
+        }}
       >
         <SlidersHorizontal className="size-4" aria-hidden="true" />
         Reset

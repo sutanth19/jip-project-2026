@@ -1,7 +1,12 @@
 import { AccountStatus, UserRole } from "@prisma/client";
+import { createHash, randomBytes } from "node:crypto";
 
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
+import {
+  EmailDeliveryError,
+  sendResendEmail,
+} from "./notification-email.service.js";
 import {
   hashPassword,
   hashPin,
@@ -257,6 +262,46 @@ export interface ChangeFirstPinResult {
   };
 }
 
+export interface RequestPasswordResetInput {
+  email: string;
+}
+
+export interface RequestPasswordResetResult {
+  message: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordResult {
+  message: string;
+}
+
+export interface PasswordResetEmailInput {
+  userId: string;
+  email: string;
+  displayName: string;
+  rawToken: string;
+  expiresAt: Date;
+}
+
+export type PasswordResetEmailDispatcher = (
+  input: PasswordResetEmailInput,
+) => Promise<boolean> | boolean;
+
+export interface PasswordResetDependencies {
+  db?: AuthDb;
+  now?: () => Date;
+  rawTokenGenerator?: () => string;
+  hashResetToken?: (token: string) => string;
+  hashNewPassword?: typeof hashPassword;
+  emailDispatcher?: PasswordResetEmailDispatcher;
+  expiryMinutes?: number;
+}
+
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -380,6 +425,46 @@ function passwordPolicyFailed(): AppError {
   );
 }
 
+function passwordResetTokenInvalid(): AppError {
+  return new AppError(
+    "PASSWORD_RESET_TOKEN_INVALID",
+    400,
+    "Pautan tetapan semula kata laluan tidak sah atau telah digunakan.",
+  );
+}
+
+function passwordResetTokenExpired(): AppError {
+  return new AppError(
+    "PASSWORD_RESET_TOKEN_EXPIRED",
+    400,
+    "Pautan tetapan semula kata laluan telah tamat tempoh.",
+  );
+}
+
+function passwordResetPasswordMismatch(): AppError {
+  return new AppError(
+    "PASSWORD_RESET_PASSWORD_MISMATCH",
+    400,
+    "Kata laluan tidak sepadan.",
+  );
+}
+
+function passwordResetPasswordInvalid(): AppError {
+  return new AppError(
+    "PASSWORD_RESET_PASSWORD_INVALID",
+    400,
+    "Kata laluan baharu tidak memenuhi keperluan keselamatan.",
+  );
+}
+
+function passwordResetAccountUnavailable(): AppError {
+  return new AppError(
+    "PASSWORD_RESET_ACCOUNT_UNAVAILABLE",
+    403,
+    "Akaun tidak tersedia untuk tetapan semula kata laluan.",
+  );
+}
+
 function studentPasswordChangeNotAllowed(): AppError {
   return new AppError(
     "AUTH_STUDENT_PASSWORD_CHANGE_NOT_ALLOWED",
@@ -461,6 +546,151 @@ export function isStrongPassword(value: string): boolean {
     /[0-9]/.test(value) &&
     /[^A-Za-z0-9\s]/.test(value)
   );
+}
+
+export const PASSWORD_RESET_GENERIC_MESSAGE =
+  "Jika akaun dengan e-mel tersebut wujud, pautan tetapan semula kata laluan telah dihantar.";
+
+export const PASSWORD_RESET_SUCCESS_MESSAGE =
+  "Kata laluan berjaya ditetapkan semula.";
+
+const PASSWORD_RESET_EXPIRY_MINUTES = 30;
+
+export function generatePasswordResetToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashPasswordResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] ?? character);
+}
+
+function recipientDomain(email: string): string {
+  return email.includes("@") ? email.split("@").pop() ?? "unknown" : "unknown";
+}
+
+function getDisplayName(user: UserRecord): string {
+  return user.admin?.fullName ?? user.teacher?.fullName ?? user.parent?.fullName ?? "pengguna";
+}
+
+function isPasswordResetEligible(user: UserRecord): boolean {
+  return (
+    user.role !== UserRole.STUDENT &&
+    user.accountStatus === AccountStatus.ACTIVE &&
+    Boolean(user.email) &&
+    Boolean(user.passwordHash)
+  );
+}
+
+function buildPasswordResetUrl(rawToken: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  const baseUrl = env.FRONTEND_URL;
+
+  if (!baseUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL("/reset-password", baseUrl);
+    url.searchParams.set("token", rawToken);
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function logPasswordResetEmailResult(
+  level: "info" | "warn",
+  message: string,
+  data: {
+    userId: string;
+    email: string;
+    providerId?: string | null;
+    reason?: string;
+    providerStatus?: number;
+  },
+): void {
+  const payload = {
+    userId: data.userId,
+    recipientDomain: recipientDomain(data.email),
+    ...(data.providerId ? { providerId: data.providerId } : {}),
+    ...(data.reason ? { reason: data.reason } : {}),
+    ...(data.providerStatus ? { providerStatus: data.providerStatus } : {}),
+  };
+
+  console[level](message, payload);
+}
+
+export function passwordResetEmailTemplate(input: {
+  displayName: string;
+  resetUrl: string;
+}): { subject: string; html: string; text: string } {
+  const safeName = escapeHtml(input.displayName);
+  const safeUrl = escapeHtml(input.resetUrl);
+  const subject = "Tetapkan Semula Kata Laluan Digital MoLIB";
+  const text = [
+    `Salam ${input.displayName},`,
+    "",
+    "Kami menerima permintaan untuk menetapkan semula kata laluan akaun Digital MoLIB anda.",
+    "",
+    `Tetapkan Semula Kata Laluan: ${input.resetUrl}`,
+    "",
+    "Pautan ini akan tamat tempoh dalam 30 minit.",
+    "Jika anda tidak membuat permintaan ini, abaikan e-mel ini. Kata laluan anda tidak akan berubah.",
+  ].join("\n");
+  const html = `<!doctype html><html><body><main style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#1e293b"><h1>Tetapkan Semula Kata Laluan</h1><p>Salam ${safeName},</p><p>Kami menerima permintaan untuk menetapkan semula kata laluan akaun Digital MoLIB anda.</p><p><a href="${safeUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">Tetapkan Semula Kata Laluan</a></p><p>Pautan ini akan tamat tempoh dalam 30 minit.</p><p>Jika anda tidak membuat permintaan ini, abaikan e-mel ini. Kata laluan anda tidak akan berubah.</p><hr><small>Digital MoLIB</small></main></body></html>`;
+
+  return { subject, html, text };
+}
+
+export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<boolean> {
+  const resetUrl = buildPasswordResetUrl(input.rawToken);
+
+  if (!resetUrl) {
+    logPasswordResetEmailResult("warn", "Password reset email delivery failed.", {
+      userId: input.userId,
+      email: input.email,
+      reason: "FRONTEND_URL_NOT_CONFIGURED",
+    });
+    return false;
+  }
+
+  const email = passwordResetEmailTemplate({
+    displayName: input.displayName,
+    resetUrl,
+  });
+
+  try {
+    const sent = await sendResendEmail({
+      to: input.email,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+    logPasswordResetEmailResult("info", "Password reset email delivered.", {
+      userId: input.userId,
+      email: input.email,
+      providerId: sent.providerId,
+    });
+    return true;
+  } catch (error) {
+    const deliveryError = error instanceof EmailDeliveryError ? error : null;
+    logPasswordResetEmailResult("warn", "Password reset email delivery failed.", {
+      userId: input.userId,
+      email: input.email,
+      reason: deliveryError?.code ?? "EMAIL_DELIVERY_FAILED",
+      providerStatus: deliveryError?.providerStatus,
+    });
+    return false;
+  }
 }
 
 function isValidPin(value: string): boolean {
@@ -1062,6 +1292,131 @@ export async function changeFirstPin(
       accountStatus: user.accountStatus,
     },
   };
+}
+
+export async function requestPasswordReset(
+  input: RequestPasswordResetInput,
+  deps: PasswordResetDependencies = {},
+): Promise<RequestPasswordResetResult> {
+  const db = deps.db ?? (prisma as unknown as AuthDb);
+  const now = deps.now ?? (() => new Date());
+  const rawTokenGenerator = deps.rawTokenGenerator ?? generatePasswordResetToken;
+  const hashResetToken = deps.hashResetToken ?? hashPasswordResetToken;
+  const emailDispatcher = deps.emailDispatcher ?? sendPasswordResetEmail;
+  const expiryMinutes = deps.expiryMinutes ?? PASSWORD_RESET_EXPIRY_MINUTES;
+  const email = normalizeEmail(input.email);
+
+  const user = (await db.user.findUnique({
+    where: { email },
+    include: {
+      admin: true,
+      teacher: true,
+      parent: true,
+    },
+  })) as UserRecord | null;
+
+  if (!user || !isPasswordResetEligible(user) || !user.email) {
+    return { message: PASSWORD_RESET_GENERIC_MESSAGE };
+  }
+
+  const rawToken = rawTokenGenerator();
+  const passwordResetToken = hashResetToken(rawToken);
+  const passwordResetExpiry = new Date(now().getTime() + expiryMinutes * 60 * 1000);
+
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      passwordResetToken,
+      passwordResetExpiry,
+    },
+  });
+
+  const delivered = await emailDispatcher({
+    userId: user.id,
+    email: user.email,
+    displayName: getDisplayName(user),
+    rawToken,
+    expiresAt: passwordResetExpiry,
+  });
+
+  if (!delivered) {
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+    });
+  }
+
+  return { message: PASSWORD_RESET_GENERIC_MESSAGE };
+}
+
+export async function resetPassword(
+  input: ResetPasswordInput,
+  deps: PasswordResetDependencies = {},
+): Promise<ResetPasswordResult> {
+  const db = deps.db ?? (prisma as unknown as AuthDb);
+  const now = deps.now ?? (() => new Date());
+  const hashResetToken = deps.hashResetToken ?? hashPasswordResetToken;
+  const hashNewPassword = deps.hashNewPassword ?? hashPassword;
+
+  if (input.password !== input.confirmPassword) {
+    throw passwordResetPasswordMismatch();
+  }
+
+  if (!isStrongPassword(input.password)) {
+    throw passwordResetPasswordInvalid();
+  }
+
+  const passwordResetToken = hashResetToken(input.token);
+  const user = (await db.user.findUnique({
+    where: { passwordResetToken },
+    include: {
+      admin: true,
+      teacher: true,
+      parent: true,
+    },
+  })) as UserRecord | null;
+
+  if (!user || !user.passwordResetToken || !user.passwordResetExpiry) {
+    throw passwordResetTokenInvalid();
+  }
+
+  if (user.passwordResetExpiry <= now()) {
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+    });
+    throw passwordResetTokenExpired();
+  }
+
+  if (!isPasswordResetEligible(user)) {
+    await db.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+    });
+    throw passwordResetAccountUnavailable();
+  }
+
+  const passwordHash = await hashNewPassword(input.password);
+
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      passwordResetToken: null,
+      passwordResetExpiry: null,
+    },
+  });
+
+  return { message: PASSWORD_RESET_SUCCESS_MESSAGE };
 }
 
 export interface SetupPasswordInput {

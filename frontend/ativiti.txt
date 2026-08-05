@@ -164,3 +164,16 @@ Phase 28 — Production Hardening, Security and Performance
 ↓
 Phase 29 — Deployment, Monitoring and Backup
 
+password:
+
+
+guru: sutanthguru@123K, sutanthroony@gmail.com
+admin: Admin@123, sutanthkunsuraman@gmail.com
+
+Digital MoLIB
+
+Nama Murid: Baratahan
+ID Murid: 0111
+PIN: 8069
+
+Log masuk menggunakan ID Murid dan PIN.

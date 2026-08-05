@@ -88,6 +88,26 @@ export async function setupPassword(input: {
   });
 }
 
+export async function requestPasswordReset(input: {
+  email: string;
+}): Promise<void> {
+  return apiRequest("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function resetPassword(input: {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}): Promise<void> {
+  return apiRequest("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function changeFirstPin(input: {
   currentPin: string;
   newPin: string;

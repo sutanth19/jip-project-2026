@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Eye, Pencil, RotateCcw } from "lucide-react";
 
 import { EmptyState, ErrorState, LoadingState, ManagementPageLayout, PageContainer, SectionCard } from "@/components/shared";
@@ -16,6 +16,11 @@ import {
   SchoolDetailSkeleton,
   SchoolDetailView,
 } from "@/features/admin/components/SchoolDetailView";
+import {
+  TeacherDetailErrorState,
+  TeacherDetailSkeleton,
+  TeacherDetailView,
+} from "@/features/admin/components/TeacherDetailView";
 import { getAdminEntity } from "@/features/admin/config";
 import { useAdminRecord, useResendSetup, useUpdateAdminRecordStatus } from "@/features/admin/hooks/use-admin-records";
 import type { AdminEntityKey } from "@/features/admin/types/admin.types";
@@ -27,6 +32,10 @@ import {
   normalizeSchoolDetailRecord,
   type SchoolAccountStatus,
 } from "@/features/admin/utils/school-detail";
+import {
+  normalizeTeacherDetailRecord,
+  type TeacherStatusTarget,
+} from "@/features/admin/utils/teacher-detail";
 import { getNestedValue, getRecordId, stringifyValue } from "@/features/admin/utils/record";
 import { parseApiError } from "@/lib/api";
 import { useToast } from "@/providers/toast-context-value";
@@ -34,20 +43,6 @@ import { useAuthStore } from "@/stores/auth-store";
 
 const allowedTargets = ["ACTIVE", "SUSPENDED", "ARCHIVED"] as const;
 const adminManagementPageContainerClass = "px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0";
-
-function getDevelopmentSetupUrl(payload: unknown): string | null {
-  const value = getNestedValue(payload as Record<string, unknown>, "invitation.developmentSetupUrl");
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function getLocationDevelopmentSetupUrl(state: unknown): string | null {
-  if (!state || typeof state !== "object" || !("developmentSetupUrl" in state)) {
-    return null;
-  }
-
-  const value = (state as { developmentSetupUrl?: unknown }).developmentSetupUrl;
-  return typeof value === "string" && value.trim() ? value : null;
-}
 
 function adminActionErrorMessage(error: unknown): string {
   const parsed = parseApiError(error);
@@ -87,10 +82,31 @@ function entityStatusErrorMessage(entityKey: AdminEntityKey, error: unknown): st
   return parsed.message;
 }
 
+function teacherActionErrorMessage(error: unknown): string {
+  const parsed = parseApiError(error);
+
+  if (parsed.code === "TEACHER_SETUP_ALREADY_COMPLETED") {
+    return "Guru telah melengkapkan penyediaan akaun.";
+  }
+
+  if (parsed.code === "TEACHER_SETUP_RESEND_NOT_ALLOWED") {
+    return "Jemputan setup tidak boleh dihantar semula untuk akaun ini.";
+  }
+
+  if (parsed.code === "TEACHER_STATUS_TRANSITION_INVALID") {
+    return "Perubahan status guru tidak dibenarkan.";
+  }
+
+  if (parsed.code === "TEACHER_NOT_FOUND") {
+    return "Guru tidak ditemui.";
+  }
+
+  return parsed.message;
+}
+
 export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey }) {
   const config = getAdminEntity(entityKey);
   const navigate = useNavigate();
-  const location = useLocation();
   const params = useParams();
   const toast = useToast();
   const role = useAuthStore((state) => state.role);
@@ -101,9 +117,6 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
   const [statusError, setStatusError] = React.useState<string | null>(null);
   const [resendError, setResendError] = React.useState<string | null>(null);
   const [archiveError, setArchiveError] = React.useState<string | null>(null);
-  const [developmentSetupUrl, setDevelopmentSetupUrl] = React.useState<string | null>(() =>
-    getLocationDevelopmentSetupUrl(location.state),
-  );
   const isAdminAccounts = entityKey === "admins";
   const detail = record.data;
   const safeId = detail ? getRecordId(detail) : id;
@@ -111,6 +124,125 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
   const setupStatus = detail ? stringifyValue(getNestedValue(detail, "setupStatus")) : undefined;
   const canResendSetup = currentStatus !== "ARCHIVED" && setupStatus !== "COMPLETED";
   const possibleActions = allowedTargets.filter((status) => status !== currentStatus);
+
+  if (entityKey === "teachers") {
+    const teacherDetail = normalizeTeacherDetailRecord(detail);
+    const fetchError = record.isError ? parseApiError(record.error) : null;
+    const isNotFound = fetchError?.status === 404 || fetchError?.code === "TEACHER_NOT_FOUND";
+    const isForbidden = fetchError?.status === 403;
+    const detailPath = `${config.path}/${teacherDetail?.id ?? id}`;
+
+    const handleTeacherStatusChange = async (status: TeacherStatusTarget) => {
+      setStatusError(null);
+      setArchiveError(null);
+
+      try {
+        await statusMutation.mutateAsync({ id: teacherDetail?.id ?? id, status });
+        await record.refetch();
+        toast.success("Status guru dikemas kini.");
+        return true;
+      } catch (error) {
+        const message = teacherActionErrorMessage(error);
+        setStatusError(message);
+        if (status === "ARCHIVED") {
+          setArchiveError(message);
+        }
+        toast.error("Status guru gagal dikemas kini", message);
+        return false;
+      }
+    };
+
+    const handleTeacherResendSetup = () => {
+      if (!teacherDetail) {
+        return;
+      }
+
+      setResendError(null);
+      resendMutation.mutate(teacherDetail.id, {
+        onSuccess: (result) => {
+          const invitationStatus = stringifyValue(getNestedValue(result as Record<string, unknown>, "invitation.status"));
+          if (invitationStatus === "SENT") {
+            toast.success("E-mel penyediaan telah dihantar semula.");
+          } else {
+            const message = "E-mel penyediaan tidak dapat dihantar. Sila cuba lagi.";
+            setResendError(message);
+            toast.error("E-mel penyediaan tidak dapat dihantar", "Sila cuba lagi.");
+          }
+          void record.refetch();
+        },
+        onError: (error) => {
+          const message = teacherActionErrorMessage(error);
+          setResendError(message);
+          toast.error("Jemputan gagal dihantar", message);
+        },
+      });
+    };
+
+    const detailActions = (
+      <>
+        <Button asChild variant="outline" className="h-11 w-full gap-2 rounded-xl px-5 focus-visible:ring-primary/30 sm:w-auto">
+          <Link to={config.path}>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Kembali
+          </Link>
+        </Button>
+        {teacherDetail ? (
+          <Button asChild className="h-11 w-full gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:ring-primary/30 sm:w-auto">
+            <Link to={`${detailPath}/edit`}>
+              <Pencil className="size-4" aria-hidden="true" />
+              Edit Guru
+            </Link>
+          </Button>
+        ) : null}
+      </>
+    );
+
+    return (
+      <PageContainer className={adminManagementPageContainerClass}>
+        <ManagementPageLayout
+          breadcrumb={[
+            { label: "Home", to: "/admin" },
+            { label: "Guru", to: config.path },
+            { label: "Butiran Guru" },
+          ]}
+          title="Butiran Guru"
+          description="Lihat dan urus maklumat akaun guru platform Digital MoLIB."
+          actions={detailActions}
+        >
+          {record.isLoading ? <TeacherDetailSkeleton /> : null}
+          {record.isError && !isNotFound ? (
+            <TeacherDetailErrorState
+              title={isForbidden ? "Anda tidak mempunyai kebenaran untuk melihat halaman ini." : "Butiran guru tidak dapat dimuatkan"}
+              description="Sila cuba lagi."
+              onRetry={() => void record.refetch()}
+              path={config.path}
+            />
+          ) : null}
+          {(!record.isLoading && !record.isError && !teacherDetail) || isNotFound ? (
+            <TeacherDetailErrorState
+              title="Guru tidak ditemui"
+              description="Rekod guru ini tidak wujud atau telah dipadamkan."
+              path={config.path}
+            />
+          ) : null}
+          {teacherDetail ? (
+            <TeacherDetailView
+              detail={teacherDetail}
+              currentRole={role}
+              statusPending={statusMutation.isPending}
+              resendPending={resendMutation.isPending}
+              statusError={statusError}
+              resendError={resendError}
+              archiveError={archiveError}
+              onStatusChange={handleTeacherStatusChange}
+              onResendSetup={handleTeacherResendSetup}
+              onArchive={() => handleTeacherStatusChange("ARCHIVED")}
+            />
+          ) : null}
+        </ManagementPageLayout>
+      </PageContainer>
+    );
+  }
 
   if (entityKey === "schools") {
     const schoolDetail = normalizeSchoolDetailRecord(detail);
@@ -235,7 +367,6 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
       resendMutation.mutate(adminDetail.id, {
         onSuccess: (result) => {
           const invitationStatus = stringifyValue(getNestedValue(result as Record<string, unknown>, "invitation.status"));
-          setDevelopmentSetupUrl(getDevelopmentSetupUrl(result));
           if (invitationStatus === "SENT") {
             toast.success("Jemputan persediaan dihantar semula.");
           } else {
@@ -251,20 +382,6 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
           toast.error("Jemputan gagal dihantar", message);
         },
       });
-    };
-
-    const handleCopyDevelopmentSetupUrl = async () => {
-      if (!developmentSetupUrl || !navigator.clipboard?.writeText) {
-        toast.error("Pautan setup tidak dapat disalin.");
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(developmentSetupUrl);
-        toast.success("Pautan setup telah disalin.");
-      } catch {
-        toast.error("Pautan setup tidak dapat disalin.");
-      }
     };
 
     const detailPath = `${config.path}/${adminDetail?.id ?? id}`;
@@ -343,10 +460,8 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
               statusError={statusError}
               resendError={resendError}
               archiveError={archiveError}
-              developmentSetupUrl={developmentSetupUrl}
               onStatusChange={handleStatusChange}
               onResendSetup={handleResendSetup}
-              onCopyDevelopmentSetupUrl={handleCopyDevelopmentSetupUrl}
               onArchive={handleArchive}
             />
           </ManagementPageLayout>

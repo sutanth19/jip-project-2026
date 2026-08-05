@@ -4,14 +4,15 @@ import { AppError } from "../errors/app-error.js";
 import { successResponse } from "../helpers/response.helper.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import {
-  createStudent, getStudentById, getStudentParents, linkStudentParent, listStudents,
+  createStudent, createTeacherStudent, getStudentById, getStudentParents, linkStudentParent, listStudents,
   resetStudentPin, transferStudentClass, unlinkStudentParent, updateStudent, updateStudentStatus,
   type StudentAuditContext,
 } from "../services/student.service.js";
 import {
-  createStudentSchema, linkStudentParentSchema, listStudentsQuerySchema, studentParentParamsSchema,
+  createStudentSchema, createTeacherStudentSchema, linkStudentParentSchema, listStudentsQuerySchema, studentParentParamsSchema,
   studentProfileIdParamsSchema, transferStudentClassSchema, updateStudentSchema, updateStudentStatusSchema,
 } from "../validators/student.validator.js";
+import { UserRole } from "@prisma/client";
 
 function auditContext(req: AuthenticatedRequest): StudentAuditContext {
   if (!req.auth) throw new AppError("AUTH_INVALID_TOKEN", 401, "Invalid or expired token.");
@@ -19,7 +20,13 @@ function auditContext(req: AuthenticatedRequest): StudentAuditContext {
 }
 
 export async function createStudentController(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try { successResponse(res, 201, "Murid berjaya didaftarkan.", await createStudent(createStudentSchema.parse(req.body), auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }
+  try {
+    const context = auditContext(req as AuthenticatedRequest);
+    const result = context.actor.role === UserRole.TEACHER
+      ? await createTeacherStudent(createTeacherStudentSchema.parse(req.body), context)
+      : await createStudent(createStudentSchema.parse(req.body), context);
+    successResponse(res, 201, "Murid berjaya didaftarkan.", result);
+  } catch (caught) { next(caught); }
 }
 export async function getStudentsController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try { successResponse(res, 200, "Senarai murid berjaya diperoleh.", await listStudents(listStudentsQuerySchema.parse(req.query), auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }

@@ -3,8 +3,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertCircle,
   CheckCircle2,
-  Copy,
-  ExternalLink,
   Info,
   LoaderCircle,
   Mail,
@@ -41,11 +39,10 @@ import {
 } from "@/features/admin/utils/admin-account-create";
 import type { AdminAccountEditFieldName } from "@/features/admin/utils/admin-account-edit";
 import { cn } from "@/lib/utils";
-import { ToastContext } from "@/providers/toast-context-value";
 
 export type AdminAccountCreateResult = {
   detailPath: string;
-  developmentSetupUrl?: string;
+  invitationStatus?: string;
 };
 
 function RequiredMark() {
@@ -221,17 +218,20 @@ function CreateConfirmationDialog({
   );
 }
 
-function DevelopmentCreateSuccessDialog({
+function CreateSuccessDialog({
   result,
-  onCopy,
-  onOpenSetup,
+  onDone,
 }: {
   result: AdminAccountCreateResult | null;
-  onCopy: () => void;
-  onOpenSetup: () => void;
+  onDone: () => void;
 }) {
+  const emailSent = result?.invitationStatus === "SENT";
+  const description = emailSent
+    ? "E-mel jemputan telah dihantar kepada pengguna untuk melengkapkan penyediaan akaun dan mencipta kata laluan.."
+    : "Akaun pentadbir berjaya dicipta, tetapi e-mel penyediaan gagal dihantar.";
+
   return (
-    <AlertDialog open={Boolean(result)}>
+    <AlertDialog open={Boolean(result)} onOpenChange={(open) => !open && onDone()}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
@@ -240,50 +240,33 @@ function DevelopmentCreateSuccessDialog({
             </div>
             <div>
               <AlertDialogTitle>Pentadbir berjaya dicipta</AlertDialogTitle>
-              <AlertDialogDescription>
-                Akaun telah dicipta. Gunakan pautan pembangunan ini untuk menguji penyediaan akaun secara tempatan.
-              </AlertDialogDescription>
+              <AlertDialogDescription>{description}</AlertDialogDescription>
             </div>
           </div>
         </AlertDialogHeader>
 
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
-              Pembangunan Sahaja
-            </span>
-            <h3 className="text-sm font-semibold">Pautan setup pembangunan</h3>
-          </div>
+        <div
+          className={cn(
+            "rounded-xl border p-4 text-sm leading-6",
+            emailSent
+              ? "border-secondary/25 bg-secondary/5 text-muted-foreground"
+              : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200",
+          )}
+        >
           <p className="mt-2 text-sm leading-6">
-            Gunakan pautan ini hanya untuk ujian pembangunan tempatan.
+            {emailSent
+              ? "Pengguna perlu membuka e-mel tersebut untuk mencipta kata laluan dan melengkapkan penyediaan akaun."
+              : "Gunakan halaman butiran pentadbir untuk menyemak status penyediaan dan menghantar semula e-mel jika diperlukan."}
           </p>
         </div>
 
         <AlertDialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 gap-2 rounded-xl px-5"
-            onClick={onCopy}
-            aria-label="Salin pautan setup pembangunan"
-          >
-            <Copy className="size-4" aria-hidden="true" />
-            Salin Pautan Setup
-          </Button>
-          <Button
-            type="button"
-            className="h-11 gap-2 rounded-xl px-5"
-            onClick={onOpenSetup}
-            aria-label="Buka pautan setup pembangunan"
-          >
-            <ExternalLink className="size-4" aria-hidden="true" />
-            Buka Pautan Setup
+          <Button type="button" variant="outline" className="h-11 rounded-xl px-5" onClick={onDone}>
+            Selesai
           </Button>
           {result ? (
             <AlertDialogAction asChild className="h-11 rounded-xl px-5">
-              <Link to={result.detailPath} state={{ developmentSetupUrl: result.developmentSetupUrl }}>
-                Lihat Butiran
-              </Link>
+              <Link to={result.detailPath}>Lihat Butiran</Link>
             </AlertDialogAction>
           ) : null}
         </AlertDialogFooter>
@@ -300,7 +283,6 @@ export function AdminAccountCreateForm({
   onSubmit: (payload: AdminAccountCreatePayload) => Promise<AdminAccountCreateResult | void>;
 }) {
   const navigate = useNavigate();
-  const toast = React.useContext(ToastContext);
   const [discardOpen, setDiscardOpen] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [successResult, setSuccessResult] = React.useState<AdminAccountCreateResult | null>(null);
@@ -365,7 +347,7 @@ export function AdminAccountCreateForm({
     try {
       const result = await onSubmit(pendingPayload);
       setConfirmOpen(false);
-      if (result?.developmentSetupUrl) {
+      if (result?.detailPath) {
         setSuccessResult(result);
       }
     } catch (error) {
@@ -384,26 +366,9 @@ export function AdminAccountCreateForm({
   };
 
   const summary = pendingValues ? getAdminCreateSummary(pendingValues) : [];
-  const handleCopyDevelopmentSetupUrl = async () => {
-    if (!successResult?.developmentSetupUrl || !navigator.clipboard?.writeText) {
-      toast?.error("Pautan setup tidak dapat disalin.");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(successResult.developmentSetupUrl);
-      toast?.success("Pautan setup telah disalin.");
-    } catch {
-      toast?.error("Pautan setup tidak dapat disalin.");
-    }
-  };
-
-  const handleOpenDevelopmentSetupUrl = () => {
-    if (!successResult?.developmentSetupUrl) {
-      return;
-    }
-
-    window.open(successResult.developmentSetupUrl, "_blank", "noopener,noreferrer");
+  const handleSuccessDone = () => {
+    setSuccessResult(null);
+    navigate(path, { replace: true });
   };
 
   return (
@@ -524,11 +489,7 @@ export function AdminAccountCreateForm({
         onOpenChange={setConfirmOpen}
         onConfirm={handleConfirmCreate}
       />
-      <DevelopmentCreateSuccessDialog
-        result={successResult}
-        onCopy={handleCopyDevelopmentSetupUrl}
-        onOpenSetup={handleOpenDevelopmentSetupUrl}
-      />
+      <CreateSuccessDialog result={successResult} onDone={handleSuccessDone} />
     </>
   );
 }

@@ -13,6 +13,7 @@ import { AdminPageHeader } from "@/features/admin/components/AdminPageHeader";
 import { AdminRecordTable } from "@/features/admin/components/AdminRecordTable";
 import { AdminUnsupportedNotice } from "@/features/admin/components/AdminUnsupportedNotice";
 import { SchoolListContent } from "@/features/admin/components/SchoolList";
+import { TeacherListContent } from "@/features/admin/components/TeacherList";
 import { getAdminEntity, unsupportedBackendCapabilities } from "@/features/admin/config";
 import { useAdminQueryState } from "@/features/admin/hooks/use-admin-query-state";
 import { useAdminRecords } from "@/features/admin/hooks/use-admin-records";
@@ -53,6 +54,43 @@ export function AdminEntityListPage({ entityKey }: { entityKey: AdminEntityKey }
         />
 
         <SchoolListContent
+          rows={records.data?.items ?? []}
+          meta={records.data?.meta ?? { page: query.page ?? 1, limit: query.limit ?? 10, total: 0, totalPages: 1 }}
+          query={query}
+          path={config.path}
+          isLoading={records.isLoading}
+          isError={records.isError}
+          error={records.error}
+          canCreate={canCreate}
+          onQueryChange={updateQuery}
+          onRetry={() => void records.refetch()}
+        />
+      </PageContainer>
+    );
+  }
+
+  if (entityKey === "teachers") {
+    return (
+      <PageContainer>
+        <AdminPageHeader
+          title="Guru"
+          description="Urus akaun guru yang menggunakan platform Digital MoLIB."
+          actions={
+            canCreate ? (
+              <Button asChild variant="secondary">
+                <Link
+                  to={`${config.path}/tambah`}
+                  className="h-12 rounded-xl px-6 font-semibold shadow-sm hover:bg-secondary/90 focus-visible:ring-secondary/30"
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  Tambah Guru
+                </Link>
+              </Button>
+            ) : null
+          }
+        />
+
+        <TeacherListContent
           rows={records.data?.items ?? []}
           meta={records.data?.meta ?? { page: query.page ?? 1, limit: query.limit ?? 10, total: 0, totalPages: 1 }}
           query={query}

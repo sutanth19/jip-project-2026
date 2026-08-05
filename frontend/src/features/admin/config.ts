@@ -80,7 +80,7 @@ export const adminEntities: AdminEntityConfig[] = [
     key: "teachers",
     title: "Guru",
     singular: "Guru",
-    description: "Urus profil guru, status akaun, dan jemputan persediaan.",
+    description: "Urus akaun guru yang menggunakan platform Digital MoLIB.",
     path: "/admin/guru",
     endpoint: "/teachers",
     roles: ["SUPER_ADMIN", "ADMIN"],
@@ -91,11 +91,11 @@ export const adminEntities: AdminEntityConfig[] = [
     lifecycle: true,
     resendSetup: true,
     columns: [
-      { key: "teacherId", label: "ID Guru" },
-      { key: "fullName", label: "Nama" },
-      { key: "user.email", label: "E-mel" },
+      { key: "fullName", label: "Guru" },
+      { key: "email", label: "E-mel" },
       { key: "school.schoolName", label: "Sekolah" },
-      { key: "user.accountStatus", label: "Status", kind: "status" },
+      { key: "accountStatus", label: "Status", kind: "status" },
+      { key: "lastLogin", label: "Log Masuk Terakhir", kind: "date" },
     ],
     fields: [
       { name: "schoolId", label: "ID sekolah", required: true },
@@ -107,7 +107,7 @@ export const adminEntities: AdminEntityConfig[] = [
       { name: "position", label: "Jawatan" },
       { name: "avatar", label: "URL avatar" },
     ],
-    editFieldNames: ["fullName", "email", "phone", "position", "avatar"],
+    editFieldNames: ["schoolId", "fullName", "email", "phone"],
   },
   {
     key: "students",

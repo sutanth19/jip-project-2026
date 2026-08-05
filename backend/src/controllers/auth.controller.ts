@@ -7,6 +7,8 @@ import {
   changeFirstPin,
   changeFirstPassword,
   login,
+  requestPasswordReset,
+  resetPassword,
   setupPassword,
   studentLogin,
 } from "../services/auth.service.js";
@@ -14,7 +16,9 @@ import {
 import {
   changeFirstPinSchema,
   changeFirstPasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
+  resetPasswordSchema,
   setupPasswordSchema,
   studentLoginSchema,
 } from "../validators/auth.validator.js";
@@ -111,6 +115,66 @@ export async function setupPasswordController(
           "AUTH_INVALID_INPUT",
           400,
           "Sila semak maklumat yang diberikan."
+        )
+      );
+      return;
+    }
+
+    next(error);
+  }
+}
+
+export async function forgotPasswordController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const data = forgotPasswordSchema.parse(req.body);
+    const result = await requestPasswordReset(data);
+
+    return successResponse(
+      res,
+      200,
+      result.message
+    );
+  } catch (error) {
+    if (error instanceof ZodError) {
+      next(
+        new AppError(
+          "AUTH_INVALID_INPUT",
+          400,
+          "Sila masukkan alamat e-mel yang sah."
+        )
+      );
+      return;
+    }
+
+    next(error);
+  }
+}
+
+export async function resetPasswordController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const data = resetPasswordSchema.parse(req.body);
+    const result = await resetPassword(data);
+
+    return successResponse(
+      res,
+      200,
+      result.message
+    );
+  } catch (error) {
+    if (error instanceof ZodError) {
+      next(
+        new AppError(
+          "AUTH_INVALID_INPUT",
+          400,
+          "Sila semak maklumat tetapan semula kata laluan anda."
         )
       );
       return;

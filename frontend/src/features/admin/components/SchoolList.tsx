@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDebouncedSearchInput } from "@/features/admin/hooks/use-debounced-search-input";
 import type { AdminListQuery, AdminRecord, PageMeta } from "@/features/admin/types/admin.types";
 import {
   getSchoolInitials,
   schoolLimitPatch,
   schoolPageSizeOptions,
   schoolResetPatch,
-  schoolSearchPatch,
   schoolStatusLabel,
   schoolStatusPatch,
   toSchoolListItem,
@@ -102,14 +102,20 @@ export function SchoolListFilters({
   query: AdminListQuery;
   onChange: (patch: AdminListQuery) => void;
 }) {
+  const {
+    searchInput,
+    handleSearchInputChange,
+    resetSearchInput,
+  } = useDebouncedSearchInput({ value: query.search, onChange });
+
   return (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
       <label className="relative flex-1">
         <span className="sr-only">Cari sekolah</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
-          value={query.search ?? ""}
-          onChange={(event) => onChange(schoolSearchPatch(event.target.value))}
+          value={searchInput}
+          onChange={handleSearchInputChange}
           placeholder="Cari sekolah mengikut nama, kod, pengetua, e-mel atau telefon."
           className="!bg-background/40 pl-9 text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
         />
@@ -136,7 +142,10 @@ export function SchoolListFilters({
         type="button"
         variant="outline"
         className="w-full sm:w-auto"
-        onClick={() => onChange(schoolResetPatch())}
+        onClick={() => {
+          resetSearchInput();
+          onChange(schoolResetPatch());
+        }}
       >
         <SlidersHorizontal className="size-4" aria-hidden="true" />
         Reset
@@ -272,11 +281,6 @@ export function SchoolPagination({
 export function SchoolListLoading() {
   return (
     <div className="mt-6 space-y-5" aria-label="Memuatkan senarai sekolah">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Skeleton className="h-8 flex-1" />
-        <Skeleton className="h-8 w-full sm:w-28" />
-        <Skeleton className="h-8 w-full sm:w-24" />
-      </div>
       <div className="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
         <div className="grid grid-cols-7 gap-4 bg-muted/70 p-4">
           {Array.from({ length: 7 }).map((_, index) => <Skeleton key={index} className="h-4" />)}
@@ -368,18 +372,21 @@ export function SchoolListContent({
   const schools = rows.map(toSchoolListItem);
   const hasSearch = Boolean(query.search?.trim() || query.status);
 
-  if (isLoading) {
-    return <SchoolListLoading />;
-  }
-
   if (isError) {
-    return <SchoolListError error={error ?? new ApiError("Tidak dapat memuatkan data sekolah.", 500)} onRetry={onRetry} />;
+    return (
+      <>
+        <SchoolListFilters query={query} onChange={onQueryChange} />
+        <SchoolListError error={error ?? new ApiError("Tidak dapat memuatkan data sekolah.", 500)} onRetry={onRetry} />
+      </>
+    );
   }
 
   return (
     <>
       <SchoolListFilters query={query} onChange={onQueryChange} />
-      {schools.length === 0 ? (
+      {isLoading ? (
+        <SchoolListLoading />
+      ) : schools.length === 0 ? (
         <div className="mt-5">
           <EmptyState
             title={hasSearch ? "Tiada sekolah yang sepadan dengan carian." : "Belum ada sekolah."}

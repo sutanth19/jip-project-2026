@@ -18,6 +18,11 @@ export type ApiFailureResponse = {
   message?: string;
   code?: string;
   errors?: Record<string, string[]>;
+  error?: {
+    message?: string;
+    code?: string;
+    errors?: Record<string, string[]>;
+  };
 };
 
 export class ApiError extends Error {
@@ -131,11 +136,12 @@ function mapAxiosError(error: AxiosError<ApiFailureResponse>): ApiError {
   }
 
   const payload = error.response.data;
+  const nestedError = payload?.error;
   return new ApiError(
-    payload?.message ?? "Permintaan gagal.",
+    nestedError?.message ?? payload?.message ?? "Permintaan gagal.",
     error.response.status,
-    payload?.code ?? null,
-    payload?.errors ?? null,
+    nestedError?.code ?? payload?.code ?? null,
+    nestedError?.errors ?? payload?.errors ?? null,
   );
 }
 

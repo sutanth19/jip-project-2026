@@ -44,6 +44,10 @@ export async function getAdminRecord(
     return payload.school as AdminRecord;
   }
 
+  if (config.key === "teachers" && isRecord(payload) && isRecord(payload.teacher)) {
+    return payload.teacher as AdminRecord;
+  }
+
   return payload as AdminRecord;
 }
 

@@ -5,13 +5,15 @@ import { successResponse } from "../helpers/response.helper.js";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import {
   assignSchoolClassTeacher, assignStudentToSchoolClass, createSchoolClass, getSchoolClassById,
-  getSchoolClasses, getSchoolClassStudents, removeStudentFromSchoolClass, updateSchoolClass,
+  createTeacherSchoolClass, getSchoolClasses, getSchoolClassStudents, removeStudentFromSchoolClass, updateSchoolClass,
   updateSchoolClassStatus, type SchoolClassAuditContext,
 } from "../services/schoolClass.service.js";
 import {
   assignSchoolClassTeacherSchema, classIdParamsSchema, classStudentParamsSchema, createSchoolClassSchema,
+  createTeacherSchoolClassSchema,
   listClassStudentsQuerySchema, listSchoolClassesQuerySchema, updateSchoolClassSchema, updateSchoolClassStatusSchema,
 } from "../validators/schoolClass.validator.js";
+import { UserRole } from "@prisma/client";
 
 function auditContext(req: AuthenticatedRequest): SchoolClassAuditContext {
   if (!req.auth) throw new AppError("AUTH_INVALID_TOKEN", 401, "Invalid or expired token.");
@@ -19,7 +21,13 @@ function auditContext(req: AuthenticatedRequest): SchoolClassAuditContext {
 }
 
 export async function createSchoolClassController(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try { successResponse(res, 201, "Kelas berjaya diwujudkan.", { class: await createSchoolClass(createSchoolClassSchema.parse(req.body), auditContext(req as AuthenticatedRequest)) }); } catch (caught) { next(caught); }
+  try {
+    const context = auditContext(req as AuthenticatedRequest);
+    const created = context.actor.role === UserRole.TEACHER
+      ? await createTeacherSchoolClass(createTeacherSchoolClassSchema.parse(req.body), context)
+      : await createSchoolClass(createSchoolClassSchema.parse(req.body), context);
+    successResponse(res, 201, "Kelas berjaya diwujudkan.", { class: created });
+  } catch (caught) { next(caught); }
 }
 export async function getSchoolClassesController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try { successResponse(res, 200, "Senarai kelas berjaya diperoleh.", await getSchoolClasses(listSchoolClassesQuerySchema.parse(req.query), auditContext(req as AuthenticatedRequest))); } catch (caught) { next(caught); }

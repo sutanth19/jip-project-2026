@@ -4,7 +4,6 @@ import {
   CalendarDays,
   CircleCheck,
   Clock3,
-  Copy,
   Loader2,
   Mail,
   Phone,
@@ -50,10 +49,8 @@ type AdminAccountDetailViewProps = {
   statusError?: string | null;
   resendError?: string | null;
   archiveError?: string | null;
-  developmentSetupUrl?: string | null;
   onStatusChange: (status: AdminStatusTarget) => Promise<boolean>;
   onResendSetup: () => void;
-  onCopyDevelopmentSetupUrl?: () => void;
   onArchive: () => Promise<boolean>;
 };
 
@@ -277,23 +274,19 @@ function AdminSetupCard({
   detail,
   pending,
   error,
-  developmentSetupUrl,
   onResendSetup,
-  onCopyDevelopmentSetupUrl,
 }: {
   detail: AdminAccountDetail;
   pending: boolean;
   error?: string | null;
-  developmentSetupUrl?: string | null;
   onResendSetup: () => void;
-  onCopyDevelopmentSetupUrl?: () => void;
 }) {
   const canResend = canResendAdminSetup(detail);
   const setupMessage =
     detail.setupStatus === "COMPLETED"
       ? "Pentadbir ini telah melengkapkan penyediaan akaun."
       : detail.setupStatus === "PENDING"
-        ? "Pentadbir masih belum melengkapkan penyediaan akaun."
+        ? "Jemputan e-mel telah dihantar kepada pentadbir. Akaun akan diaktifkan selepas pengguna melengkapkan penyediaan akaun melalui pautan dalam e-mel."
         : detail.setupStatus === "EXPIRED"
           ? "Pautan penyediaan telah tamat tempoh."
           : detail.setupStatus === "ARCHIVED"
@@ -331,29 +324,6 @@ function AdminSetupCard({
               <RefreshCw className={cn("size-4", pending && "animate-spin")} aria-hidden="true" />
               {pending ? "Menghantar..." : "Hantar Semula Setup"}
             </Button>
-          ) : null}
-          {canResend && developmentSetupUrl ? (
-            <div className="w-full rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200 sm:w-72">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
-                  Pembangunan Sahaja
-                </span>
-                <p className="text-sm font-semibold">Pautan setup pembangunan</p>
-              </div>
-              <p className="mt-1 text-xs leading-5">
-                Gunakan pautan ini hanya untuk ujian pembangunan tempatan.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 h-10 w-full gap-2 rounded-xl border-amber-300 bg-background/70 px-4 font-semibold text-foreground hover:bg-background dark:border-amber-400/30 dark:bg-background/40 dark:hover:bg-background/60"
-                onClick={onCopyDevelopmentSetupUrl}
-                aria-label="Salin pautan setup pembangunan"
-              >
-                <Copy className="size-4" aria-hidden="true" />
-                Salin Pautan Setup
-              </Button>
-            </div>
           ) : null}
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
@@ -508,10 +478,8 @@ export function AdminAccountDetailView({
   statusError,
   resendError,
   archiveError,
-  developmentSetupUrl,
   onStatusChange,
   onResendSetup,
-  onCopyDevelopmentSetupUrl,
   onArchive,
 }: AdminAccountDetailViewProps) {
   return (
@@ -530,9 +498,7 @@ export function AdminAccountDetailView({
         detail={detail}
         pending={resendPending}
         error={resendError}
-        developmentSetupUrl={developmentSetupUrl}
         onResendSetup={onResendSetup}
-        onCopyDevelopmentSetupUrl={onCopyDevelopmentSetupUrl}
       />
       <AdminDangerZone
         detail={detail}

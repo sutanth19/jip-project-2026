@@ -552,8 +552,7 @@ export function requireTeacherStudentAccess(
         !student ||
         !student.class ||
         student.schoolId !== auth.schoolId ||
-        student.class.schoolId !== student.schoolId ||
-        student.class.teacherId !== auth.profileId
+        student.class.schoolId !== student.schoolId
       ) {
         throw ownerAccessDenied("Anda tidak dibenarkan mengakses murid ini.");
       }

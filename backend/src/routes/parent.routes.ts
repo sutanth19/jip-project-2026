@@ -19,11 +19,11 @@ router.get("/", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACH
 router.get("/:parentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), getParentByIdController);
 router.get("/:parentId/students", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), getParentStudentsController);
 
-router.post("/", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), createParentController);
-router.patch("/:parentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), updateParentController);
-router.patch("/:parentId/status", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), updateParentStatusController);
-router.post("/:parentId/resend-setup", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), resendSetupRateLimiter, resendParentSetupController);
-router.post("/:parentId/students/:studentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), linkParentStudentController);
-router.delete("/:parentId/students/:studentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN), unlinkParentStudentController);
+router.post("/", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), createParentController);
+router.patch("/:parentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), updateParentController);
+router.patch("/:parentId/status", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), updateParentStatusController);
+router.post("/:parentId/resend-setup", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), resendSetupRateLimiter, resendParentSetupController);
+router.post("/:parentId/students/:studentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), linkParentStudentController);
+router.delete("/:parentId/students/:studentId", requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER), unlinkParentStudentController);
 
 export default router;

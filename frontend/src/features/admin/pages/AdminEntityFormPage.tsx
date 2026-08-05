@@ -29,6 +29,14 @@ import {
   SchoolEditSkeleton,
   SchoolEditView,
 } from "@/features/admin/components/SchoolEditForm";
+import {
+  TeacherCreateForm,
+  type TeacherCreateResult,
+} from "@/features/admin/components/TeacherCreateForm";
+import {
+  TeacherEditSkeleton,
+  TeacherEditView,
+} from "@/features/admin/components/TeacherEditForm";
 import { getAdminEntity } from "@/features/admin/config";
 import { useAdminRecord, useCreateAdminRecord, useUpdateAdminRecord } from "@/features/admin/hooks/use-admin-records";
 import type { AdminEntityKey } from "@/features/admin/types/admin.types";
@@ -36,8 +44,11 @@ import type { AdminAccountCreatePayload } from "@/features/admin/utils/admin-acc
 import type { AdminAccountUpdatePayload } from "@/features/admin/utils/admin-account-edit";
 import type { SchoolCreatePayload } from "@/features/admin/utils/school-create";
 import type { SchoolUpdatePayload } from "@/features/admin/utils/school-edit";
+import type { TeacherCreatePayload } from "@/features/admin/utils/teacher-create";
+import type { TeacherUpdatePayload } from "@/features/admin/utils/teacher-edit";
 import { normalizeAdminDetailRecord } from "@/features/admin/utils/admin-account-detail";
 import { normalizeSchoolDetailRecord } from "@/features/admin/utils/school-detail";
+import { normalizeTeacherDetailRecord } from "@/features/admin/utils/teacher-detail";
 import { getNestedValue, getRecordId, stringifyValue } from "@/features/admin/utils/record";
 import { parseApiError } from "@/lib/api";
 import { useToast } from "@/providers/toast-context-value";
@@ -49,11 +60,6 @@ type AdminEntityFormPageProps = {
 
 const adminManagementPageContainerClass = "px-0 py-0 sm:px-0 sm:py-0 lg:px-0 lg:py-0";
 
-function getDevelopmentSetupUrl(payload: Record<string, unknown>): string | undefined {
-  const value = getNestedValue(payload, "invitation.developmentSetupUrl");
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
-
 export function AdminEntityFormPage({ entityKey, mode }: AdminEntityFormPageProps) {
   const config = getAdminEntity(entityKey);
   const params = useParams();
@@ -61,6 +67,14 @@ export function AdminEntityFormPage({ entityKey, mode }: AdminEntityFormPageProp
   const toast = useToast();
   const [schoolEditDirty, setSchoolEditDirty] = React.useState(false);
   const [schoolEditDiscardOpen, setSchoolEditDiscardOpen] = React.useState(false);
+  const teacherCreateCancelHandler = React.useRef<(() => void) | null>(null);
+  const setTeacherCreateCancelHandler = React.useCallback((handler: (() => void) | null) => {
+    teacherCreateCancelHandler.current = handler;
+  }, []);
+  const teacherEditCancelHandler = React.useRef<(() => void) | null>(null);
+  const setTeacherEditCancelHandler = React.useCallback((handler: (() => void) | null) => {
+    teacherEditCancelHandler.current = handler;
+  }, []);
   const id = params.id ?? "";
   const isEdit = mode === "edit";
   const detail = useAdminRecord(config, id);
@@ -72,6 +86,8 @@ export function AdminEntityFormPage({ entityKey, mode }: AdminEntityFormPageProp
   const isAdminCreate = !isEdit && config.key === "admins";
   const isSchoolCreate = !isEdit && config.key === "schools";
   const isSchoolEdit = isEdit && config.key === "schools";
+  const isTeacherCreate = !isEdit && config.key === "teachers";
+  const isTeacherEdit = isEdit && config.key === "teachers";
   const defaultValues = record
     ? {
         fullName: stringifyValue(getNestedValue(record, "fullName")),
@@ -178,21 +194,16 @@ export function AdminEntityFormPage({ entityKey, mode }: AdminEntityFormPageProp
       const createdDetail = normalizeAdminDetailRecord(created);
       const createdId = String(getNestedValue(created as Record<string, unknown>, "admin.id") ?? createdDetail?.id ?? getRecordId(created as Record<string, unknown>));
       const invitationStatus = stringifyValue(getNestedValue(created as Record<string, unknown>, "invitation.status"));
-      const developmentSetupUrl = getDevelopmentSetupUrl(created as Record<string, unknown>);
       const invitationSent = invitationStatus === "SENT";
       const invitationDescription = invitationSent
         ? "Pentadbir berjaya dicipta dan e-mel penyediaan telah dihantar."
         : "Pentadbir berjaya dicipta, tetapi e-mel penyediaan tidak dapat dihantar. Gunakan “Hantar Semula Setup” untuk mencuba lagi.";
 
       toast.success("Pentadbir berjaya dicipta.", invitationDescription);
-      if (developmentSetupUrl) {
-        return {
-          detailPath: `${config.path}/${createdId}`,
-          developmentSetupUrl,
-        };
-      }
-
-      navigate(`${config.path}/${createdId}`, { replace: true });
+      return {
+        detailPath: `${config.path}/${createdId}`,
+        invitationStatus,
+      };
     };
 
     return (
@@ -399,6 +410,186 @@ export function AdminEntityFormPage({ entityKey, mode }: AdminEntityFormPageProp
           currentAccent="secondary"
         >
           <SchoolCreateForm path={config.path} onSubmit={handleSchoolCreateSubmit} />
+        </ManagementPageLayout>
+      </PageContainer>
+    );
+  }
+
+  if (isTeacherEdit) {
+    const teacherDetail = normalizeTeacherDetailRecord(record);
+    const fetchError = detail.isError ? parseApiError(detail.error) : null;
+    const isNotFound = fetchError?.status === 404 || fetchError?.code === "TEACHER_NOT_FOUND";
+    const detailPath = `${config.path}/${teacherDetail?.id ?? id}`;
+
+    const handleTeacherEditSubmit = async (payload: TeacherUpdatePayload) => {
+      const updated = await updateMutation.mutateAsync(payload);
+      const updatedDetail = normalizeTeacherDetailRecord(updated) ?? teacherDetail;
+
+      toast.success("Maklumat guru berjaya dikemas kini.");
+      navigate(`${config.path}/${updatedDetail?.id ?? teacherDetail?.id ?? id}`, { replace: true });
+    };
+
+    const handleBack = () => {
+      if (teacherEditCancelHandler.current) {
+        teacherEditCancelHandler.current();
+        return;
+      }
+
+      navigate(detailPath);
+    };
+
+    const editActions = (
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full gap-2 rounded-xl px-5 focus-visible:ring-primary/30 sm:w-auto"
+        onClick={handleBack}
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Kembali
+      </Button>
+    );
+
+    return (
+      <PageContainer className={adminManagementPageContainerClass}>
+        {detail.isLoading ? (
+          <ManagementPageLayout
+            breadcrumb={[
+              { label: "Home", to: "/admin" },
+              { label: "Guru", to: config.path },
+              { label: "Butiran Guru", to: detailPath },
+              { label: "Edit Guru" },
+            ]}
+            title="Edit Guru"
+            description="Kemas kini maklumat guru."
+            actions={editActions}
+          >
+            <TeacherEditSkeleton />
+          </ManagementPageLayout>
+        ) : null}
+        {detail.isError && !isNotFound ? (
+          <ManagementPageLayout
+            breadcrumb={[
+              { label: "Home", to: "/admin" },
+              { label: "Guru", to: config.path },
+              { label: "Butiran Guru", to: detailPath },
+              { label: "Edit Guru" },
+            ]}
+            title="Edit Guru"
+            description="Kemas kini maklumat guru."
+            actions={editActions}
+          >
+            <div className="space-y-4">
+              <ErrorState
+                title="Maklumat guru tidak dapat dimuatkan"
+                description="Sila cuba lagi."
+                actionLabel="Cuba Lagi"
+                onAction={() => void detail.refetch()}
+              />
+              <Button asChild variant="outline" className="h-11 rounded-xl px-5">
+                <Link to={detailPath}>Kembali ke Butiran Guru</Link>
+              </Button>
+            </div>
+          </ManagementPageLayout>
+        ) : null}
+        {(!detail.isLoading && !detail.isError && !teacherDetail) || isNotFound ? (
+          <ManagementPageLayout
+            breadcrumb={[
+              { label: "Home", to: "/admin" },
+              { label: "Guru", to: config.path },
+              { label: "Edit Guru" },
+            ]}
+            title="Guru tidak ditemui"
+            description="Rekod guru ini tidak wujud atau tidak lagi tersedia."
+          >
+            <EmptyState
+              title="Guru tidak ditemui"
+              action={
+                <Button asChild>
+                  <Link to={config.path}>Kembali ke Senarai Guru</Link>
+                </Button>
+              }
+            />
+          </ManagementPageLayout>
+        ) : null}
+        {teacherDetail ? (
+          <ManagementPageLayout
+            breadcrumb={[
+              { label: "Home", to: "/admin" },
+              { label: "Guru", to: config.path },
+              { label: "Butiran Guru", to: detailPath },
+              { label: "Edit Guru" },
+            ]}
+            title="Edit Guru"
+            description="Kemas kini maklumat guru."
+            actions={editActions}
+          >
+            <TeacherEditView
+              detail={teacherDetail}
+              path={config.path}
+              onSubmit={handleTeacherEditSubmit}
+              onCancelHandlerChange={setTeacherEditCancelHandler}
+            />
+          </ManagementPageLayout>
+        ) : null}
+      </PageContainer>
+    );
+  }
+
+  if (isTeacherCreate) {
+    const handleTeacherCreateSubmit = async (payload: TeacherCreatePayload): Promise<TeacherCreateResult | void> => {
+      const created = await createMutation.mutateAsync(payload);
+      const createdId = String(getNestedValue(created as Record<string, unknown>, "teacher.id") ?? getRecordId(created as Record<string, unknown>));
+      const invitationStatus = stringifyValue(getNestedValue(created as Record<string, unknown>, "invitation.status"));
+      const invitationSent = invitationStatus === "SENT";
+
+      toast.success(
+        "Guru berjaya dicipta.",
+        invitationSent
+          ? "Akaun guru telah dicipta dan e-mel penyediaan telah dihantar."
+          : "Akaun guru telah dicipta, tetapi e-mel penyediaan tidak dapat dihantar.",
+      );
+
+      return {
+        detailPath: `${config.path}/${createdId}`,
+        invitationStatus,
+      };
+    };
+
+    return (
+      <PageContainer className={adminManagementPageContainerClass}>
+        <ManagementPageLayout
+          breadcrumb={[
+            { label: "Home", to: "/admin" },
+            { label: "Guru", to: config.path },
+            { label: "Tambah Guru" },
+          ]}
+          title="Tambah Guru"
+          description="Cipta akaun guru baharu."
+          actions={
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full gap-2 rounded-xl px-5 focus-visible:ring-secondary/30 sm:w-auto"
+              onClick={() => {
+                if (teacherCreateCancelHandler.current) {
+                  teacherCreateCancelHandler.current();
+                  return;
+                }
+                navigate(config.path);
+              }}
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Kembali
+            </Button>
+          }
+          currentAccent="secondary"
+        >
+          <TeacherCreateForm
+            path={config.path}
+            onSubmit={handleTeacherCreateSubmit}
+            onCancelHandlerChange={setTeacherCreateCancelHandler}
+          />
         </ManagementPageLayout>
       </PageContainer>
     );

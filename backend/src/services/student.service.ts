@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { AccountStatus, Prisma, UserRole } from "@prisma/client";
 
 import { prisma } from "../config/prisma.js";
@@ -6,7 +6,7 @@ import { AppError } from "../errors/app-error.js";
 import type { AuthenticatedSession } from "../middleware/auth.middleware.js";
 import { hashPin } from "../utils/bcrypt.js";
 import { dispatchAuditEvent, type AuditEvent, type AuditEventDispatcher } from "./audit.service.js";
-import type { CreateStudentRequest, ListStudentsQuery, UpdateStudentRequest } from "../validators/student.validator.js";
+import type { CreateStudentRequest, CreateTeacherStudentRequest, ListStudentsQuery, UpdateStudentRequest } from "../validators/student.validator.js";
 
 const studentSelect = {
   id: true, userId: true, schoolId: true, classId: true, studentId: true, fullName: true,
@@ -14,7 +14,7 @@ const studentSelect = {
   createdAt: true, updatedAt: true,
   user: { select: { id: true, accountStatus: true, lastLogin: true } },
   school: { select: { id: true, schoolCode: true, schoolName: true } },
-  class: { select: { id: true, schoolId: true, teacherId: true, className: true, yearLevel: true, academicYear: true } },
+  class: { select: { id: true, schoolId: true, teacherId: true, className: true, yearLevel: true, academicYear: true, accountStatus: true } },
   _count: { select: { parents: true } },
 } satisfies Prisma.StudentSelect;
 
@@ -45,6 +45,7 @@ export interface StudentServiceDependencies {
   auditDispatcher?: AuditEventDispatcher;
   now?: () => Date;
   pinGenerator?: () => string;
+  studentIdGenerator?: () => string;
   pinDeliveryDispatcher?: StudentPinDeliveryDispatcher;
 }
 
@@ -53,7 +54,14 @@ export interface StudentResponse {
   gender: StudentRecord["gender"]; birthDate: Date | null; avatar: string | null; accountStatus: AccountStatus;
   isPinChanged: boolean; createdAt: Date; updatedAt: Date;
   school: { id: string; schoolCode: string; schoolName: string };
-  class: { id: string; className: string; yearLevel: number; academicYear: number };
+  class: { id: string; className: string; yearLevel: number; academicYear: number; accountStatus: AccountStatus };
+}
+export interface TeacherStudentCreateResponse {
+  student: StudentResponse;
+  credentials: {
+    studentId: string;
+    temporaryPin: string;
+  };
 }
 
 function appError(code: string, status: number, message: string): AppError { return new AppError(code, status, message); }
@@ -63,6 +71,10 @@ const schoolNotFound = () => appError("SCHOOL_NOT_FOUND", 404, "Sekolah tidak di
 const classNotFound = () => appError("SCHOOL_CLASS_NOT_FOUND", 404, "Kelas tidak ditemui.");
 const forbidden = () => appError("AUTH_ROLE_FORBIDDEN", 403, "Anda tidak mempunyai kebenaran untuk mengakses fungsi ini.");
 const teacherDenied = () => appError("AUTH_OWNER_ACCESS_DENIED", 403, "Anda tidak dibenarkan mengakses murid ini.");
+const schoolContextRequired = () => appError("AUTH_SCHOOL_CONTEXT_REQUIRED", 403, "Guru ini belum dipautkan kepada sekolah.");
+const teacherContextInvalid = () => appError("TEACHER_CONTEXT_INVALID", 403, "Akaun guru ini tidak sah untuk mendaftarkan murid.");
+const classInactive = () => appError("SCHOOL_CLASS_INACTIVE", 400, "Kelas yang dipilih tidak aktif.");
+const studentIdGenerationFailed = () => appError("STUDENT_ID_GENERATION_FAILED", 500, "ID murid tidak dapat dijana. Sila cuba lagi.");
 const statusInvalid = () => appError("STUDENT_STATUS_TRANSITION_INVALID", 403, "Perubahan status murid tidak dibenarkan.");
 const transferInvalid = () => appError("STUDENT_CLASS_TRANSFER_INVALID", 400, "Pertukaran kelas murid tidak dibenarkan.");
 const parentLinkExists = () => appError("STUDENT_PARENT_LINK_EXISTS", 409, "Ibu bapa telah dipautkan kepada murid ini.");
@@ -87,6 +99,9 @@ function canRead(context: StudentAuditContext): void {
   const roles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER];
   if (!roles.includes(actor(context).role)) throw forbidden();
 }
+function teacherOnly(context: StudentAuditContext): void {
+  if (actor(context).role !== UserRole.TEACHER) throw forbidden();
+}
 function normalizeOptional(value: string | null | undefined): string | null | undefined {
   return value === undefined || value === null ? value : value.trim() || null;
 }
@@ -102,7 +117,7 @@ function safe(record: StudentRecord): StudentResponse {
     avatar: record.avatar, accountStatus: record.user.accountStatus, isPinChanged: record.isPinChanged,
     createdAt: record.createdAt, updatedAt: record.updatedAt,
     school: record.school,
-    class: { id: record.class.id, className: record.class.className, yearLevel: record.class.yearLevel, academicYear: record.class.academicYear },
+    class: { id: record.class.id, className: record.class.className, yearLevel: record.class.yearLevel, academicYear: record.class.academicYear, accountStatus: record.class.accountStatus },
   };
 }
 function safeAudit(record: StudentResponse): Record<string, unknown> {
@@ -126,13 +141,16 @@ export function generateTemporaryStudentPin(): string {
   }
   throw appError("STUDENT_PIN_GENERATION_FAILED", 500, "PIN murid tidak dapat dijana.");
 }
+export function generateStudentLoginId(): string {
+  return `MURID-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
+}
 /** No provider is configured yet. A future printable student credential slip can consume this abstraction. */
 export function deliverStudentPin(_delivery: StudentPinDelivery): StudentPinDeliveryStatus { return "DEVELOPMENT_PREVIEW"; }
 
 async function requireTeacherAccess(studentProfileId: string, context: StudentAuditContext): Promise<void> {
   if (actor(context).role !== UserRole.TEACHER) return;
   const student = await prisma.student.findUnique({ where: { id: studentProfileId }, select: { schoolId: true, class: { select: { schoolId: true, teacherId: true } } } });
-  if (!student || !actor(context).schoolId || student.schoolId !== actor(context).schoolId || student.class.schoolId !== student.schoolId || student.class.teacherId !== actor(context).profileId) throw teacherDenied();
+  if (!student || !actor(context).schoolId || student.schoolId !== actor(context).schoolId || student.class.schoolId !== student.schoolId) throw teacherDenied();
 }
 
 export function canStudentTransitionStatus(current: AccountStatus, next: AccountStatus, role: UserRole): boolean {
@@ -168,20 +186,70 @@ export async function createStudent(data: CreateStudentRequest, context: Student
   return { student, pinDelivery: { status } };
 }
 
-function listWhere(query: ListStudentsQuery, teacherId?: string): Prisma.StudentWhereInput {
+async function resolveTeacherCreateContext(context: StudentAuditContext): Promise<{ teacherId: string; schoolId: string }> {
+  const schoolId = actor(context).schoolId;
+  if (!schoolId) throw schoolContextRequired();
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: actor(context).profileId },
+    select: { id: true, schoolId: true, user: { select: { accountStatus: true } } },
+  });
+  if (!teacher || teacher.schoolId !== schoolId || teacher.user.accountStatus !== AccountStatus.ACTIVE) throw teacherContextInvalid();
+  return { teacherId: teacher.id, schoolId };
+}
+
+export async function createTeacherStudent(data: CreateTeacherStudentRequest, context: StudentAuditContext, deps: StudentServiceDependencies = {}): Promise<TeacherStudentCreateResponse> {
+  teacherOnly(context);
+  const teacherContext = await resolveTeacherCreateContext(context);
+  const assignedClass = await prisma.schoolClass.findUnique({ where: { id: data.classId }, select: { id: true, schoolId: true, yearLevel: true, accountStatus: true } });
+  if (!assignedClass) throw classNotFound();
+  if (assignedClass.schoolId !== teacherContext.schoolId) throw transferInvalid();
+  if (assignedClass.accountStatus !== AccountStatus.ACTIVE) throw classInactive();
+  if (assignedClass.yearLevel !== data.yearLevel) throw transferInvalid();
+  const temporaryPin = (deps.pinGenerator ?? generateTemporaryStudentPin)();
+  if (isWeakPin(temporaryPin)) throw appError("STUDENT_PIN_POLICY_FAILED", 500, "PIN murid tidak mematuhi polisi keselamatan.");
+  const pinHash = await hashPin(temporaryPin);
+  let record: StudentRecord;
+  const generator = deps.studentIdGenerator ?? generateStudentLoginId;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const generatedStudentId = generator();
+    try {
+      record = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({ data: { role: UserRole.STUDENT, email: null, passwordHash: null, accountStatus: AccountStatus.ACTIVE, isFirstLogin: false, setupToken: null, setupTokenExpiry: null, passwordResetToken: null, passwordResetExpiry: null } });
+        return tx.student.create({ data: { userId: user.id, schoolId: teacherContext.schoolId, classId: data.classId, studentId: generatedStudentId, fullName: data.fullName.trim(), gender: data.gender, birthDate: null, avatar: null, pinHash, isPinChanged: false, pinUpdatedAt: null }, select: studentSelect });
+      });
+      const student = safe(record);
+      await audit(context, "STUDENT_CREATED", "STUDENT", record.id, record.schoolId, null, safeAudit(student), deps);
+      return { student, credentials: { studentId: record.studentId, temporaryPin } };
+    } catch (caught) {
+      const mapped = mapUniqueError(caught);
+      if (mapped?.code === "STUDENT_ID_EXISTS") continue;
+      if (mapped) throw mapped;
+      throw caught;
+    }
+  }
+  throw studentIdGenerationFailed();
+}
+
+function listWhere(query: ListStudentsQuery, scopedSchoolId?: string): Prisma.StudentWhereInput {
   const search = query.search?.trim();
   return {
     ...(query.schoolId ? { schoolId: query.schoolId } : {}), ...(query.classId ? { classId: query.classId } : {}), ...(query.gender ? { gender: query.gender } : {}),
     ...(query.status ? { user: { accountStatus: query.status } } : {}),
     ...(query.yearLevel ? { class: { yearLevel: query.yearLevel } } : {}),
-    ...(teacherId ? { class: { ...(query.yearLevel ? { yearLevel: query.yearLevel } : {}), teacherId } } : {}),
+    ...(scopedSchoolId ? { schoolId: scopedSchoolId } : {}),
     ...(search ? { OR: [ { studentId: { contains: search, mode: "insensitive" } }, { fullName: { contains: search, mode: "insensitive" } }, { class: { className: { contains: search, mode: "insensitive" } } }, { school: { schoolName: { contains: search, mode: "insensitive" } } } ] } : {}),
   };
 }
 export async function listStudents(query: ListStudentsQuery, context: StudentAuditContext): Promise<{ students: StudentResponse[]; pagination: { page: number; limit: number; total: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean } }> {
   canRead(context);
-  const teacherId = actor(context).role === UserRole.TEACHER ? actor(context).profileId : undefined;
-  const where = listWhere(query, teacherId);
+  const scopedSchoolId = actor(context).role === UserRole.TEACHER ? actor(context).schoolId ?? undefined : undefined;
+  if (actor(context).role === UserRole.TEACHER && !scopedSchoolId) {
+    return {
+      students: [],
+      pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: query.page > 1 },
+    };
+  }
+  const where = listWhere(query, scopedSchoolId);
   const orderBy: Prisma.StudentOrderByWithRelationInput = query.sortBy === "accountStatus" ? { user: { accountStatus: query.sortOrder } } : { [query.sortBy]: query.sortOrder };
   const [records, total] = await Promise.all([prisma.student.findMany({ where, orderBy, skip: (query.page - 1) * query.limit, take: query.limit, select: studentSelect }), prisma.student.count({ where })]);
   const totalPages = Math.ceil(total / query.limit);
@@ -206,7 +274,7 @@ export async function updateStudent(studentProfileId: string, data: UpdateStuden
   const role = actor(context).role;
   if (role === UserRole.TEACHER) {
     await requireTeacherAccess(studentProfileId, context);
-    const permitted = new Set(["fullName", "avatar"]);
+    const permitted = new Set(["fullName", "gender", "classId", "yearLevel"]);
     if (Object.keys(data).some((key) => !permitted.has(key))) throw forbidden();
   }
   const beforeRecord = await prisma.student.findUnique({ where: { id: studentProfileId }, select: studentSelect });
@@ -215,9 +283,14 @@ export async function updateStudent(studentProfileId: string, data: UpdateStuden
     const conflict = await prisma.student.findUnique({ where: { schoolId_studentId: { schoolId: beforeRecord.schoolId, studentId: data.studentId } }, select: { id: true } });
     if (conflict) throw studentIdExists();
   }
+  if (role === UserRole.TEACHER && data.classId && data.classId !== beforeRecord.classId) {
+    const targetClass = await prisma.schoolClass.findUnique({ where: { id: data.classId }, select: { id: true, schoolId: true, yearLevel: true, accountStatus: true } });
+    if (!targetClass || targetClass.schoolId !== beforeRecord.schoolId || targetClass.accountStatus !== AccountStatus.ACTIVE) throw transferInvalid();
+    if (data.yearLevel !== undefined && targetClass.yearLevel !== data.yearLevel) throw transferInvalid();
+  }
   let record: StudentRecord;
   try {
-    record = await prisma.student.update({ where: { id: studentProfileId }, data: { ...(data.studentId !== undefined ? { studentId: data.studentId } : {}), ...(data.fullName !== undefined ? { fullName: data.fullName.trim() } : {}), ...(data.gender !== undefined ? { gender: data.gender } : {}), ...(data.birthDate !== undefined ? { birthDate: birthDate(data.birthDate) } : {}), ...(data.avatar !== undefined ? { avatar: normalizeOptional(data.avatar) } : {}) }, select: studentSelect });
+    record = await prisma.student.update({ where: { id: studentProfileId }, data: { ...(data.studentId !== undefined ? { studentId: data.studentId } : {}), ...(data.fullName !== undefined ? { fullName: data.fullName.trim() } : {}), ...(data.gender !== undefined ? { gender: data.gender } : {}), ...(data.birthDate !== undefined ? { birthDate: birthDate(data.birthDate) } : {}), ...(data.avatar !== undefined ? { avatar: normalizeOptional(data.avatar) } : {}), ...(role === UserRole.TEACHER && data.classId && data.classId !== beforeRecord.classId ? { classId: data.classId } : {}), ...(role === UserRole.TEACHER && data.classId && data.classId === beforeRecord.classId ? { classId: data.classId } : {}) }, select: studentSelect });
   } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   const result = safe(record);
   await audit(context, "STUDENT_UPDATED", "STUDENT", record.id, record.schoolId, safeAudit(safe(beforeRecord)), safeAudit(result), deps);
@@ -225,7 +298,11 @@ export async function updateStudent(studentProfileId: string, data: UpdateStuden
 }
 
 export async function updateStudentStatus(studentProfileId: string, status: AccountStatus, context: StudentAuditContext, deps: StudentServiceDependencies = {}): Promise<StudentResponse> {
-  management(context);
+  if (actor(context).role === UserRole.TEACHER) {
+    await requireTeacherAccess(studentProfileId, context);
+  } else {
+    management(context);
+  }
   const beforeRecord = await prisma.student.findUnique({ where: { id: studentProfileId }, select: studentSelect });
   if (!beforeRecord) throw studentNotFound();
   if (!canStudentTransitionStatus(beforeRecord.user.accountStatus, status, actor(context).role)) throw statusInvalid();
@@ -235,7 +312,7 @@ export async function updateStudentStatus(studentProfileId: string, status: Acco
   return result;
 }
 
-export async function resetStudentPin(studentProfileId: string, context: StudentAuditContext, deps: StudentServiceDependencies = {}): Promise<{ pinDelivery: { status: StudentPinDeliveryStatus } }> {
+export async function resetStudentPin(studentProfileId: string, context: StudentAuditContext, deps: StudentServiceDependencies = {}): Promise<{ credentials: { studentId: string; temporaryPin: string } }> {
   canRead(context);
   if (actor(context).role === UserRole.TEACHER) await requireTeacherAccess(studentProfileId, context);
   const student = await prisma.student.findUnique({ where: { id: studentProfileId }, select: { id: true, studentId: true, schoolId: true, classId: true } });
@@ -244,9 +321,9 @@ export async function resetStudentPin(studentProfileId: string, context: Student
   if (isWeakPin(temporaryPin)) throw appError("STUDENT_PIN_POLICY_FAILED", 500, "PIN murid tidak mematuhi polisi keselamatan.");
   const now = deps.now?.() ?? new Date();
   await prisma.student.update({ where: { id: student.id }, data: { pinHash: await hashPin(temporaryPin), isPinChanged: false, pinUpdatedAt: now } });
-  const status = await (deps.pinDeliveryDispatcher ?? deliverStudentPin)({ studentProfileId: student.id, studentId: student.studentId, temporaryPin });
+  await (deps.pinDeliveryDispatcher ?? deliverStudentPin)({ studentProfileId: student.id, studentId: student.studentId, temporaryPin });
   await audit(context, "STUDENT_PIN_RESET", "STUDENT", student.id, student.schoolId, null, { classId: student.classId, isPinChanged: false, pinUpdatedAt: now }, deps);
-  return { pinDelivery: { status } };
+  return { credentials: { studentId: student.studentId, temporaryPin } };
 }
 
 export interface StudentClassTransferOptions {

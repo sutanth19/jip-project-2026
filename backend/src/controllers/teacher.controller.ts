@@ -107,7 +107,10 @@ export async function resendTeacherSetupController(req: Request, res: Response, 
   try {
     const { teacherId } = teacherIdParamsSchema.parse(req.params);
     const result = await resendTeacherSetup(teacherId, getAuditContext(req as AuthenticatedRequest));
-    successResponse(res, 200, "Jemputan persediaan guru berjaya dihantar semula.", result);
+    const message = result.invitation.status === "SENT"
+      ? "Jemputan persediaan guru berjaya dihantar semula."
+      : "E-mel penyediaan tidak dapat dihantar. Sila cuba lagi.";
+    successResponse(res, 200, message, result);
   } catch (error) {
     next(error);
   }

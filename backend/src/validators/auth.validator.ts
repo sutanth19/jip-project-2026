@@ -44,6 +44,36 @@ export const changeFirstPasswordSchema = z.object({
     .min(1, "Password confirmation is required."),
 });
 
+export const forgotPasswordSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("E-mel tidak sah.")
+      .max(254, "E-mel terlalu panjang."),
+  })
+  .strict();
+
+export const resetPasswordSchema = z
+  .object({
+    token: z
+      .string()
+      .trim()
+      .min(1, "Token is required."),
+
+    password: z
+      .string()
+      .min(1, "Password is required.")
+      .max(128, "Password must not exceed 128 characters."),
+
+    confirmPassword: z
+      .string()
+      .min(1, "Password confirmation is required.")
+      .max(128, "Password confirmation must not exceed 128 characters."),
+  })
+  .strict();
+
 const pinSchema = z
   .string()
   .regex(/^\d{4}$/, "PIN mesti mempunyai tepat empat digit.");

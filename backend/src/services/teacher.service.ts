@@ -1,9 +1,11 @@
 import {
   AccountStatus,
+  Gender,
   Prisma,
   TeacherPermission,
   UserRole,
 } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
@@ -18,6 +20,12 @@ import {
   type AuditEvent,
   type AuditEventDispatcher,
 } from "./audit.service.js";
+import {
+  buildSetupPasswordUrl,
+  EmailDeliveryError,
+  sendResendEmail,
+  setupInvitationEmailTemplate,
+} from "./notification-email.service.js";
 import { generateSetupToken } from "../utils/generateSetupToken.js";
 import { normalizeMalaysianPhone } from "../utils/phone.js";
 import type {
@@ -44,6 +52,10 @@ const teacherAccountSelect = {
       id: true,
       schoolCode: true,
       schoolName: true,
+      logo: true,
+      principalName: true,
+      contactEmail: true,
+      phone: true,
     },
   },
   user: {
@@ -137,6 +149,7 @@ export interface TeacherProvisionInput {
 }
 
 export interface TeacherProfileUpdateInput {
+  schoolId?: string;
   fullName?: string;
   email?: string;
   phone?: string | null;
@@ -161,7 +174,7 @@ export interface TeacherRepository {
   findBySchoolAndTeacherId(schoolId: string, teacherId: string): Promise<TeacherAccountRecord | null>;
   findByPhone(phone: string): Promise<TeacherAccountRecord | null>;
   findUserIdByEmail(email: string): Promise<string | null>;
-  schoolExists(schoolId: string): Promise<boolean>;
+  findSchoolForTeacherCreation(schoolId: string): Promise<{ id: string; accountStatus: AccountStatus } | null>;
   create(input: TeacherProvisionInput): Promise<TeacherAccountRecord>;
   findMany(filters: TeacherListFilters): Promise<TeacherAccountRecord[]>;
   count(filters: Pick<TeacherListFilters, "search" | "status" | "schoolId" | "position">): Promise<number>;
@@ -185,6 +198,7 @@ export type InvitationDeliveryStatus = "QUEUED" | "SENT" | "DEVELOPMENT_PREVIEW"
 export interface TeacherSetupInvitation {
   teacherId: string;
   email: string;
+  fullName: string;
   setupToken: string;
   expiresAt: Date;
 }
@@ -199,6 +213,7 @@ export interface TeacherServiceDependencies {
   invitationDispatcher?: TeacherInvitationDispatcher;
   now?: () => Date;
   setupTokenGenerator?: () => string;
+  teacherIdGenerator?: () => string;
   setupExpiryHours?: number;
 }
 
@@ -222,6 +237,10 @@ export interface TeacherResponse {
     id: string;
     schoolCode: string;
     schoolName: string;
+    logo: string | null;
+    principalName: string | null;
+    contactEmail: string | null;
+    phone: string;
   };
 }
 
@@ -257,6 +276,10 @@ function teacherNotFound(): AppError {
 
 function schoolNotFound(): AppError {
   return new AppError("SCHOOL_NOT_FOUND", 404, "Sekolah tidak ditemui.");
+}
+
+function teacherSchoolInactive(): AppError {
+  return new AppError("TEACHER_SCHOOL_INACTIVE", 403, "Sekolah yang dipilih tidak aktif.");
 }
 
 function teacherIdExists(): AppError {
@@ -437,6 +460,8 @@ function buildWhere(
         { phone: { contains: search, mode: "insensitive" } },
         { position: { contains: search, mode: "insensitive" } },
         { user: { email: { contains: search, mode: "insensitive" } } },
+        { school: { schoolName: { contains: search, mode: "insensitive" } } },
+        { school: { schoolCode: { contains: search, mode: "insensitive" } } },
       ]
     : [];
 
@@ -523,11 +548,80 @@ function toGrantAuditEvent(
   };
 }
 
-/** Development-safe delivery until a production email provider is configured. */
-export function sendTeacherSetupInvitation(
-  _invitation: TeacherSetupInvitation,
-): InvitationDeliveryStatus {
-  return process.env.NODE_ENV === "production" ? "FAILED" : "DEVELOPMENT_PREVIEW";
+function recipientDomain(email: string): string {
+  return email.includes("@") ? email.split("@").pop() ?? "unknown" : "unknown";
+}
+
+function logTeacherSetupEmailResult(
+  level: "info" | "warn",
+  message: string,
+  data: {
+    teacherId: string;
+    email: string;
+    providerId?: string | null;
+    reason?: string;
+    providerStatus?: number;
+  },
+): void {
+  const payload = {
+    teacherId: data.teacherId,
+    recipientDomain: recipientDomain(data.email),
+    ...(data.providerId ? { providerId: data.providerId } : {}),
+    ...(data.reason ? { reason: data.reason } : {}),
+    ...(data.providerStatus ? { providerStatus: data.providerStatus } : {}),
+  };
+
+  console[level](message, payload);
+}
+
+export async function sendTeacherSetupInvitation(
+  invitation: TeacherSetupInvitation,
+): Promise<InvitationDeliveryStatus> {
+  const setupUrl = buildSetupPasswordUrl(invitation.setupToken);
+
+  if (!setupUrl) {
+    if (process.env.NODE_ENV !== "production") {
+      return "DEVELOPMENT_PREVIEW";
+    }
+
+    logTeacherSetupEmailResult("warn", "Teacher setup email delivery failed.", {
+      teacherId: invitation.teacherId,
+      email: invitation.email,
+      reason: "SETUP_URL_NOT_CONFIGURED",
+    });
+    return "FAILED";
+  }
+
+  const email = setupInvitationEmailTemplate({
+    fullName: invitation.fullName,
+    accountLabel: "Guru",
+    setupUrl,
+    expiresAt: invitation.expiresAt,
+  });
+
+  try {
+    const sent = await sendResendEmail({
+      to: invitation.email,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+    logTeacherSetupEmailResult("info", "Teacher setup email delivered.", {
+      teacherId: invitation.teacherId,
+      email: invitation.email,
+      providerId: sent.providerId,
+    });
+    return "SENT";
+  } catch (error) {
+    const deliveryError = error instanceof EmailDeliveryError ? error : null;
+    logTeacherSetupEmailResult("warn", "Teacher setup email delivery failed.", {
+      teacherId: invitation.teacherId,
+      email: invitation.email,
+      reason: deliveryError?.code ?? "EMAIL_DELIVERY_FAILED",
+      providerStatus: deliveryError?.providerStatus,
+    });
+    return "FAILED";
+  }
 }
 
 const prismaTeacherRepository: TeacherRepository = {
@@ -560,9 +654,8 @@ const prismaTeacherRepository: TeacherRepository = {
     const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
     return user?.id ?? null;
   },
-  async schoolExists(schoolId) {
-    const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { id: true } });
-    return school !== null;
+  async findSchoolForTeacherCreation(schoolId) {
+    return prisma.school.findUnique({ where: { id: schoolId }, select: { id: true, accountStatus: true } });
   },
   async create(input) {
     return prisma.$transaction(async (tx) => {
@@ -698,12 +791,13 @@ function normalizeCreateInput(
   setupToken: string,
   setupTokenExpiry: Date,
   now: Date,
+  generatedTeacherId: string,
 ): TeacherProvisionInput {
   return {
     schoolId: data.schoolId,
-    teacherId: normalizeTeacherId(data.teacherId),
+    teacherId: normalizeTeacherId(data.teacherId ?? generatedTeacherId),
     fullName: data.fullName.trim(),
-    gender: data.gender,
+    gender: data.gender ?? Gender.FEMALE,
     email: normalizeEmail(data.email),
     phone: data.phone ? normalizeMalaysianPhone(data.phone) : null,
     position: data.position?.trim() || null,
@@ -714,8 +808,13 @@ function normalizeCreateInput(
   };
 }
 
+function generateTeacherId(): string {
+  return `GURU-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+}
+
 function normalizeUpdateInput(data: UpdateTeacherRequest): TeacherProfileUpdateInput {
   const update: TeacherProfileUpdateInput = {};
+  if (data.schoolId !== undefined) update.schoolId = data.schoolId;
   if (data.fullName !== undefined) update.fullName = data.fullName.trim();
   if (data.email !== undefined) update.email = normalizeEmail(data.email);
   if (data.phone !== undefined) {
@@ -801,17 +900,18 @@ export async function createTeacher(
   const setupToken = (deps.setupTokenGenerator ?? generateSetupToken)();
   const expiresAt = new Date(now.getTime() + getSetupExpiryHours(deps.setupExpiryHours) * 60 * 60 * 1_000);
   const input = assertTeacherCreateAuthorization(
-    normalizeCreateInput(data, setupToken, expiresAt, now),
+    normalizeCreateInput(data, setupToken, expiresAt, now, (deps.teacherIdGenerator ?? generateTeacherId)()),
     context,
   );
 
-  const [schoolExists, idMatch, emailMatch, phoneMatch] = await Promise.all([
-    repository.schoolExists(input.schoolId),
+  const [school, idMatch, emailMatch, phoneMatch] = await Promise.all([
+    repository.findSchoolForTeacherCreation(input.schoolId),
     repository.findBySchoolAndTeacherId(input.schoolId, input.teacherId),
     repository.findUserIdByEmail(input.email),
     input.phone ? repository.findByPhone(input.phone) : Promise.resolve(null),
   ]);
-  if (!schoolExists) throw schoolNotFound();
+  if (!school) throw schoolNotFound();
+  if (school.accountStatus !== AccountStatus.ACTIVE) throw teacherSchoolInactive();
   if (idMatch) throw teacherIdExists();
   if (emailMatch) throw teacherEmailExists();
   if (phoneMatch) throw teacherPhoneExists();
@@ -829,6 +929,7 @@ export async function createTeacher(
   const status = await invitationDispatcher({
     teacherId: record.id,
     email: record.user.email ?? "",
+    fullName: record.fullName,
     setupToken,
     expiresAt,
   });
@@ -903,6 +1004,15 @@ export async function updateTeacher(
   const current = await assertTeacherRecord(repository, teacherId);
   const input = normalizeUpdateInput(data);
 
+  if (input.schoolId !== undefined && input.schoolId !== current.schoolId) {
+    const [school, idMatch] = await Promise.all([
+      repository.findSchoolForTeacherCreation(input.schoolId),
+      repository.findBySchoolAndTeacherId(input.schoolId, current.teacherId),
+    ]);
+    if (!school) throw schoolNotFound();
+    if (school.accountStatus !== AccountStatus.ACTIVE) throw teacherSchoolInactive();
+    if (idMatch && idMatch.id !== teacherId) throw teacherIdExists();
+  }
   if (input.email !== undefined) {
     const userId = await repository.findUserIdByEmail(input.email);
     if (userId && userId !== current.userId) throw teacherEmailExists();
@@ -958,6 +1068,7 @@ export async function resendTeacherSetup(
   const status = await invitationDispatcher({
     teacherId: record.id,
     email: record.user.email ?? "",
+    fullName: record.fullName,
     setupToken,
     expiresAt,
   });

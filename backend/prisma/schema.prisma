@@ -113,13 +113,14 @@ model SchoolClass {
   accountStatus          AccountStatus           @default(ACTIVE)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
+  normalizedClassName    String
   school                 School                  @relation(fields: [schoolId], references: [id])
   teacher                Teacher                 @relation(fields: [teacherId], references: [id])
   students               Student[]
   assignmentClassTargets AssignmentClassTarget[]
   announcementTargets    AnnouncementTarget[]
 
-  @@unique([schoolId, className, academicYear])
+  @@unique([schoolId, academicYear, yearLevel, normalizedClassName])
   @@index([schoolId])
   @@index([teacherId])
   @@map("school_classes")

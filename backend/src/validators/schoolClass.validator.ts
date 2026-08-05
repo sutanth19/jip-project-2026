@@ -1,9 +1,10 @@
 import { AccountStatus, Gender } from "@prisma/client";
 import { z } from "zod";
 
-const classNameSchema = z.string().trim().min(2, "Nama kelas diperlukan.").max(100, "Nama kelas terlalu panjang.");
-const yearLevelSchema = z.coerce.number().int().min(1, "Tahun mesti antara 1 hingga 3.").max(3, "Tahun mesti antara 1 hingga 3.");
-const academicYearSchema = z.coerce.number().int().min(2020, "Tahun akademik tidak sah.").max(2100, "Tahun akademik tidak sah.");
+const currentAcademicYear = new Date().getFullYear();
+const classNameSchema = z.string().trim().min(1, "Nama kelas diperlukan.").max(50, "Nama kelas terlalu panjang.");
+const yearLevelSchema = z.coerce.number().int().min(1, "Tahun mesti antara 1 hingga 6.").max(6, "Tahun mesti antara 1 hingga 6.");
+const academicYearSchema = z.coerce.number().int().min(currentAcademicYear - 5, "Tahun akademik tidak sah.").max(currentAcademicYear + 5, "Tahun akademik tidak sah.");
 const capacitySchema = z.coerce.number().int().min(1, "Kapasiti minimum ialah 1.").max(100, "Kapasiti maksimum ialah 100.");
 
 export const classIdParamsSchema = z.object({ classId: z.string().uuid("ID kelas tidak sah.") }).strict();
@@ -16,6 +17,12 @@ export const createSchoolClassSchema = z.object({
   yearLevel: yearLevelSchema,
   academicYear: academicYearSchema,
   capacity: capacitySchema.optional(),
+}).strict();
+
+export const createTeacherSchoolClassSchema = z.object({
+  className: classNameSchema,
+  yearLevel: yearLevelSchema,
+  academicYear: academicYearSchema,
 }).strict();
 
 export const listSchoolClassesQuerySchema = z.object({
@@ -55,6 +62,7 @@ export const listClassStudentsQuerySchema = z.object({
 }).strict();
 
 export type CreateSchoolClassRequest = z.infer<typeof createSchoolClassSchema>;
+export type CreateTeacherSchoolClassRequest = z.infer<typeof createTeacherSchoolClassSchema>;
 export type ListSchoolClassesQuery = z.infer<typeof listSchoolClassesQuerySchema>;
 export type UpdateSchoolClassRequest = z.infer<typeof updateSchoolClassSchema>;
 export type ListClassStudentsQuery = z.infer<typeof listClassStudentsQuerySchema>;

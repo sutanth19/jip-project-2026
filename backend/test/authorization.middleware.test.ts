@@ -501,7 +501,7 @@ test("requireTeacherStudentAccess permits a teacher assigned to the student's cl
   assert.equal(result.error, undefined);
 });
 
-test("requireTeacherStudentAccess rejects a teacher outside the student's class", async () => {
+test("requireTeacherStudentAccess permits a same-school teacher outside the student's class", async () => {
   const { db } = createAuthorizationDb({
     teacherStudent: {
       id: studentOneId,
@@ -522,7 +522,7 @@ test("requireTeacherStudentAccess rejects a teacher outside the student's class"
     ),
   );
 
-  assertAppError(result.error, "AUTH_OWNER_ACCESS_DENIED");
+  assert.equal(result.error, undefined);
 });
 
 test("requireTeacherStudentAccess rejects a teacher accessing a cross-school student", async () => {
