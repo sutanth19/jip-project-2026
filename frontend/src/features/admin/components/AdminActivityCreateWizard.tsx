@@ -2,20 +2,19 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CheckCircle2,
   Clock3,
   FileText,
-  LoaderCircle,
   LockKeyhole,
   MousePointer2,
-  Save,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
 import seretSukuKataThumbnail from "@/assets/images/img_.seret.png";
 import { ConfirmDialog, EmptyState, ErrorState, ManagementPageLayout } from "@/components/shared";
+import { AdminActivityWizardStepFooter } from "@/features/admin/components/AdminActivityWizardStepFooter";
+import { useActivityWizardStep } from "@/features/admin/hooks/use-activity-wizard-step";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/providers/toast-context-value";
 
 const galleryPath = "/admin/aktiviti/cipta/membaca";
+const stepOnePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/maklumat`;
 const stepTwoPath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/kurikulum`;
 
 const adminActivityCreateQueryKeys = {
@@ -252,15 +252,21 @@ function FieldError({ message, id }: { message?: string; id: string }) {
 
 function ActivityBasicInfoForm({
   form,
-  onSubmit,
+  onSave,
   onCancel,
-  isSubmitting,
+  onContinue,
+  isSaving,
+  canSave,
+  canContinue,
   serverError,
 }: {
   form: ReturnType<typeof useForm<ActivityBasicInfoValues>>;
-  onSubmit: () => void;
+  onSave: () => void;
   onCancel: () => void;
-  isSubmitting: boolean;
+  onContinue: () => void;
+  isSaving: boolean;
+  canSave: boolean;
+  canContinue: boolean;
   serverError: string | null;
 }) {
   const errors = form.formState.errors;
@@ -278,7 +284,7 @@ function ActivityBasicInfoForm({
           </div>
         </div>
 
-        <form className="mt-6 space-y-6" onSubmit={onSubmit}>
+        <form className="mt-6 space-y-6" onSubmit={(event) => event.preventDefault()}>
           <div className="space-y-2">
             <Label htmlFor="title">Nama Aktiviti <span className="text-destructive">*</span></Label>
             <Input id="title" {...form.register("title")} aria-describedby="title-help title-error" aria-invalid={Boolean(errors.title)} placeholder="Contoh: Seret Suku Kata Perkataan Mudah" />
@@ -347,15 +353,14 @@ function ActivityBasicInfoForm({
 
           {serverError ? <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{serverError}</p> : null}
 
-          <div className="flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" className="h-11 w-full rounded-xl px-5 font-semibold sm:w-auto" onClick={onCancel} disabled={isSubmitting}>
-              Batal
-            </Button>
-            <Button type="submit" className="h-11 w-full gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:ring-primary/30 sm:w-auto" disabled={isSubmitting}>
-              {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-              {isSubmitting ? "Menyimpan Aktiviti..." : "Simpan dan Seterusnya"}
-            </Button>
-          </div>
+          <AdminActivityWizardStepFooter
+            isSaving={isSaving}
+            canSave={canSave}
+            canContinue={canContinue}
+            onCancel={onCancel}
+            onSave={onSave}
+            onContinue={onContinue}
+          />
         </form>
       </CardContent>
     </Card>
@@ -367,10 +372,8 @@ export function AdminActivityCreateWizardPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [discardOpen, setDiscardOpen] = React.useState(false);
-  const [pendingNavigationPath, setPendingNavigationPath] = React.useState<string | null>(null);
-  const [serverError, setServerError] = React.useState<string | null>(null);
   const isEditMode = Boolean(activityId);
+  const [serverError, setServerError] = React.useState<string | null>(null);
   const form = useForm<ActivityBasicInfoValues>({
     resolver: zodResolver(activityBasicInfoSchema),
     defaultValues: activityBasicInfoDefaults,
@@ -420,6 +423,9 @@ export function AdminActivityCreateWizardPage() {
     hasInitializedDraft.current = true;
   }, [activity.data, form, isEditMode]);
 
+  const persistedActivityId = activity.data?.id ?? activityId;
+  const progress = getActivityWizardProgress(activity.data);
+
   const saveActivity = useMutation({
     mutationFn: async (values: ActivityBasicInfoValues) => {
       if (isEditMode) {
@@ -442,9 +448,13 @@ export function AdminActivityCreateWizardPage() {
     },
     onSuccess: async (savedActivity) => {
       await queryClient.invalidateQueries({ queryKey: adminActivityCreateQueryKeys.activityDetail(savedActivity.id) });
-      form.reset(form.getValues());
-      toast.success(isEditMode ? "Maklumat aktiviti berjaya dikemas kini." : "Aktiviti draf berjaya dicipta.");
-      navigate(stepTwoPath(savedActivity.id), { replace: true });
+      const savedValues = getActivityBasicInfoFormValues(savedActivity);
+      form.reset(savedValues);
+      toast.success("Berjaya", isEditMode ? "Maklumat aktiviti berjaya dikemas kini." : "Aktiviti draf berjaya dicipta.");
+
+      if (!isEditMode) {
+        navigate(stepOnePath(savedActivity.id), { replace: true });
+      }
     },
     onError: (error) => {
       if (error instanceof Error && error.message === "PROGRAMME_UNAVAILABLE") {
@@ -461,38 +471,19 @@ export function AdminActivityCreateWizardPage() {
     },
   });
 
-  React.useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!form.formState.isDirty || saveActivity.isSuccess) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [form.formState.isDirty, saveActivity.isSuccess]);
-
-  const handleLeave = () => {
-    requestNavigation(isEditMode ? stepTwoPath(activityId) : galleryPath);
-  };
-
-  const requestNavigation = (destination: string) => {
-    if (form.formState.isDirty && !saveActivity.isSuccess) {
-      setPendingNavigationPath(destination);
-      setDiscardOpen(true);
-      return;
-    }
-
-    navigate(destination);
-  };
-
-  const submit = form.handleSubmit(async (values) => {
-    if (saveActivity.isPending) {
-      return;
-    }
-
-    setServerError(null);
-    await saveActivity.mutateAsync(values);
+  const stepController = useActivityWizardStep({
+    form,
+    navigate,
+    cancelDestination: galleryPath,
+    continueDestination: persistedActivityId ? stepTwoPath(persistedActivityId) : undefined,
+    onSave: async (values) => {
+      setServerError(null);
+      await saveActivity.mutateAsync(values);
+    },
+    isSaving: saveActivity.isPending,
+    isSaved: Boolean(persistedActivityId),
+    isReady: contextReady && !showDraftError && !missingContextMessage,
+    hasHydrated: !isEditMode || activity.isSuccess,
   });
 
   return (
@@ -506,12 +497,6 @@ export function AdminActivityCreateWizardPage() {
       ]}
       title={isEditMode ? "Maklumat Aktiviti" : "Cipta Aktiviti"}
       description={isEditMode ? "Kemas kini maklumat asas untuk aktiviti Seret Suku Kata." : "Lengkapkan maklumat asas untuk membina aktiviti Seret Suku Kata."}
-      actions={(
-        <Button type="button" variant="outline" className="h-11 w-full gap-2 rounded-xl px-5 focus-visible:ring-primary/30 sm:w-auto" onClick={handleLeave}>
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {isEditMode ? "Kembali ke Kurikulum" : "Kembali ke Galeri Templat Membaca"}
-        </Button>
-      )}
     >
       {programmes.isLoading || templates.isLoading || (isEditMode && activity.isLoading) ? <ContextSkeleton /> : null}
 
@@ -562,19 +547,22 @@ export function AdminActivityCreateWizardPage() {
           <SelectedTemplateSummary />
           <ActivityWizardStepper
             activeStep="information"
-            progress={getActivityWizardProgress(activity.data)}
+            progress={progress}
             stepLinks={{
-              curriculum: stepTwoPath(activity.data?.id ?? activityId),
-              content: `/admin/aktiviti/${activity.data?.id ?? activityId}/cipta/kandungan`,
+              curriculum: persistedActivityId ? stepTwoPath(persistedActivityId) : undefined,
+              content: progress.hasCurriculumLink && persistedActivityId ? `/admin/aktiviti/${persistedActivityId}/cipta/kandungan` : undefined,
             }}
-            onNavigateStep={(destination) => requestNavigation(destination)}
+            onNavigateStep={(destination) => stepController.requestStepNavigation(destination)}
           />
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <ActivityBasicInfoForm
               form={form}
-              onSubmit={submit}
-              onCancel={handleLeave}
-              isSubmitting={saveActivity.isPending}
+              onSave={stepController.save}
+              onCancel={stepController.requestCancel}
+              onContinue={stepController.continueToNextStep}
+              isSaving={stepController.isSaving}
+              canSave={stepController.canSave}
+              canContinue={stepController.canContinue}
               serverError={serverError}
             />
             <TemplateSummaryCard programmeName={programme.name} />
@@ -583,23 +571,14 @@ export function AdminActivityCreateWizardPage() {
       ) : null}
 
       <ConfirmDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
+        open={stepController.discardDialog.open}
+        onOpenChange={stepController.discardDialog.onOpenChange}
         title="Buang perubahan?"
-        description="Maklumat yang belum disimpan akan hilang jika anda meninggalkan halaman ini."
+        description="Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini."
         cancelLabel="Teruskan Mengedit"
         confirmLabel="Buang Perubahan"
         variant="destructive"
-        onConfirm={() => {
-          setDiscardOpen(false);
-          if (pendingNavigationPath) {
-            navigate(pendingNavigationPath);
-            setPendingNavigationPath(null);
-            return;
-          }
-
-          navigate(isEditMode ? stepTwoPath(activityId) : galleryPath);
-        }}
+        onConfirm={stepController.discardDialog.onConfirm}
       />
     </ManagementPageLayout>
   );

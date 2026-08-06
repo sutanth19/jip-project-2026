@@ -17,12 +17,12 @@ export default function AuthBrandPanel() {
           <div className="flex items-center gap-4">
             <img
               src={logoWeb}
-              alt="Logo LITERASI DIGITAL"
+              alt="Logo Digital Main-LiT"
               className="h-14 w-14 object-contain"
             />
             <div className="text-center leading-tight">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                LITERASI DIGITAL
+                Digital Main-LiT
               </h1>
               <p className="text-sm text-muted-foreground">Kampus Darul Aman</p>
             </div>
@@ -32,14 +32,14 @@ export default function AuthBrandPanel() {
         <main className="flex min-h-0 flex-1 items-center justify-center px-8 pb-8">
           <img
             src={loginImage}
-            alt="Ilustrasi log masuk LITERASI DIGITAL"
+            alt="Ilustrasi log masuk Digital Main-LiT"
             className="h-full max-h-[720px] w-full max-w-[920px] object-contain"
           />
         </main>
 
         <footer className="px-10 pb-6 text-center lg:px-12 xl:px-16">
           <p className="text-sm text-muted-foreground">
-            © 2026 LITERASI DIGITAL Kampus Darul Aman
+            © 2026 Digital Main-LiT Kampus Darul Aman
           </p>
         </footer>
       </div>

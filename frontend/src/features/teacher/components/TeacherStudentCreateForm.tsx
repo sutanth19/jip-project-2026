@@ -131,14 +131,14 @@ export function TeacherStudentCreateForm({
   const handleCopyCredentials = async () => {
     if (!createdResult) return;
     const text = [
-      "Digital MoLIB",
+      "Digital Main-LiT",
       "",
       `Nama Murid: ${createdResult.student.fullName}`,
       `ID Murid: ${createdResult.credentials.studentId}`,
       `PIN: ${createdResult.credentials.temporaryPin}`,
       `Kelas Asal: ${credentialClassLabel(createdResult)}`,
       "",
-      "Log masuk melalui portal Murid Digital MoLIB.",
+      "Log masuk melalui portal Murid Digital Main-LiT.",
     ].join("\n");
 
     await navigator.clipboard.writeText(text);

@@ -394,7 +394,7 @@ export function AdminEntityFormPage({ entityKey, mode }: AdminEntityFormPageProp
             { label: "Tambah Sekolah" },
           ]}
           title="Tambah Sekolah"
-          description="Daftarkan sekolah baharu untuk menggunakan platform Digital MoLIB."
+          description="Daftarkan sekolah baharu untuk menggunakan platform Digital Main-LiT."
           actions={
             <Button
               asChild

@@ -46,11 +46,11 @@ export default function Statistics() {
           </span>
 
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Satu Ekosistem Literasi Bersepadu
+            Satu Ekosistem Pengurusan Bersepadu
           </h2>
 
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            LITERASI DIGITAL menghimpunkan semua aspek penting pengurusan
+            Digital Main-LiT menghimpunkan semua aspek penting pengurusan
             literasi sekolah dalam satu platform yang selamat, sistematik dan
             bersepadu.
           </p>

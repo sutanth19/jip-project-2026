@@ -60,7 +60,7 @@ export default function SetupPasswordPage() {
             Lengkapkan akaun
           </CardTitle>
           <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-            Cipta kata laluan baharu untuk mengaktifkan akaun Digital MoLIB anda.
+            Cipta kata laluan baharu untuk mengaktifkan akaun Digital Main-LiT anda.
           </CardDescription>
         </CardHeader>
         <CardContent>

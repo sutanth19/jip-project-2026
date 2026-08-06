@@ -18,6 +18,7 @@ export type ActivityWizardStepId = typeof activityWizardSteps[number]["id"];
 export type ActivityWizardProgress = {
   hasDraft: boolean;
   hasCurriculumLink: boolean;
+  hasContent?: boolean;
 };
 
 export type ActivityWizardStepState = {
@@ -218,12 +219,14 @@ export function findSeretSukuKataTemplate(templates: ActivityTemplateResolution[
 type ActivityWizardProgressSource = {
   id?: string | null;
   curriculumLinks?: Array<{ id?: string; isPrimary: boolean }> | null;
+  items?: Array<{ id?: string; configuration?: unknown }> | null;
 };
 
 export function getActivityWizardProgress(activity?: ActivityWizardProgressSource | null): ActivityWizardProgress {
   return {
     hasDraft: Boolean(activity?.id),
     hasCurriculumLink: Boolean(activity?.curriculumLinks?.some((link) => link.isPrimary && Boolean(link.id))),
+    hasContent: Boolean(activity?.items?.length),
   };
 }
 
@@ -236,7 +239,7 @@ export function getActivityWizardStepStates({
   progress: ActivityWizardProgress;
   stepLinks?: Partial<Record<ActivityWizardStepId, string>>;
 }): ActivityWizardStepState[] {
-  const highestAccessibleStep = progress.hasCurriculumLink ? 3 : progress.hasDraft ? 2 : 1;
+  const highestAccessibleStep = progress.hasContent ? 4 : progress.hasCurriculumLink ? 3 : progress.hasDraft ? 2 : 1;
 
   return activityWizardSteps.map((step, index) => {
     const stepNumber = index + 1;
@@ -245,7 +248,9 @@ export function getActivityWizardStepStates({
       ? progress.hasDraft
       : stepNumber === 2
         ? progress.hasCurriculumLink
-        : false;
+        : stepNumber === 3
+          ? Boolean(progress.hasContent)
+          : false;
     const isAccessible = stepNumber <= highestAccessibleStep;
     const isLocked = !isAccessible;
 

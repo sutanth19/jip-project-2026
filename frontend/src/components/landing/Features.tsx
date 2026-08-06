@@ -80,10 +80,10 @@ export default function Features() {
             Ciri-ciri Platform
           </span>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Semua Keperluan Pengurusan Literasi Sekolah dalam Satu Platform
+            Semua Keperluan Pengurusan Sekolah dalam Satu Platform
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            LITERASI DIGITAL menggabungkan pengurusan perpustakaan, program literasi, pemantauan kemajuan murid serta pelaporan
+            Digital Main-LiT menggabungkan pengurusan perpustakaan, program literasi, pemantauan kemajuan murid serta pelaporan
             dalam satu sistem bersepadu yang direka khas untuk sekolah moden.
           </p>
         </div>

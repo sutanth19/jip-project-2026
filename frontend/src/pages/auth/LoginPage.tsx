@@ -16,12 +16,12 @@ export default function LoginPage() {
             >
               <img
                 src={logoWeb}
-                alt="LITERASI DIGITAL"
+                alt="Digital Main-LiT"
                 className="h-10 w-10 object-contain sm:h-12 sm:w-12"
               />
               <div className="leading-tight">
                 <p className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
-                  LITERASI DIGITAL
+                  Digital Main-LiT
                 </p>
                 <p className="text-sm text-muted-foreground">Kampus Darul Aman</p>
               </div>
@@ -33,7 +33,7 @@ export default function LoginPage() {
           </main>
 
           <footer className="pt-4 text-left text-sm leading-6 text-muted-foreground sm:text-base lg:hidden">
-            © 2026 LITERASI DIGITAL Kampus Darul Aman
+            © 2026 Digital Main-LiT Kampus Darul Aman
           </footer>
         </div>
       </section>

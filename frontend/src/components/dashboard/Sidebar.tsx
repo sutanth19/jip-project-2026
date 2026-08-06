@@ -139,7 +139,7 @@ const navMain: NavItem[] = [
       roles: ["SUPER_ADMIN", "ADMIN"],
     },
     {
-      title: "Aktiviti",
+      title: "Pengurusan Aktiviti",
       url: "/admin/aktiviti",
       icon: <LibraryBig />,
       roles: ["SUPER_ADMIN", "ADMIN"],
@@ -294,7 +294,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <TeamSwitcher
           teams={[
             {
-              name: "LITERASI DIGITAL",
+              name: "Digital Main-LiT",
               logo: <School />,
               plan: school?.name ?? school?.id ?? "Semua sekolah",
             },

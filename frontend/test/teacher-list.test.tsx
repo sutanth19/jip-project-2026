@@ -92,7 +92,7 @@ describe("Pengurusan Guru list", () => {
 
     expect(config.endpoint).toBe("/teachers");
     expect(config.roles).toEqual(["SUPER_ADMIN", "ADMIN"]);
-    expect(config.description).toBe("Urus akaun guru yang menggunakan platform Digital MoLIB.");
+    expect(config.description).toBe("Urus akaun guru yang menggunakan platform Digital Main-LiT.");
     expect(config.columns.map((column) => column.label)).toEqual([
       "Guru",
       "E-mel",
@@ -107,7 +107,7 @@ describe("Pengurusan Guru list", () => {
     expect(page).toContain('if (entityKey === "teachers")');
     expect(page).toContain("<TeacherListContent");
     expect(page).toContain('title="Guru"');
-    expect(page).toContain('description="Urus akaun guru yang menggunakan platform Digital MoLIB."');
+    expect(page).toContain('description="Urus akaun guru yang menggunakan platform Digital Main-LiT."');
   });
 
   it("renders the Guru page header, action, filters, table columns, records, and pagination", () => {

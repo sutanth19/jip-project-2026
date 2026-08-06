@@ -199,7 +199,7 @@ function StudentPinResetSection({
 
   const copyText = result
     ? [
-        "Digital MoLIB",
+        "Digital Main-LiT",
         "",
         `Nama Murid: ${detail.fullName}`,
         `ID Murid: ${result.credentials.studentId}`,

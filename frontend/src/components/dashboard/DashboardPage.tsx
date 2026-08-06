@@ -11,7 +11,7 @@ export function DashboardPage() {
       <DashboardHeader
         title="Dashboard"
         subtitle={
-          "Selamat Datang ke Digital MoLIB\nSistem Pengurusan Literasi & Pemulihan Bahasa Melayu"
+          "Selamat Datang ke Digital Main-LiT\nSistem Pengurusan Literasi & Pemulihan Bahasa Melayu"
         }
       />
       <StatsCards />

@@ -494,7 +494,7 @@ function SchoolDangerZone({
             <p className="text-sm leading-6 text-muted-foreground">
               {detail.accountStatus === "ARCHIVED"
                 ? "Sekolah ini telah diarkibkan."
-                : "Arkibkan sekolah apabila ia tidak lagi menggunakan platform Digital MoLIB."}
+                : "Arkibkan sekolah apabila ia tidak lagi menggunakan platform Digital Main-LiT."}
             </p>
           </div>
         </div>

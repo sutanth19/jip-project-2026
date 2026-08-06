@@ -75,7 +75,7 @@ describe("Butiran Guru detail page", () => {
     expect(page).toContain('if (entityKey === "teachers")');
     expect(page).toContain("TeacherDetailView");
     expect(page).toContain('title="Butiran Guru"');
-    expect(page).toContain('description="Lihat dan urus maklumat akaun guru platform Digital MoLIB."');
+    expect(page).toContain('description="Lihat dan urus maklumat akaun guru platform Digital Main-LiT."');
     expect(page).toContain("Edit Guru");
     expect(page).toContain("`${detailPath}/edit`");
     expect(page).toContain("Kembali");
@@ -243,12 +243,12 @@ describe("Butiran Guru detail page", () => {
       ...teacherPayload.teacher,
       school: {
         ...teacherPayload.teacher.school,
-        schoolName: "Sekolah Jenis Kebangsaan Tamil Taman Harmoni Pendidikan Literasi Digital Malaysia",
+        schoolName: "Sekolah Jenis Kebangsaan Tamil Taman Harmoni Malaysia",
         contactEmail: "pentadbiran.sekolah.taman.harmoni.literasi.digital@school.edu.my",
       },
     });
 
-    expect(markup).toContain("Sekolah Jenis Kebangsaan Tamil Taman Harmoni Pendidikan Literasi Digital Malaysia");
+    expect(markup).toContain("Sekolah Jenis Kebangsaan Tamil Taman Harmoni Malaysia");
     expect(markup).toContain("pentadbiran.sekolah.taman.harmoni.literasi.digital@school.edu.my");
     expect(source).toContain("break-words");
     expect(source).toContain("md:grid-cols-2");

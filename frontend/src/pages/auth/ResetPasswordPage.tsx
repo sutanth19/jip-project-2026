@@ -188,7 +188,7 @@ export default function ResetPasswordPage() {
             Tetapkan Kata Laluan Baharu
           </CardTitle>
           <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-            Cipta kata laluan baharu untuk akaun Digital MoLIB anda.
+            Cipta kata laluan baharu untuk akaun Digital Main-LiT anda.
           </CardDescription>
         </CardHeader>
         <CardContent>

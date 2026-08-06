@@ -393,6 +393,14 @@ describe("Admin activity management page", () => {
       new URL("../src/features/admin/components/AdminActivityCreateWizard.tsx", import.meta.url),
       "utf8",
     );
+    const footerSource = readFileSync(
+      new URL("../src/features/admin/components/AdminActivityWizardStepFooter.tsx", import.meta.url),
+      "utf8",
+    );
+    const hookSource = readFileSync(
+      new URL("../src/features/admin/hooks/use-activity-wizard-step.ts", import.meta.url),
+      "utf8",
+    );
     const apiSource = readFileSync(new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url), "utf8");
 
     expect(pageSource).toContain("<AdminActivityCreateWizardPage />");
@@ -404,15 +412,23 @@ describe("Admin activity management page", () => {
     expect(wizardSource).toContain("Arahan kepada Murid");
     expect(wizardSource).toContain("Tahap Kesukaran");
     expect(wizardSource).toContain("Anggaran Masa");
-    expect(wizardSource).toContain("Simpan dan Seterusnya");
+    expect(wizardSource).toContain("AdminActivityWizardStepFooter");
+    expect(wizardSource).toContain("useActivityWizardStep");
+    expect(footerSource).toContain("Batal");
+    expect(footerSource).toContain("Simpan");
+    expect(footerSource).toContain("Seterusnya");
+    expect(wizardSource).not.toContain("Simpan dan Seterusnya");
     expect(wizardSource).toContain("Buang perubahan?");
-    expect(wizardSource).toContain("Menyimpan Aktiviti...");
-    expect(wizardSource).toContain("navigate(stepTwoPath(savedActivity.id)");
+    expect(wizardSource).toContain("Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini.");
+    expect(wizardSource).toContain("navigate(stepOnePath(savedActivity.id), { replace: true })");
+    expect(wizardSource).toContain("continueDestination: persistedActivityId ? stepTwoPath(persistedActivityId) : undefined");
     expect(wizardSource).toContain("saveActivity.isPending");
+    expect(hookSource).toContain("const canSave = isReady && isDirty && !isSaving;");
+    expect(hookSource).toContain("const canContinue = Boolean(continueDestination) && isSaved && !isDirty && !isSaving;");
     expect(wizardSource).toContain("updateAdminDigitalActivity");
     expect(wizardSource).toContain("buildSeretSukuKataUpdatePayload");
     expect(wizardSource).toContain("getActivityBasicInfoFormValues");
-    expect(wizardSource).toContain("navigate(isEditMode ? stepTwoPath(activityId) : galleryPath)");
+    expect(wizardSource).toContain("cancelDestination: galleryPath");
     expect(wizardSource).toContain('queryKey: adminActivityCreateQueryKeys.activityDetail(activityId)');
     expect(wizardSource).toContain("getActivityCreateErrorMessage");
     expect(apiSource).toContain('apiRequest<ActivityPayload>("/digital-activities"');
@@ -421,7 +437,6 @@ describe("Admin activity management page", () => {
     expect(pageSource).not.toContain("useSearchParams");
     expect(wizardSource).not.toContain("useSearchParams");
     expect(wizardSource).not.toContain("Simpan Draf");
-    expect(wizardSource).not.toContain("Next");
     expect(wizardSource).not.toContain("Publish");
     expect(wizardSource).not.toContain('queryKey: adminActivityCreateQueryKeys.activityList');
     expect(wizardSource).not.toContain('queryKey: adminActivityCreateQueryKeys.activitySummary');
@@ -530,21 +545,37 @@ describe("Admin activity management page", () => {
     ])).toBeNull();
   });
 
-  it("implements Step 2 curriculum loading while keeping Step 3 as a placeholder route", () => {
+  it("implements Step 2 curriculum loading and Step 3 content editor with real persistence", () => {
     const routeSource = readFileSync(new URL("../src/routes/index.tsx", import.meta.url), "utf8");
     const pageSource = readFileSync(
       new URL("../src/features/admin/pages/AdminActivityCurriculumPlaceholderPage.tsx", import.meta.url),
       "utf8",
     );
+    const footerSource = readFileSync(
+      new URL("../src/features/admin/components/AdminActivityWizardStepFooter.tsx", import.meta.url),
+      "utf8",
+    );
+    const hookSource = readFileSync(
+      new URL("../src/features/admin/hooks/use-activity-wizard-step.ts", import.meta.url),
+      "utf8",
+    );
     const contentPageSource = readFileSync(
-      new URL("../src/features/admin/pages/AdminActivityContentPlaceholderPage.tsx", import.meta.url),
+      new URL("../src/features/admin/pages/AdminActivityContentPage.tsx", import.meta.url),
+      "utf8",
+    );
+    const contentHookSource = readFileSync(
+      new URL("../src/features/admin/hooks/use-activity-content.ts", import.meta.url),
+      "utf8",
+    );
+    const contentApiSource = readFileSync(
+      new URL("../src/features/admin/api/arrange-syllables-content.api.ts", import.meta.url),
       "utf8",
     );
     const apiSource = readFileSync(new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url), "utf8");
 
     expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/maklumat", element: <AdminReadingTemplateWizardPlaceholderPage /> }');
     expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/kurikulum", element: <AdminActivityCurriculumPlaceholderPage /> }');
-    expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPlaceholderPage /> }');
+    expect(routeSource).toContain('{ path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPage /> }');
     expect(pageSource).toContain('const stepOnePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/maklumat`;');
     expect(pageSource).toContain("getAdminDigitalActivity(activityId)");
     expect(pageSource).toContain("listAdminCurriculumYears");
@@ -561,23 +592,55 @@ describe("Admin activity management page", () => {
     expect(pageSource).toContain("Digunakan untuk menentukan Standard Kandungan dan Standard Pembelajaran KSSR yang berkaitan.");
     expect(pageSource).toContain("Pemetaan kurikulum belum tersedia");
     expect(pageSource).toContain("Kemahiran ini belum mempunyai pemetaan Standard Kandungan dan Standard Pembelajaran bagi tahun yang dipilih.");
-    expect(pageSource).toContain("Simpan dan Seterusnya");
-    expect(pageSource).toContain("Pilihan kurikulum yang belum disimpan akan hilang");
-    expect(pageSource).toContain("navigate(stepThreePath(activityId))");
-    expect(pageSource).toContain("navigate(stepOnePath(activityId))");
+    expect(footerSource).toContain("Batal");
+    expect(footerSource).toContain("Simpan");
+    expect(footerSource).toContain("Seterusnya");
+    expect(pageSource).not.toContain("Simpan dan Seterusnya");
+    expect(pageSource).toContain("AdminActivityWizardStepFooter");
+    expect(pageSource).toContain("useActivityWizardStep");
+    expect(pageSource).toContain("Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini.");
+    expect(pageSource).toContain('toast.success("Berjaya", "Maklumat kurikulum berjaya disimpan.")');
+    expect(pageSource).toContain("continueDestination: stepThreePath(activityId)");
+    expect(pageSource).toContain("cancelDestination: galleryPath");
+    expect(pageSource).toContain("const hasSavedCurriculumLink = Boolean(currentPrimaryLink?.id);");
+    expect(hookSource).toContain("const canSave = isReady && isDirty && !isSaving;");
+    expect(hookSource).toContain("const canContinue = Boolean(continueDestination) && isSaved && !isDirty && !isSaving;");
     expect(pageSource).toContain("progress={getActivityWizardProgress(activity.data)}");
-    expect(contentPageSource).toContain("progress={progress}");
+    expect(contentPageSource).toContain("Bina dan susun soalan Seret Suku Kata untuk aktiviti ini.");
+    expect(contentPageSource).toContain("Belum ada soalan");
+    expect(contentPageSource).toContain("Tambah soalan pertama untuk membina aktiviti Seret Suku Kata.");
     expect(contentPageSource).toContain("Kurikulum belum lengkap");
+    expect(contentPageSource).toContain("useActivityContent");
+    expect(contentPageSource).toContain("ArrangeSyllablesQuestionForm");
+    expect(contentPageSource).toContain("ActivityQuestionNavigator");
+    expect(contentPageSource).toContain("ActivityContentSummary");
+    expect(contentPageSource).toContain("Padam soalan?");
+    expect(contentPageSource).toContain("Soalan ini akan dipadam daripada aktiviti. Tindakan ini tidak boleh dibatalkan selepas disimpan.");
+    expect(contentPageSource).toContain("Buang perubahan?");
+    expect(contentPageSource).toContain("Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini.");
+    expect(contentPageSource).not.toContain("Langkah Kandungan akan dilaksanakan dalam Sprint seterusnya.");
+    expect(contentHookSource).toContain("createQuestionBankItemForActivity");
+    expect(contentHookSource).toContain("addQuestionBankCurriculumLinkForActivity");
+    expect(contentHookSource).toContain("activateQuestionBankItemForActivity");
+    expect(contentHookSource).toContain("addDigitalActivityItem");
+    expect(contentHookSource).toContain("updateDigitalActivityItem");
+    expect(contentHookSource).toContain("removeDigitalActivityItem");
+    expect(contentHookSource).toContain("reorderDigitalActivityItems");
+    expect(contentApiSource).toContain('"/question-bank/items"');
+    expect(contentApiSource).toContain('`/question-bank/items/${itemId}/curriculum-links`');
+    expect(contentApiSource).toContain('`/question-bank/items/${itemId}/activate`');
+    expect(contentApiSource).toContain('`/digital-activities/${activityId}/items`');
+    expect(contentApiSource).toContain('`/digital-activities/${activityId}/items/reorder`');
     expect(pageSource).not.toContain("useSearchParams");
     expect(pageSource).not.toContain("mutateAsync(buildSeretSukuKataCreatePayload");
     expect(apiSource).toContain('`/digital-activities/${activityId}/curriculum-links`');
-    expect(contentPageSource).toContain("Langkah Kandungan akan dilaksanakan dalam Sprint seterusnya.");
   });
 
   it("derives wizard progress and accessibility from persisted activity state instead of the current route", () => {
     expect(getActivityWizardProgress({ id: "activity-1", curriculumLinks: [] })).toEqual({
       hasDraft: true,
       hasCurriculumLink: false,
+      hasContent: false,
     });
 
     expect(getActivityWizardProgress({
@@ -586,6 +649,17 @@ describe("Admin activity management page", () => {
     })).toEqual({
       hasDraft: true,
       hasCurriculumLink: true,
+      hasContent: false,
+    });
+
+    expect(getActivityWizardProgress({
+      id: "activity-1",
+      curriculumLinks: [{ id: "link-1", isPrimary: true }],
+      items: [{ id: "item-1" }],
+    })).toEqual({
+      hasDraft: true,
+      hasCurriculumLink: true,
+      hasContent: true,
     });
 
     expect(getActivityWizardStepStates({

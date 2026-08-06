@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
 
 export function AppProviders({ children }: { children?: React.ReactNode }) {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="digital-molib-theme">
+    <ThemeProvider defaultTheme="system" storageKey="digital-main-lit-theme">
       <TooltipProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
@@ -30,4 +30,3 @@ export function AppProviders({ children }: { children?: React.ReactNode }) {
     </ThemeProvider>
   );
 }
-

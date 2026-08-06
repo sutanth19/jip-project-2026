@@ -31,7 +31,7 @@ export default function Footer() {
               to="/"
               className="mb-4 inline-flex text-xl font-bold tracking-wide text-foreground transition-colors hover:text-primary"
             >
-              LITERASI DIGITAL
+              Digital Main-LiT
             </Link>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
               Sistem pengurusan literasi sekolah moden yang membantu pentadbir, guru, murid dan ibu bapa mengurus aktiviti bacaan,
@@ -76,11 +76,11 @@ export default function Footer() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="mailto:support@digitalmolib.my"
+                  href="mailto:support@digitalmainlit.my"
                   className={`flex items-start gap-3 ${linkClassName}`}
                 >
                   <Mail className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                  <span>support@digitalmolib.my</span>
+                  <span>support@digitalmainlit.my</span>
                 </a>
               </li>
               <li>
@@ -101,7 +101,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          <p>©️ 2026 Digital MoLIB.</p>
+          <p>©️ 2026 Digital Main-LiT.</p>
           <p>All rights reserved.</p>
         </div>
       </Container>

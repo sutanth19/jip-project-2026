@@ -57,14 +57,14 @@ export default function About() {
         <div className="mx-auto max-w-3xl text-center">
           <img
             src={logoWeb}
-            alt="Digital MoLIB"
+            alt="Digital Main-LiT"
             className="mx-auto mb-4 h-20 w-20 object-contain sm:h-24 sm:w-24 lg:h-28 lg:w-28"
           />
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Mengapa Memilih LITERASI DIGITAL?
+            Mengapa Memilih Digital Main-LiT?
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            LITERASI DIGITAL menyediakan platform bersepadu yang membantu sekolah mengurus buku, aktiviti
+            Digital Main-LiT menyediakan platform bersepadu yang membantu sekolah mengurus buku, aktiviti
             bacaan, kemajuan murid, pertandingan literasi serta pelaporan dengan lebih sistematik, cekap dan mudah diakses.
           </p>
         </div>

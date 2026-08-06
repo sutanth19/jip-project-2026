@@ -1,12 +1,14 @@
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BookMarked, Check, ChevronDown, LoaderCircle, Save, Search } from "lucide-react";
+import { BookMarked, Check, ChevronDown, LoaderCircle, Search } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { ConfirmDialog, ErrorState, ManagementPageLayout } from "@/components/shared";
+import { AdminActivityWizardStepFooter } from "@/features/admin/components/AdminActivityWizardStepFooter";
 import { ActivityWizardStepper, SelectedTemplateSummary } from "@/features/admin/components/AdminActivityCreateWizard";
+import { useActivityWizardStep } from "@/features/admin/hooks/use-activity-wizard-step";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,7 @@ import { useToast } from "@/providers/toast-context-value";
 const stepOnePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/maklumat`;
 const stepTwoPath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/kurikulum`;
 const stepThreePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/kandungan`;
+const galleryPath = "/admin/aktiviti/cipta/membaca";
 
 const curriculumQueryKeys = {
   activityDetail: (activityId: string) => ["admin", "activities", "detail", activityId] as const,
@@ -398,9 +401,12 @@ export function AdminActivityCurriculumPlaceholderPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [discardOpen, setDiscardOpen] = React.useState(false);
-  const [pendingNavigationPath, setPendingNavigationPath] = React.useState<string | null>(null);
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const previousSelectionIdsRef = React.useRef({
+    yearId: "",
+    skillId: "",
+    contentStandardId: "",
+  });
   const form = useForm<ActivityCurriculumStepValues>({
     resolver: zodResolver(activityCurriculumStepSchema),
     defaultValues: {
@@ -506,65 +512,109 @@ export function AdminActivityCurriculumPlaceholderPage() {
   );
 
   const currentPrimaryLink = activity.data?.curriculumLinks.find((link) => link.isPrimary) ?? null;
-  const hasInitializedForm = React.useRef(false);
+  const hydratedPrimaryLinkId = React.useRef<string | null>(null);
+  const isHydratingSavedCurriculum = React.useRef(false);
+  const hasHydratedSavedCurriculum = React.useRef(false);
+
+  const buildSavedCurriculumValues = React.useCallback((link: typeof currentPrimaryLink) => ({
+    curriculumYearId: link?.curriculumYear?.id ?? "",
+    remedialSkillId: link?.remedialSkill?.id ?? "",
+    contentStandardId: link?.contentStandard?.id ?? "",
+    learningStandardId: link?.learningStandard?.id ?? "",
+  }), []);
+
+  const syncPreviousSelectionRefs = React.useCallback((values: ActivityCurriculumStepValues) => {
+    previousSelectionIdsRef.current = {
+      yearId: values.curriculumYearId,
+      skillId: values.remedialSkillId,
+      contentStandardId: values.contentStandardId,
+    };
+  }, []);
 
   React.useEffect(() => {
-    if (hasInitializedForm.current || !currentPrimaryLink) {
+    if (activity.isLoading) {
       return;
     }
 
-    form.reset({
-      curriculumYearId: currentPrimaryLink.curriculumYear?.id ?? "",
-      remedialSkillId: currentPrimaryLink.remedialSkill?.id ?? "",
-      contentStandardId: currentPrimaryLink.contentStandard?.id ?? "",
-      learningStandardId: currentPrimaryLink.learningStandard?.id ?? "",
-    });
-    hasInitializedForm.current = true;
-  }, [currentPrimaryLink, form]);
-
-  const previousYearId = React.useRef(yearId);
-  React.useEffect(() => {
-    if (!previousYearId.current) {
-      previousYearId.current = yearId;
+    if (!currentPrimaryLink) {
+      if (hydratedPrimaryLinkId.current !== null) {
+        hydratedPrimaryLinkId.current = null;
+      }
+      hasHydratedSavedCurriculum.current = true;
+      isHydratingSavedCurriculum.current = false;
       return;
     }
 
-    if (previousYearId.current !== yearId) {
+    if (hydratedPrimaryLinkId.current === currentPrimaryLink.id) {
+      hasHydratedSavedCurriculum.current = true;
+      isHydratingSavedCurriculum.current = false;
+      return;
+    }
+
+    const savedValues = buildSavedCurriculumValues(currentPrimaryLink);
+    isHydratingSavedCurriculum.current = true;
+    syncPreviousSelectionRefs(savedValues);
+    form.reset(savedValues);
+    hydratedPrimaryLinkId.current = currentPrimaryLink.id ?? null;
+    hasHydratedSavedCurriculum.current = true;
+    isHydratingSavedCurriculum.current = false;
+  }, [activity.isLoading, buildSavedCurriculumValues, currentPrimaryLink, form, syncPreviousSelectionRefs]);
+
+  React.useEffect(() => {
+    if (isHydratingSavedCurriculum.current || !hasHydratedSavedCurriculum.current) {
+      previousSelectionIdsRef.current.yearId = yearId;
+      return;
+    }
+
+    if (!previousSelectionIdsRef.current.yearId) {
+      previousSelectionIdsRef.current.yearId = yearId;
+      return;
+    }
+
+    if (previousSelectionIdsRef.current.yearId !== yearId) {
       form.setValue("remedialSkillId", "", { shouldDirty: true });
       form.setValue("contentStandardId", "", { shouldDirty: true });
       form.setValue("learningStandardId", "", { shouldDirty: true });
     }
 
-    previousYearId.current = yearId;
+    previousSelectionIdsRef.current.yearId = yearId;
   }, [form, yearId]);
 
-  const previousSkillId = React.useRef(skillId);
   React.useEffect(() => {
-    if (!previousSkillId.current) {
-      previousSkillId.current = skillId;
+    if (isHydratingSavedCurriculum.current || !hasHydratedSavedCurriculum.current) {
+      previousSelectionIdsRef.current.skillId = skillId;
       return;
     }
 
-    if (previousSkillId.current !== skillId) {
+    if (!previousSelectionIdsRef.current.skillId) {
+      previousSelectionIdsRef.current.skillId = skillId;
+      return;
+    }
+
+    if (previousSelectionIdsRef.current.skillId !== skillId) {
       form.setValue("contentStandardId", "", { shouldDirty: true });
       form.setValue("learningStandardId", "", { shouldDirty: true });
     }
 
-    previousSkillId.current = skillId;
+    previousSelectionIdsRef.current.skillId = skillId;
   }, [form, skillId]);
 
-  const previousContentStandardId = React.useRef(contentStandardId);
   React.useEffect(() => {
-    if (!previousContentStandardId.current) {
-      previousContentStandardId.current = contentStandardId;
+    if (isHydratingSavedCurriculum.current || !hasHydratedSavedCurriculum.current) {
+      previousSelectionIdsRef.current.contentStandardId = contentStandardId;
       return;
     }
 
-    if (previousContentStandardId.current !== contentStandardId) {
+    if (!previousSelectionIdsRef.current.contentStandardId) {
+      previousSelectionIdsRef.current.contentStandardId = contentStandardId;
+      return;
+    }
+
+    if (previousSelectionIdsRef.current.contentStandardId !== contentStandardId) {
       form.setValue("learningStandardId", "", { shouldDirty: true });
     }
 
-    previousContentStandardId.current = contentStandardId;
+    previousSelectionIdsRef.current.contentStandardId = contentStandardId;
   }, [contentStandardId, form]);
 
   const curriculumSummary = formatCurriculumSummary({
@@ -600,52 +650,45 @@ export function AdminActivityCurriculumPlaceholderPage() {
       await addAdminActivityCurriculumLink(activityId, buildActivityCurriculumLinkPayload(values));
       return "saved";
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, values) => {
       await queryClient.invalidateQueries({ queryKey: curriculumQueryKeys.activityDetail(activityId) });
-      form.reset(form.getValues());
-      toast.success("Pautan kurikulum berjaya disimpan.");
-      navigate(stepThreePath(activityId));
+      const refreshedActivity = await queryClient.fetchQuery({
+        queryKey: curriculumQueryKeys.activityDetail(activityId),
+        queryFn: () => getAdminDigitalActivity(activityId),
+        staleTime: 0,
+      });
+
+      const refreshedPrimaryLink = refreshedActivity.curriculumLinks.find((link) => link.isPrimary) ?? null;
+      const savedValues = refreshedPrimaryLink
+        ? buildSavedCurriculumValues(refreshedPrimaryLink)
+        : values;
+
+      syncPreviousSelectionRefs(savedValues);
+      hydratedPrimaryLinkId.current = refreshedPrimaryLink?.id ?? hydratedPrimaryLinkId.current;
+      hasHydratedSavedCurriculum.current = true;
+      isHydratingSavedCurriculum.current = false;
+      form.reset(savedValues);
+      toast.success("Berjaya", "Maklumat kurikulum berjaya disimpan.");
     },
     onError: (error) => {
       setServerError(getCurriculumStepErrorMessage(error));
     },
   });
 
-  React.useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!form.formState.isDirty || saveCurriculum.isSuccess) {
-        return;
-      }
-
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [form.formState.isDirty, saveCurriculum.isSuccess]);
-
-  const handleLeave = () => {
-    requestNavigation(stepOnePath(activityId));
-  };
-
-  const requestNavigation = (destination: string) => {
-    if (form.formState.isDirty && !saveCurriculum.isSuccess) {
-      setPendingNavigationPath(destination);
-      setDiscardOpen(true);
-      return;
-    }
-
-    navigate(destination);
-  };
-
-  const submit = form.handleSubmit(async (values) => {
-    if (saveCurriculum.isPending) {
-      return;
-    }
-
-    setServerError(null);
-    await saveCurriculum.mutateAsync(values);
+  const hasSavedCurriculumLink = Boolean(currentPrimaryLink?.id);
+  const stepController = useActivityWizardStep({
+    form,
+    navigate,
+    cancelDestination: galleryPath,
+    continueDestination: stepThreePath(activityId),
+    onSave: async (values) => {
+      setServerError(null);
+      await saveCurriculum.mutateAsync(values);
+    },
+    isSaving: saveCurriculum.isPending,
+    isSaved: hasSavedCurriculumLink,
+    isReady: !activity.isLoading && years.isSuccess,
+    hasHydrated: !activity.isLoading,
   });
 
   const showDraftError = activity.data && activity.data.status !== "DRAFT";
@@ -660,12 +703,6 @@ export function AdminActivityCurriculumPlaceholderPage() {
       ]}
       title="Kurikulum"
       description="Pautkan aktiviti draf kepada struktur kurikulum sebelum meneruskan ke kandungan."
-      actions={(
-        <Button type="button" variant="outline" className="h-11 w-full gap-2 rounded-xl px-5 focus-visible:ring-primary/30 sm:w-auto" onClick={handleLeave}>
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Kembali ke Maklumat
-        </Button>
-      )}
     >
       {activity.isLoading ? (
         <div className="space-y-6" aria-busy="true" aria-label="Memuatkan aktiviti draf">
@@ -702,9 +739,9 @@ export function AdminActivityCurriculumPlaceholderPage() {
             stepLinks={{
               information: stepOnePath(activityId),
               curriculum: stepTwoPath(activityId),
-              content: stepThreePath(activityId),
+              content: stepController.canContinue ? stepThreePath(activityId) : undefined,
             }}
-            onNavigateStep={(destination) => requestNavigation(destination)}
+            onNavigateStep={(destination) => stepController.requestStepNavigation(destination)}
           />
 
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -720,7 +757,7 @@ export function AdminActivityCurriculumPlaceholderPage() {
                   </div>
                 </div>
 
-                <form className="mt-6 space-y-6" onSubmit={submit}>
+                <form className="mt-6 space-y-6" onSubmit={(event) => event.preventDefault()}>
                   <div className="space-y-2">
                     <Label htmlFor="curriculumYearId">Pemetaan Tahun DSKP <span className="text-destructive">*</span></Label>
                     <Select value={yearId} onValueChange={(value) => form.setValue("curriculumYearId", value, { shouldDirty: true, shouldValidate: true })}>
@@ -835,15 +872,14 @@ export function AdminActivityCurriculumPlaceholderPage() {
 
                   {serverError ? <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{serverError}</p> : null}
 
-                  <div className="flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
-                    <Button type="button" variant="outline" className="h-11 w-full rounded-xl px-5 font-semibold sm:w-auto" onClick={handleLeave} disabled={saveCurriculum.isPending}>
-                      Batal
-                    </Button>
-                    <Button type="submit" className="h-11 w-full gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:ring-primary/30 sm:w-auto" disabled={saveCurriculum.isPending || !form.formState.isValid}>
-                      {saveCurriculum.isPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-                      {saveCurriculum.isPending ? "Menyimpan Kurikulum..." : "Simpan dan Seterusnya"}
-                    </Button>
-                  </div>
+                  <AdminActivityWizardStepFooter
+                    isSaving={stepController.isSaving}
+                    canSave={stepController.canSave}
+                    canContinue={stepController.canContinue}
+                    onCancel={stepController.requestCancel}
+                    onSave={stepController.save}
+                    onContinue={stepController.continueToNextStep}
+                  />
                 </form>
               </CardContent>
             </Card>
@@ -858,23 +894,14 @@ export function AdminActivityCurriculumPlaceholderPage() {
       ) : null}
 
       <ConfirmDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
+        open={stepController.discardDialog.open}
+        onOpenChange={stepController.discardDialog.onOpenChange}
         title="Buang perubahan?"
-        description="Pilihan kurikulum yang belum disimpan akan hilang jika anda meninggalkan halaman ini."
+        description="Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini."
         cancelLabel="Teruskan Mengedit"
         confirmLabel="Buang Perubahan"
         variant="destructive"
-        onConfirm={() => {
-          setDiscardOpen(false);
-          if (pendingNavigationPath) {
-            navigate(pendingNavigationPath);
-            setPendingNavigationPath(null);
-            return;
-          }
-
-          navigate(stepOnePath(activityId));
-        }}
+        onConfirm={stepController.discardDialog.onConfirm}
       />
     </ManagementPageLayout>
   );

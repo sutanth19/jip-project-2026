@@ -13,7 +13,7 @@ export default function Cta() {
               Mulakan Hari Ini
             </span>
             <h2 className="text-balance text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-              Transformasikan Pengurusan&apos; Literasi Sekolah Anda
+              Transformasikan Pengurusan Sekolah Anda
             </h2>
             <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
               Memperkasa pentadbir, guru, murid dan ibu bapa melalui satu platform moden untuk mengurus buku, program literasi, kemajuan bacaan serta pelaporan dengan lebih cekap.

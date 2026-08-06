@@ -11,14 +11,14 @@ type FaqItem = {
 
 const faqItems: FaqItem[] = [
   {
-    question: "Siapakah yang boleh menggunakan LITERASI DIGITAL?",
+    question: "Siapakah yang boleh menggunakan Digital Main-LiT?",
     answer:
-      "LITERASI DIGITAL direka untuk digunakan oleh pentadbir sekolah, guru, murid dan ibu bapa. Setiap pengguna mempunyai akses serta ciri-ciri yang disesuaikan mengikut peranan masing-masing.",
+      "Digital Main-LiT direka untuk digunakan oleh pentadbir sekolah, guru, murid dan ibu bapa. Setiap pengguna mempunyai akses serta ciri-ciri yang disesuaikan mengikut peranan masing-masing.",
   },
   {
-    question: "Adakah LITERASI DIGITAL menyokong buku fizikal dan buku digital?",
+    question: "Adakah Digital Main-LiT menyokong buku fizikal dan buku digital?",
     answer:
-      "Ya. LITERASI DIGITAL membolehkan sekolah mengurus buku fizikal, buku digital, sumber pembelajaran digital serta aktiviti peminjaman melalui satu platform bersepadu.",
+      "Ya. Digital Main-LiT membolehkan sekolah mengurus buku fizikal, buku digital, sumber pembelajaran digital serta aktiviti peminjaman melalui satu platform bersepadu.",
   },
   {
     question: "Adakah ibu bapa boleh memantau kemajuan bacaan anak-anak mereka?",
@@ -31,14 +31,14 @@ const faqItems: FaqItem[] = [
       "Ya. Guru dan pentadbir boleh menjana laporan literasi, laporan peminjaman buku serta ringkasan kemajuan bacaan murid dengan mudah melalui sistem.",
   },
   {
-    question: "Adakah LITERASI DIGITAL selamat digunakan?",
+    question: "Adakah Digital Main-LiT selamat digunakan?",
     answer:
-      "Ya. LITERASI DIGITAL menggunakan sistem pengesahan pengguna dan kawalan akses mengikut peranan bagi melindungi data sekolah serta maklumat pengguna daripada capaian yang tidak dibenarkan.",
+      "Ya. Digital Main-LiT menggunakan sistem pengesahan pengguna dan kawalan akses mengikut peranan bagi melindungi data sekolah serta maklumat pengguna daripada capaian yang tidak dibenarkan.",
   },
   {
-    question: "Adakah LITERASI DIGITAL boleh diakses menggunakan peranti mudah alih?",
+    question: "Adakah Digital Main-LiT boleh diakses menggunakan peranti mudah alih?",
     answer:
-      "Ya. LITERASI DIGITAL direka bentuk secara responsif dan boleh diakses melalui komputer, komputer riba, tablet serta telefon pintar pada bila-bila masa dan di mana sahaja.",
+      "Ya. Digital Main-LiT direka bentuk secara responsif dan boleh diakses melalui komputer, komputer riba, tablet serta telefon pintar pada bila-bila masa dan di mana sahaja.",
   },
 ];
 
@@ -53,10 +53,10 @@ export default function Faq() {
             Soalan Lazim (FAQ)
           </span>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-            Segala Yang Perlu Anda Ketahui Mengenai LITERASI DIGITAL
+            Segala Yang Perlu Anda Ketahui Mengenai Digital Main-LiT
           </h2>
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            Dapatkan jawapan kepada soalan-soalan yang sering ditanya mengenai LITERASI DIGITAL serta bagaimana sistem ini membantu pengurusan literasi di sekolah dengan lebih cekap.
+            Dapatkan jawapan kepada soalan-soalan yang sering ditanya mengenai Digital Main-LiT serta bagaimana sistem ini membantu pengurusan literasi di sekolah dengan lebih cekap.
           </p>
         </div>
 

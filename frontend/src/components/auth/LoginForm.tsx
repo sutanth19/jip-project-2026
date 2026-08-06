@@ -324,7 +324,7 @@ export default function LoginForm({ className }: LoginFormProps) {
           Selamat Datang
         </CardTitle>
         <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-          Log masuk untuk mengakses LITERASI DIGITAL.
+          Log masuk untuk mengakses Digital Main-LiT.
         </CardDescription>
       </CardHeader>
 
