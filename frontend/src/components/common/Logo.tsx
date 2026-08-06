@@ -1,4 +1,4 @@
-import logo from "@/assets/images/logo.svg";
+import logo from "@/assets/images/logo_web.svg";
 
 type LogoProps = {
   showText?: boolean;
@@ -41,7 +41,7 @@ export default function Logo({ showText = true, size = "md" }: LogoProps) {
           </h1>
 
           <p className={`${variant.subtitle} text-muted-foreground`}>
-            Kampus Darul Aman
+            
           </p>
         </div>
       )}
