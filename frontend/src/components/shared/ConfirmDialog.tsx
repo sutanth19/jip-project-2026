@@ -8,7 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
+import { LoaderCircle } from "lucide-react"
 
 type ConfirmDialogProps = {
   open: boolean
@@ -44,21 +44,20 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel asChild>
-            <Button type="button" variant="outline" disabled={isLoading}>
+            <button type="button" className="h-11 rounded-xl border border-border bg-background px-5 font-semibold text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50" disabled={isLoading}>
               {cancelLabel}
-            </Button>
+            </button>
           </AlertDialogCancel>
-          <AlertDialogAction asChild>
-            <Button
-              type="button"
-              variant={variant === "destructive" ? "destructive" : "default"}
-              onClick={() => {
-                void onConfirm()
-              }}
-              disabled={isLoading}
-            >
-              {confirmLabel}
-            </Button>
+          <AlertDialogAction
+            variant={variant}
+            className="h-11 gap-2 rounded-xl px-5 font-semibold"
+            onClick={() => {
+              void onConfirm()
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+            {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

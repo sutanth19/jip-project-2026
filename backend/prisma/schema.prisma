@@ -682,6 +682,7 @@ model DigitalActivity {
   configuration         Json
   rewardConfiguration   Json?
   presentationSettings  Json?
+  settingsCompletedAt   DateTime?
   submittedForReviewAt  DateTime?
   publishedAt           DateTime?
   archivedAt            DateTime?

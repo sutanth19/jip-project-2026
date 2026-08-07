@@ -24,6 +24,8 @@ import { AdminActivityGalleryPlaceholderPage } from "@/features/admin/pages/Admi
 import { AdminActivityContentPage } from "@/features/admin/pages/AdminActivityContentPage"
 import { AdminActivityCurriculumPlaceholderPage } from "@/features/admin/pages/AdminActivityCurriculumPlaceholderPage"
 import { AdminActivityPage } from "@/features/admin/pages/AdminActivityPage"
+import { AdminActivityPreviewPlaceholderPage } from "@/features/admin/pages/AdminActivityPreviewPlaceholderPage"
+import { AdminActivitySettingsPage } from "@/features/admin/pages/AdminActivitySettingsPage"
 import { AdminActivityTypePage } from "@/features/admin/pages/AdminActivityTypePage"
 import { AdminReadingTemplateGalleryPage } from "@/features/admin/pages/AdminReadingTemplateGalleryPage"
 import { AdminReadingTemplateWizardPlaceholderPage } from "@/features/admin/pages/AdminReadingTemplateWizardPlaceholderPage"
@@ -336,6 +338,8 @@ const router = createBrowserRouter([
           { path: "aktiviti/:activityId/cipta/maklumat", element: <AdminReadingTemplateWizardPlaceholderPage /> },
           { path: "aktiviti/:activityId/cipta/kurikulum", element: <AdminActivityCurriculumPlaceholderPage /> },
           { path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPage /> },
+          { path: "aktiviti/:activityId/cipta/tetapan", element: <AdminActivitySettingsPage /> },
+          { path: "aktiviti/:activityId/cipta/pratonton", element: <AdminActivityPreviewPlaceholderPage /> },
           { path: "aktiviti/cipta/menulis", element: <AdminActivityGalleryPlaceholderPage category="WRITING" /> },
           { path: "sekolah", element: <AdminEntityListPage entityKey="schools" /> },
           { path: "sekolah/tambah", element: <AdminEntityFormPage entityKey="schools" mode="create" /> },

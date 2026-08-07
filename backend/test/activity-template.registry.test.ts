@@ -65,10 +65,13 @@ test("the seeded Arrange Syllables template advertises the explicit item contrac
   const template = coreActivityTemplates.find((entry) => entry.code === "ARRANGE_SYLLABLES");
   assert.ok(template);
   assert.equal(template.rendererKey, "arrange-syllables");
-  const content = template.contentSchema as { properties: { arrangeSyllables: { required: string[]; properties: { interactionMode: { enum: string[] }; syllables: unknown } } } };
-  assert.deepEqual(content.properties.arrangeSyllables.required, ["interactionMode", "targetWord", "syllables"]);
-  assert.deepEqual(content.properties.arrangeSyllables.properties.interactionMode.enum, ["CLICK_ORDER", "DRAG_ORDER", "BOTH"]);
+  const content = template.contentSchema as { properties: { arrangeSyllables: { required: string[]; properties: { mode: { enum: string[] }; interactionMode: { enum: string[] }; syllables: unknown; words: unknown; distractors: unknown } } } };
+  assert.deepEqual(content.properties.arrangeSyllables.required, ["interactionMode"]);
+  assert.deepEqual(content.properties.arrangeSyllables.properties.mode.enum, ["ORDERED_RECONSTRUCTION", "MISSING_SYLLABLES"]);
+  assert.deepEqual(content.properties.arrangeSyllables.properties.interactionMode.enum, ["CLICK_ORDER", "DRAG_ORDER", "BOTH", "DRAG_TO_BLANK"]);
   assert.ok(content.properties.arrangeSyllables.properties.syllables);
+  assert.ok(content.properties.arrangeSyllables.properties.words);
+  assert.ok(content.properties.arrangeSyllables.properties.distractors);
 });
 
 test("the seeded Word Builder template advertises the explicit item contract", () => {

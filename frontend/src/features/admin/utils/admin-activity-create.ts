@@ -19,6 +19,7 @@ export type ActivityWizardProgress = {
   hasDraft: boolean;
   hasCurriculumLink: boolean;
   hasContent?: boolean;
+  hasSettings?: boolean;
 };
 
 export type ActivityWizardStepState = {
@@ -220,6 +221,7 @@ type ActivityWizardProgressSource = {
   id?: string | null;
   curriculumLinks?: Array<{ id?: string; isPrimary: boolean }> | null;
   items?: Array<{ id?: string; configuration?: unknown }> | null;
+  settingsCompletedAt?: string | null;
 };
 
 export function getActivityWizardProgress(activity?: ActivityWizardProgressSource | null): ActivityWizardProgress {
@@ -227,6 +229,7 @@ export function getActivityWizardProgress(activity?: ActivityWizardProgressSourc
     hasDraft: Boolean(activity?.id),
     hasCurriculumLink: Boolean(activity?.curriculumLinks?.some((link) => link.isPrimary && Boolean(link.id))),
     hasContent: Boolean(activity?.items?.length),
+    hasSettings: Boolean(activity?.settingsCompletedAt),
   };
 }
 
@@ -239,7 +242,7 @@ export function getActivityWizardStepStates({
   progress: ActivityWizardProgress;
   stepLinks?: Partial<Record<ActivityWizardStepId, string>>;
 }): ActivityWizardStepState[] {
-  const highestAccessibleStep = progress.hasContent ? 4 : progress.hasCurriculumLink ? 3 : progress.hasDraft ? 2 : 1;
+  const highestAccessibleStep = progress.hasSettings ? 5 : progress.hasContent ? 4 : progress.hasCurriculumLink ? 3 : progress.hasDraft ? 2 : 1;
 
   return activityWizardSteps.map((step, index) => {
     const stepNumber = index + 1;
@@ -250,6 +253,8 @@ export function getActivityWizardStepStates({
         ? progress.hasCurriculumLink
         : stepNumber === 3
           ? Boolean(progress.hasContent)
+          : stepNumber === 4
+            ? Boolean(progress.hasSettings)
           : false;
     const isAccessible = stepNumber <= highestAccessibleStep;
     const isLocked = !isAccessible;

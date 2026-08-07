@@ -18,8 +18,25 @@ function toActivityMedia(media: QuestionBankMedia): ActivityMedia {
   return { id: media.id, mediaKey: media.mediaKey, mediaRole: media.mediaRole, mimeType: media.mimeType, label: media.label, altText: media.altText, sequence: media.sequence, isPrimary: false, url: media.url }
 }
 
+function toActivityMediaFromConfig(media: unknown): ActivityMedia | null {
+  const record = asRecord(media);
+  if (!record || typeof record.mediaKey !== "string" || typeof record.url !== "string" || typeof record.mediaRole !== "string" || typeof record.originalName !== "string" && record.originalName !== null) return null;
+  if (record.mediaRole !== "PRIMARY_IMAGE" && record.mediaRole !== "REFERENCE_AUDIO") return null;
+  return {
+    id: typeof record.mediaLinkId === "string" ? record.mediaLinkId : record.mediaKey,
+    mediaKey: record.mediaKey,
+    mediaRole: record.mediaRole,
+    mimeType: typeof record.mimeType === "string" || record.mimeType === null ? record.mimeType : null,
+    label: typeof record.originalName === "string" ? record.originalName : null,
+    altText: typeof record.altText === "string" || record.altText === null ? record.altText : null,
+    sequence: 0,
+    isPrimary: false,
+    url: record.url,
+  };
+}
+
 function isInteractionMode(value: unknown): value is ArrangeSyllablesInteractionMode {
-  return value === "CLICK_ORDER" || value === "DRAG_ORDER" || value === "BOTH"
+  return value === "CLICK_ORDER" || value === "DRAG_ORDER" || value === "BOTH" || value === "DRAG_TO_BLANK"
 }
 
 function mapSyllable(value: unknown): ArrangeSyllableUnit | null {
@@ -31,13 +48,22 @@ function mapSyllable(value: unknown): ArrangeSyllableUnit | null {
 export function mapArrangeSyllablesQuestion(item: ArrangeSyllablesActivityItem): ArrangeSyllablesMapResult {
   const root = asRecord(item.configuration)
   const definition = root ? asRecord(root.arrangeSyllables) : null
+  if (definition?.mode === "MISSING_SYLLABLES") {
+    return { ok: false, message: "Kontrak Seret Suku Kata dengan ruang kosong belum disokong oleh pemain murid semasa." }
+  }
   if (!definition || !isInteractionMode(definition.interactionMode) || typeof definition.targetWord !== "string" || !definition.targetWord || UNSAFE_TEXT.test(definition.targetWord) || !Array.isArray(definition.syllables) || typeof definition.showReferenceText !== "boolean" || typeof definition.showTargetSlots !== "boolean" || typeof definition.shuffleSyllables !== "boolean" || typeof definition.allowRetry !== "boolean" || typeof definition.clearOnRetry !== "boolean" || typeof definition.maximumSyllables !== "number" || !Number.isInteger(definition.maximumSyllables) || definition.maximumSyllables < 1 || definition.maximumSyllables > MAX_SYLLABLES) return { ok: false, message: "Kontrak Susun Suku Kata yang lengkap tidak tersedia untuk item ini." }
   const targetWord = definition.targetWord.normalize("NFC")
   const syllables = definition.syllables.map(mapSyllable)
   if (syllables.some((syllable) => syllable === null)) return { ok: false, message: "Suku kata item ini tidak sah." }
   const targetSyllables = syllables.filter((syllable): syllable is ArrangeSyllableUnit => syllable !== null).sort((left, right) => left.sequence - right.sequence)
   if (targetSyllables.length === 0 || targetSyllables.length > MAX_SYLLABLES || targetSyllables.length > definition.maximumSyllables || new Set(targetSyllables.map((syllable) => syllable.id)).size !== targetSyllables.length || new Set(targetSyllables.map((syllable) => syllable.sequence)).size !== targetSyllables.length || targetSyllables.some((syllable, index) => syllable.sequence !== index + 1) || targetSyllables.map((syllable) => syllable.value).join("").normalize("NFC") !== targetWord) return { ok: false, message: "Susunan suku kata item ini tidak sepadan dengan kontrak aktiviti." }
-  return { ok: true, question: { itemId: item.id, sequence: item.sequence, title: item.questionBankItem.title, prompt: item.questionBankItem.content, instructions: item.questionBankItem.instructions, explanation: item.questionBankItem.explanation, targetWord, targetSyllables, interactionMode: definition.interactionMode, showReferenceText: definition.showReferenceText, showTargetSlots: definition.showTargetSlots, shuffleSyllables: definition.shuffleSyllables, allowRetry: definition.allowRetry, clearOnRetry: definition.clearOnRetry, maximumSyllables: definition.maximumSyllables, media: item.questionBankItem.mediaLinks.filter(isQuestionBankMedia).map(toActivityMedia) } }
+  const configMedia = asRecord(definition.media);
+  const media = [
+    toActivityMediaFromConfig(configMedia?.image),
+    toActivityMediaFromConfig(configMedia?.audio),
+    ...item.questionBankItem.mediaLinks.filter(isQuestionBankMedia).map(toActivityMedia),
+  ].filter((entry): entry is ActivityMedia => Boolean(entry));
+  return { ok: true, question: { itemId: item.id, sequence: item.sequence, title: item.questionBankItem.title, prompt: item.questionBankItem.content, instructions: item.questionBankItem.instructions, explanation: item.questionBankItem.explanation, targetWord, targetSyllables, interactionMode: definition.interactionMode, showReferenceText: definition.showReferenceText, showTargetSlots: definition.showTargetSlots, shuffleSyllables: definition.shuffleSyllables, allowRetry: definition.allowRetry, clearOnRetry: definition.clearOnRetry, maximumSyllables: definition.maximumSyllables, media } }
 }
 
 export function formedSyllableWord(question: ArrangeSyllablesQuestion, arrangedSyllableIds: readonly string[]): string {

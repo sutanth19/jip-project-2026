@@ -266,6 +266,37 @@ const navMain: NavItem[] = [
     },
   ]
 
+const temporarilyHiddenAdminNavTitles = new Set([
+  "Pengurusan Murid",
+  "Pengurusan Ibu Bapa",
+  "Pengurusan Kelas",
+  "Kurikulum Pemulihan",
+  "Bank Aktiviti Digital",
+  "Jenis Aktiviti",
+  "Bank Soalan",
+  "Semakan & Penerbitan",
+  "Penilaian",
+  "PBD",
+  "Analitik & Laporan",
+  "Pengumuman",
+  "Notifikasi",
+  "Draf AI",
+])
+
+const temporarilyHiddenTeacherNavTitles = new Set([
+  "PBD",
+  "Laporan",
+  "Notifikasi",
+  "Pengumuman",
+  "Draf AI",
+  "Profil",
+  "Kurikulum Pemulihan",
+  "Aktiviti",
+  "Jenis Aktiviti",
+  "Bank Soalan",
+  "Analitik & Laporan",
+])
+
 function canView(roles: AuthRole[], role: AuthRole | null) {
   return Boolean(role && roles.includes(role))
 }
@@ -279,6 +310,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     () =>
       navMain
         .filter((item) => canView(item.roles, role))
+        // Temporarily hidden from ADMIN/SUPER_ADMIN navigation.
+        // Keep routes/features intact for future re-enablement.
+        .filter((item) => {
+          if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
+            if (role !== "TEACHER") {
+              return true
+            }
+
+            // Temporarily hidden from TEACHER navigation.
+            // Keep routes/features intact for future re-enablement.
+            return !temporarilyHiddenTeacherNavTitles.has(item.title)
+          }
+
+          return !temporarilyHiddenAdminNavTitles.has(item.title)
+        })
         .map((item) => ({
           ...item,
           items: item.items?.filter((subItem) => canView(subItem.roles, role)),

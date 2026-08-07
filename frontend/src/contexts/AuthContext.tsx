@@ -9,6 +9,7 @@ import { AuthContext, type AuthContextValue } from "./auth-context-value";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const refreshInFlightRef = React.useRef<Promise<void> | null>(null);
   const {
     accessToken,
     role,
@@ -27,47 +28,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession, navigate]);
 
   const refreshSession = React.useCallback(async () => {
-    hydrateTokens();
-
-    const token = useAuthStore.getState().accessToken;
-    if (!token) {
-      clearSession();
-      return;
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current;
     }
 
-    setLoading(true);
+    const refreshPromise = (async () => {
+      hydrateTokens();
+
+      const token = useAuthStore.getState().accessToken;
+      if (!token) {
+        clearSession();
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const session = await getCurrentSession();
+        const current = useAuthStore.getState();
+        const profile =
+          current.profile ??
+          ({
+            id: session.profileId,
+            fullName: "Pengguna",
+            schoolId: session.schoolId,
+          } as const);
+
+        useAuthStore.getState().setSession({
+          accessToken: token,
+          refreshToken: current.refreshToken,
+          user: current.user ?? {
+            id: session.userId,
+            role: session.role,
+            email: null,
+            accountStatus: "ACTIVE",
+            isFirstLogin: session.isFirstLogin,
+          },
+          profile,
+          rememberMe: current.rememberMe,
+          requiresPasswordChange: session.isFirstLogin && session.role !== "STUDENT",
+          requiresPinChange: Boolean(session.requiresPinChange),
+        });
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Sesi tamat.");
+        clearSession();
+      } finally {
+        useAuthStore.getState().setLoading(false);
+      }
+    })();
+
+    refreshInFlightRef.current = refreshPromise;
 
     try {
-      const session = await getCurrentSession();
-      const current = useAuthStore.getState();
-      const profile =
-        current.profile ??
-        ({
-          id: session.profileId,
-          fullName: "Pengguna",
-          schoolId: session.schoolId,
-        } as const);
-
-      useAuthStore.getState().setSession({
-        accessToken: token,
-        refreshToken: current.refreshToken,
-        user: current.user ?? {
-          id: session.userId,
-          role: session.role,
-          email: null,
-          accountStatus: "ACTIVE",
-          isFirstLogin: session.isFirstLogin,
-        },
-        profile,
-        rememberMe: current.rememberMe,
-        requiresPasswordChange: session.isFirstLogin && session.role !== "STUDENT",
-        requiresPinChange: Boolean(session.requiresPinChange),
-      });
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Sesi tamat.");
-      clearSession();
+      await refreshPromise;
     } finally {
-      useAuthStore.getState().setLoading(false);
+      if (refreshInFlightRef.current === refreshPromise) {
+        refreshInFlightRef.current = null;
+      }
     }
   }, [clearSession, hydrateTokens, setError, setLoading]);
 

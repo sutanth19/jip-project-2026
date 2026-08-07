@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import logoWeb from "@/assets/images/logo_web.svg";
@@ -5,6 +6,8 @@ import AuthBrandPanel from "@/components/auth/AuthBrandPanel";
 import LoginForm from "@/components/auth/LoginForm";
 
 export default function LoginPage() {
+  const [activeUserType, setActiveUserType] = useState<"student" | "teacher" | "admin" | "parent">("student");
+
   return (
     <div className="grid min-h-dvh lg:h-dvh lg:grid-cols-[42%_58%] lg:overflow-hidden">
       <section className="flex min-h-dvh flex-col bg-background text-foreground lg:h-full lg:min-h-0 lg:overflow-y-auto">
@@ -29,7 +32,11 @@ export default function LoginPage() {
           </div>
 
           <main className="flex flex-1 items-center justify-center py-4 sm:py-6 lg:min-h-0 lg:py-8">
-            <LoginForm className="w-full" />
+            <LoginForm
+              className="w-full"
+              activeUserType={activeUserType}
+              onActiveUserTypeChange={setActiveUserType}
+            />
           </main>
 
           <footer className="pt-4 text-left text-sm leading-6 text-muted-foreground sm:text-base lg:hidden">
@@ -38,7 +45,7 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <AuthBrandPanel />
+      <AuthBrandPanel activeUserType={activeUserType} />
     </div>
   );
 }

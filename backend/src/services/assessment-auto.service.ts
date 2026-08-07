@@ -89,6 +89,9 @@ function evaluateArrangeLetters(input: AutoEvaluationInput): AutoEvaluationResul
 function evaluateArrangeSyllables(input: AutoEvaluationInput): AutoEvaluationResult {
   try {
     const configuration = validateArrangeSyllablesConfiguration(input.configuration);
+    if (configuration.arrangeSyllables.mode !== "ORDERED_RECONSTRUCTION") {
+      return evaluateExactJson(input, "arrange-syllables");
+    }
     const expectedIds = configuration.arrangeSyllables.syllables.map((unit) => unit.id);
     const expectedValues = configuration.arrangeSyllables.syllables.map((unit) => unit.value);
     const supplied = sequenceAnswer(input.answerJson);

@@ -1,6 +1,6 @@
 import type { ActivityMedia, ActivityQuestion } from "../../types"
 
-export type ArrangeSyllablesInteractionMode = "CLICK_ORDER" | "DRAG_ORDER" | "BOTH"
+export type ArrangeSyllablesInteractionMode = "CLICK_ORDER" | "DRAG_ORDER" | "BOTH" | "DRAG_TO_BLANK"
 
 export type ArrangeSyllableUnit = {
   id: string

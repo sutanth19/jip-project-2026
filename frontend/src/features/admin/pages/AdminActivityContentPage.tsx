@@ -74,9 +74,16 @@ export function AdminActivityContentPage() {
     const result = arrangeSyllablesQuestionSchema.safeParse(content.selectedQuestion);
     if (!result.success) {
       toast.error("Ralat", "Sila lengkapkan semua medan yang diperlukan sebelum menyimpan.");
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
+      });
       return;
     }
-    await content.saveSelectedQuestion();
+    try {
+      await content.saveSelectedQuestion();
+    } catch {
+      // The mutation already surfaces a safe Malay error banner/toast.
+    }
   }, [content, toast]);
 
   const handleContinue = React.useCallback(() => {
@@ -114,12 +121,10 @@ export function AdminActivityContentPage() {
         <div className="space-y-6" aria-busy="true" aria-label="Memuatkan kandungan aktiviti">
           <Skeleton className="h-36 rounded-2xl" />
           <Skeleton className="h-20 rounded-2xl" />
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="space-y-6">
-              <Skeleton className="h-20 rounded-2xl" />
-              <Skeleton className="h-[34rem] rounded-2xl" />
-            </div>
-            <Skeleton className="h-64 rounded-2xl" />
+          <Skeleton className="h-56 rounded-2xl" />
+          <div className="grid items-start gap-6 lg:grid-cols-5">
+            <Skeleton className="h-[40rem] rounded-2xl lg:col-span-3" />
+            <Skeleton className="h-[34rem] rounded-2xl lg:col-span-2" />
           </div>
         </div>
       ) : null}
@@ -198,36 +203,48 @@ export function AdminActivityContentPage() {
               )}
             />
           ) : (
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-              <div className="space-y-6">
-                <ActivityQuestionNavigator
-                  questions={content.questions}
-                  selectedQuestionId={content.selectedQuestionId}
-                  onSelect={(questionId) => content.setSelectedQuestionId(questionId)}
-                  onAdd={content.addQuestion}
-                  onMoveUp={content.moveQuestionUp}
-                  onMoveDown={content.moveQuestionDown}
-                  disabled={content.isSaving || content.isDeleting}
-                />
+            <div className="space-y-6">
+              <ActivityQuestionNavigator
+                questions={content.questions}
+                selectedQuestionId={content.selectedQuestionId}
+                onSelect={(questionId) => content.setSelectedQuestionId(questionId)}
+                onAdd={content.addQuestion}
+                onReorder={content.reorderQuestions}
+                disabled={content.isSaving || content.isDeleting}
+              />
 
-                {content.selectedQuestion ? (
-                  <ArrangeSyllablesQuestionForm
-                    question={content.selectedQuestion}
-                    index={content.questions.findIndex((question) => question.id === content.selectedQuestion?.id)}
-                    errors={questionErrors}
-                    onUpdate={handleUpdateQuestion}
-                    onDuplicate={content.duplicateSelectedQuestion}
-                    onDelete={handleDelete}
-                    disabled={content.isSaving || content.isDeleting}
+              <div className="grid items-stretch gap-6 lg:grid-cols-5">
+                <div className="space-y-6 lg:col-span-3">
+                  {content.selectedQuestion ? (
+                    <ArrangeSyllablesQuestionForm
+                      key={content.selectedQuestion.localId}
+                      question={content.selectedQuestion}
+                      index={content.questions.findIndex((question) => question.localId === content.selectedQuestion?.localId)}
+                      errors={questionErrors}
+                      onUpdate={handleUpdateQuestion}
+                      onDuplicate={content.duplicateSelectedQuestion}
+                      onDelete={handleDelete}
+                      disabled={content.isSaving || content.isDeleting}
+                    />
+                  ) : null}
+
+                  {content.serverError ? (
+                    <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                      {content.serverError}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="h-full lg:col-span-2">
+                  <ActivityContentSummary
+                    questions={content.questions}
+                    selectedQuestion={content.selectedQuestion}
+                    selectedQuestionIndex={content.questions.findIndex((question) => question.localId === content.selectedQuestion?.localId)}
                   />
-                ) : null}
+                </div>
+              </div>
 
-                {content.serverError ? (
-                  <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                    {content.serverError}
-                  </p>
-                ) : null}
-
+              <div>
                 <AdminActivityWizardStepFooter
                   isSaving={content.isSaving}
                   canSave={Boolean(content.selectedQuestion) && !content.isSaving}
@@ -237,8 +254,6 @@ export function AdminActivityContentPage() {
                   onContinue={handleContinue}
                 />
               </div>
-
-              <ActivityContentSummary questions={content.questions} />
             </div>
           )}
         </div>
@@ -252,6 +267,7 @@ export function AdminActivityContentPage() {
         cancelLabel="Batal"
         confirmLabel="Padam Soalan"
         variant="destructive"
+        isLoading={content.isDeleting}
         onConfirm={confirmDelete}
       />
 

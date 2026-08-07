@@ -185,7 +185,8 @@ const arrangeSyllablesContentSchema: SafeJsonObject = {
     arrangeSyllables: {
       type: "object",
       properties: {
-        interactionMode: { type: "string", enum: ["CLICK_ORDER", "DRAG_ORDER", "BOTH"] },
+        mode: { type: "string", enum: ["ORDERED_RECONSTRUCTION", "MISSING_SYLLABLES"] },
+        interactionMode: { type: "string", enum: ["CLICK_ORDER", "DRAG_ORDER", "BOTH", "DRAG_TO_BLANK"] },
         targetWord: { type: "string", minLength: 1, maxLength: 2_000 },
         syllables: {
           type: "array",
@@ -200,6 +201,45 @@ const arrangeSyllablesContentSchema: SafeJsonObject = {
             required: ["id", "value", "sequence"],
           },
         },
+        words: {
+          type: "array",
+          minLength: 1,
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", minLength: 1, maxLength: 100 },
+              sequence: { type: "number", minimum: 1, maximum: 6 },
+              syllables: {
+                type: "array",
+                minLength: 1,
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", minLength: 1, maxLength: 100 },
+                    value: { type: "string", minLength: 1, maxLength: 500 },
+                    sequence: { type: "number", minimum: 1, maximum: 10 },
+                    isMissing: { type: "boolean" },
+                  },
+                  required: ["id", "value", "sequence", "isMissing"],
+                },
+              },
+            },
+            required: ["id", "sequence", "syllables"],
+          },
+        },
+        distractors: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", minLength: 1, maxLength: 100 },
+              value: { type: "string", minLength: 1, maxLength: 500 },
+              sequence: { type: "number", minimum: 1, maximum: 12 },
+            },
+            required: ["id", "value", "sequence"],
+          },
+        },
+        hint: { type: "string", maxLength: 1_000 },
         showReferenceText: { type: "boolean", default: false },
         showTargetSlots: { type: "boolean", default: true },
         shuffleSyllables: { type: "boolean", default: true },
@@ -207,7 +247,7 @@ const arrangeSyllablesContentSchema: SafeJsonObject = {
         clearOnRetry: { type: "boolean", default: false },
         maximumSyllables: { type: "number", minimum: 1, maximum: 10, default: 10 },
       },
-      required: ["interactionMode", "targetWord", "syllables"],
+      required: ["interactionMode"],
     },
   },
   required: ["arrangeSyllables"],

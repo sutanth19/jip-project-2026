@@ -17,9 +17,12 @@ import {
   createEmptyQuestion,
   duplicateQuestion,
   hasValidPersistedContent,
+  hasPersistedQuestionIdentity,
   mapItemDtoToQuestion,
+  reorderQuestionsByIds,
 } from "@/features/admin/utils/arrange-syllables-content";
 import { useToast } from "@/providers/toast-context-value";
+import { ApiError } from "@/lib/api";
 
 export const activityContentQueryKeys = {
   activityDetail: (activityId: string) => ["admin", "activities", "detail", activityId] as const,
@@ -27,10 +30,35 @@ export const activityContentQueryKeys = {
 };
 
 function getContentErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 404 && (error.code === "DIGITAL_ACTIVITY_ITEM_NOT_FOUND" || error.code === "DIGITAL_ACTIVITY_NOT_FOUND")) {
+    return "Data soalan telah berubah dan tidak dapat disegerakkan. Muat semula halaman dan cuba lagi.";
+  }
+  if (error instanceof Error && error.message === "ITEM_STATE_INCONSISTENT") {
+    return "Data soalan telah berubah dan tidak dapat disegerakkan. Muat semula halaman dan cuba lagi.";
+  }
   if (error instanceof Error && error.message === "ITEM_SAVE_FAILED") {
     return "Soalan tidak dapat disimpan. Sila semak maklumat dan cuba semula.";
   }
   return "Kandungan aktiviti tidak dapat disimpan. Sila cuba semula.";
+}
+
+export function getActivityContentSaveMode(question: ArrangeSyllablesQuestionForm) {
+  if (question.isPersisted) {
+    return question.activityItemId ? "update" : "inconsistent";
+  }
+
+  return question.questionBankItemId ? "recover" : "create";
+}
+
+function hasQuestionOrderChanged(
+  currentQuestions: ArrangeSyllablesQuestionForm[],
+  persistedQuestions: ArrangeSyllablesQuestionForm[],
+): boolean {
+  if (currentQuestions.length !== persistedQuestions.length) {
+    return true;
+  }
+
+  return currentQuestions.some((question, index) => question.localId !== persistedQuestions[index]?.localId);
 }
 
 export function useActivityContent(activityId: string) {
@@ -74,23 +102,56 @@ export function useActivityContent(activityId: string) {
     : persistedQuestions;
 
   const selectedQuestion = React.useMemo(
-    () => questions.find((question) => question.id === selectedQuestionId) ?? questions[0] ?? null,
+    () => questions.find((question) => question.localId === selectedQuestionId) ?? questions[0] ?? null,
     [questions, selectedQuestionId],
   );
 
   const saveMutation = useMutation({
     mutationFn: async (question: ArrangeSyllablesQuestionForm) => {
-      if (!activity.data?.programme?.id) {
+      const activityDetail = activity.data;
+      const programmeId = activityDetail?.programme?.id;
+      if (!programmeId) {
         throw new Error("PROGRAMME_UNAVAILABLE");
       }
 
-      if (question.isPersisted && question.questionBankItemId && question.activityItemId) {
-        await updateDigitalActivityItem(activityId, question.activityItemId, question);
-        return question;
+      const saveMode = getActivityContentSaveMode(question);
+
+      if (saveMode === "update") {
+        const activityItemId = question.activityItemId;
+        if (!activityItemId) {
+          throw new Error("ITEM_STATE_INCONSISTENT");
+        }
+
+        await updateDigitalActivityItem(activityId, activityItemId, question);
+        return { ...question, isPersisted: true };
       }
 
-      const questionBankItemId = await createQuestionBankItemForActivity(question, activity.data.programme.id);
-      await addQuestionBankCurriculumLinkForActivity(questionBankItemId, activity.data);
+      if (saveMode === "inconsistent") {
+        throw new Error("ITEM_STATE_INCONSISTENT");
+      }
+
+      if (saveMode === "recover" && question.questionBankItemId) {
+        const activityItemId = await addDigitalActivityItem(activityId, question, question.questionBankItemId);
+        return {
+          ...question,
+          id: question.questionBankItemId,
+          activityItemId,
+          isPersisted: true,
+        };
+      }
+
+      const questionBankItemId = await createQuestionBankItemForActivity(question, programmeId);
+      setLocalQuestions((current) => current.map((currentQuestion) => (
+        currentQuestion.localId === question.localId
+          ? {
+              ...currentQuestion,
+              id: questionBankItemId,
+              questionBankItemId,
+              isPersisted: false,
+            }
+          : currentQuestion
+      )));
+      await addQuestionBankCurriculumLinkForActivity(questionBankItemId, activityDetail);
       await activateQuestionBankItemForActivity(questionBankItemId);
       const activityItemId = await addDigitalActivityItem(activityId, question, questionBankItemId);
 
@@ -107,9 +168,9 @@ export function useActivityContent(activityId: string) {
       await queryClient.invalidateQueries({ queryKey: activityContentQueryKeys.items(activityId) });
       await queryClient.invalidateQueries({ queryKey: activityContentQueryKeys.activityDetail(activityId) });
       setLocalQuestions((current) => current.map((question) => (
-        question.id === savedQuestion.id ? savedQuestion : question
+        question.localId === savedQuestion.localId ? savedQuestion : question
       )));
-      setSelectedQuestionId(savedQuestion.id ?? null);
+      setSelectedQuestionId(savedQuestion.localId);
       setDirty(false);
       toast.success("Berjaya", "Soalan berjaya disimpan.");
     },
@@ -120,7 +181,7 @@ export function useActivityContent(activityId: string) {
 
   const deleteMutation = useMutation({
     mutationFn: async (question: ArrangeSyllablesQuestionForm) => {
-      if (question.isPersisted && question.activityItemId) {
+      if (question.activityItemId) {
         await removeDigitalActivityItem(activityId, question.activityItemId);
       }
     },
@@ -128,7 +189,7 @@ export function useActivityContent(activityId: string) {
       setServerError(null);
       await queryClient.invalidateQueries({ queryKey: activityContentQueryKeys.items(activityId) });
       await queryClient.invalidateQueries({ queryKey: activityContentQueryKeys.activityDetail(activityId) });
-      setLocalQuestions((current) => current.filter((question) => question.id !== selectedQuestionId));
+      setLocalQuestions((current) => current.filter((question) => question.localId !== selectedQuestionId));
       setSelectedQuestionId(null);
       setDirty(false);
       toast.success("Berjaya", "Soalan berjaya dipadam.");
@@ -140,23 +201,34 @@ export function useActivityContent(activityId: string) {
 
   const reorderMutation = useMutation({
     mutationFn: async (orderedQuestions: ArrangeSyllablesQuestionForm[]) => {
-      const persisted = orderedQuestions.filter((question) => question.isPersisted && question.activityItemId);
+      const persisted = orderedQuestions.filter((question) => question.activityItemId);
       if (persisted.length === orderedQuestions.length) {
         await reorderDigitalActivityItems(activityId, persisted.map((question) => question.activityItemId!));
       }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: activityContentQueryKeys.items(activityId) });
+      setDirty(false);
       toast.success("Berjaya", "Susunan soalan berjaya dikemas kini.");
     },
     onError: () => {
+      setDirty(true);
       setServerError("Susunan soalan tidak dapat disimpan. Sila cuba semula.");
     },
   });
 
+  const persistQuestionOrder = React.useCallback(async (orderedQuestions: ArrangeSyllablesQuestionForm[]) => {
+    const allPersisted = orderedQuestions.every((question) => question.activityItemId);
+    if (!allPersisted || !hasQuestionOrderChanged(orderedQuestions, persistedQuestions)) {
+      return;
+    }
+
+    await reorderMutation.mutateAsync(orderedQuestions);
+  }, [persistedQuestions, reorderMutation]);
+
   const updateQuestion = React.useCallback((updated: ArrangeSyllablesQuestionForm) => {
     setLocalQuestions((current) => current.map((question) => (
-      question.id === updated.id ? updated : question
+      question.localId === updated.localId ? updated : question
     )));
     setDirty(true);
   }, []);
@@ -165,15 +237,20 @@ export function useActivityContent(activityId: string) {
     const nextSequence = questions.length;
     const newQuestion = createEmptyQuestion(nextSequence);
     setLocalQuestions((current) => [...current, newQuestion]);
-    setSelectedQuestionId(newQuestion.id ?? null);
+    setSelectedQuestionId(newQuestion.localId);
     setDirty(true);
   }, [questions.length]);
 
   const saveSelectedQuestion = React.useCallback(async () => {
     if (!selectedQuestion) return;
     setServerError(null);
-    await saveMutation.mutateAsync(selectedQuestion);
-  }, [saveMutation, selectedQuestion]);
+    const orderedSnapshot = questions;
+    const savedQuestion = await saveMutation.mutateAsync(selectedQuestion);
+    const nextQuestions = orderedSnapshot.map((question) => (
+      question.localId === savedQuestion.localId ? savedQuestion : question
+    ));
+    await persistQuestionOrder(nextQuestions);
+  }, [persistQuestionOrder, questions, saveMutation, selectedQuestion]);
 
   const deleteSelectedQuestion = React.useCallback(() => {
     if (!selectedQuestion) return;
@@ -185,49 +262,35 @@ export function useActivityContent(activityId: string) {
     const nextSequence = questions.length;
     const newQuestion = duplicateQuestion(selectedQuestion, nextSequence);
     setLocalQuestions((current) => [...current, newQuestion]);
-    setSelectedQuestionId(newQuestion.id ?? null);
+    setSelectedQuestionId(newQuestion.localId);
     setDirty(true);
   }, [questions.length, selectedQuestion]);
 
-  const moveQuestionUp = React.useCallback(() => {
-    if (!selectedQuestion) return;
-    const index = questions.findIndex((question) => question.id === selectedQuestion.id);
-    if (index <= 0) return;
-    const reordered = [...questions];
-    [reordered[index - 1], reordered[index]] = [reordered[index], reordered[index - 1]];
-    const resequenced = reordered.map((question, sequence) => ({ ...question, sequence }));
-    setLocalQuestions(resequenced);
+  const reorderQuestions = React.useCallback((activeQuestionId: string, overQuestionId: string) => {
+    const reordered = reorderQuestionsByIds(questions, activeQuestionId, overQuestionId);
+    if (reordered === questions) {
+      return;
+    }
+    setLocalQuestions(reordered);
     setDirty(true);
-    void reorderMutation.mutate(resequenced);
-  }, [questions, reorderMutation, selectedQuestion]);
-
-  const moveQuestionDown = React.useCallback(() => {
-    if (!selectedQuestion) return;
-    const index = questions.findIndex((question) => question.id === selectedQuestion.id);
-    if (index === -1 || index >= questions.length - 1) return;
-    const reordered = [...questions];
-    [reordered[index + 1], reordered[index]] = [reordered[index], reordered[index + 1]];
-    const resequenced = reordered.map((question, sequence) => ({ ...question, sequence }));
-    setLocalQuestions(resequenced);
-    setDirty(true);
-    void reorderMutation.mutate(resequenced);
-  }, [questions, reorderMutation, selectedQuestion]);
+  }, [questions]);
 
   const persistAllValidQuestions = React.useCallback(async () => {
     if (!hasValidPersistedContent(questions)) return;
     setServerError(null);
     try {
       for (const question of questions) {
-        if (!question.isPersisted) {
+        if (!hasPersistedQuestionIdentity(question)) {
           await saveMutation.mutateAsync(question);
         }
       }
+      await persistQuestionOrder(questions);
       setDirty(false);
       toast.success("Berjaya", "Kandungan aktiviti berjaya disimpan.");
     } catch {
       setServerError("Kandungan aktiviti tidak dapat disimpan. Sila cuba semula.");
     }
-  }, [questions, saveMutation, toast]);
+  }, [persistQuestionOrder, questions, saveMutation, toast]);
 
   return {
     activity: activity.data ?? null,
@@ -247,8 +310,7 @@ export function useActivityContent(activityId: string) {
     saveSelectedQuestion,
     deleteSelectedQuestion,
     duplicateSelectedQuestion,
-    moveQuestionUp,
-    moveQuestionDown,
+    reorderQuestions,
     persistAllValidQuestions,
     hasValidContent: hasValidPersistedContent(questions),
     refetchActivity: () => void activity.refetch(),

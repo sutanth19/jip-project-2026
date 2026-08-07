@@ -1,7 +1,7 @@
 import { apiClient, type ApiSuccessResponse } from "@/lib/api";
 import { API_BASE_URL } from "@/constants/env";
 
-type MediaUploadPurpose = "SCHOOL_LOGO";
+type MediaUploadPurpose = "SCHOOL_LOGO" | "ACTIVITY_IMAGE" | "ACTIVITY_AUDIO";
 
 export type UploadedMediaFile = {
   url: string;

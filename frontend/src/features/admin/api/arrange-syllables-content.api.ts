@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api";
 import type {
   ArrangeSyllablesActivityDetail,
   ArrangeSyllablesItemDto,
+  ArrangeSyllablesMediaForm,
   ArrangeSyllablesQuestionForm,
 } from "@/features/admin/utils/arrange-syllables-content";
 import {
@@ -9,6 +10,7 @@ import {
   buildDigitalActivityItemUpdatePayload,
   buildQuestionBankCurriculumLinkPayload,
   buildQuestionBankItemPayload,
+  buildQuestionBankItemUpdatePayload,
 } from "@/features/admin/utils/arrange-syllables-content";
 
 type QuestionBankItemPayload = {
@@ -32,6 +34,12 @@ type DigitalActivityItemsPayload = {
 
 type ActivityDetailPayload = {
   activity?: ArrangeSyllablesActivityDetail;
+};
+
+type QuestionBankMediaPayload = {
+  media?: {
+    id: string;
+  };
 };
 
 export async function createQuestionBankItemForActivity(
@@ -66,6 +74,17 @@ export async function activateQuestionBankItemForActivity(itemId: string): Promi
   await apiRequest(`/question-bank/items/${itemId}/activate`, {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+export async function updateQuestionBankItemForActivity(
+  itemId: string,
+  question: ArrangeSyllablesQuestionForm,
+): Promise<void> {
+  const payload = buildQuestionBankItemUpdatePayload(question);
+  await apiRequest(`/question-bank/items/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 
@@ -125,4 +144,34 @@ export async function getActivityDetailForContent(activityId: string): Promise<A
   }
 
   return response.activity;
+}
+
+export async function addQuestionBankMediaForActivity(
+  itemId: string,
+  media: ArrangeSyllablesMediaForm,
+): Promise<void> {
+  const response = await apiRequest<QuestionBankMediaPayload>(`/question-bank/items/${itemId}/media`, {
+    method: "POST",
+    body: JSON.stringify({
+      mediaKey: media.mediaKey,
+      mediaRole: media.mediaRole,
+      mimeType: media.mimeType ?? undefined,
+      originalName: media.originalName ?? undefined,
+      altText: media.altText ?? undefined,
+      sequence: 0,
+    }),
+  });
+
+  if (!response.media?.id) {
+    throw new Error("Question bank media create response did not include a media link ID.");
+  }
+}
+
+export async function removeQuestionBankMediaForActivity(
+  itemId: string,
+  mediaLinkId: string,
+): Promise<void> {
+  await apiRequest(`/question-bank/items/${itemId}/media/${mediaLinkId}`, {
+    method: "DELETE",
+  });
 }

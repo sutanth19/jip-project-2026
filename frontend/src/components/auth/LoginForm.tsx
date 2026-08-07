@@ -23,7 +23,7 @@ import { ApiError, apiRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
-const userTypes = ["admin", "teacher", "student", "parent"] as const;
+const userTypes = ["student", "teacher", "admin", "parent"] as const;
 
 type UserType = (typeof userTypes)[number];
 
@@ -156,10 +156,12 @@ type StudentLoginResponse = {
 
 type LoginFormProps = {
   className?: string;
+  activeUserType: UserType;
+  onActiveUserTypeChange: (userType: UserType) => void;
 };
 
 const loginDefaults: LoginFormValues = {
-  userType: "admin",
+  userType: "student",
   email: "",
   loginId: "",
   password: "",
@@ -181,10 +183,9 @@ function loginErrorMessage(error: unknown): string {
   return "Log masuk gagal. Sila cuba lagi.";
 }
 
-export default function LoginForm({ className }: LoginFormProps) {
+export default function LoginForm({ className, activeUserType, onActiveUserTypeChange }: LoginFormProps) {
   const navigate = useNavigate();
   const setSession = useAuthStore((state) => state.setSession);
-  const [activeUserType, setActiveUserType] = useState<UserType>("admin");
   const [placeholderMessage, setPlaceholderMessage] = useState("");
   const [isPinVisible, setIsPinVisible] = useState(false);
   const emailInputId = useId();
@@ -296,7 +297,7 @@ export default function LoginForm({ className }: LoginFormProps) {
 
   const handleTabChange = (value: string) => {
     const nextUserType = value as UserType;
-    setActiveUserType(nextUserType);
+    onActiveUserTypeChange(nextUserType);
     setPlaceholderMessage("");
     form.reset({
       ...loginDefaults,
@@ -338,9 +339,9 @@ export default function LoginForm({ className }: LoginFormProps) {
                 Pilih Jenis Pengguna
               </p>
               <TabsList aria-label="Pilih jenis pengguna">
-                <TabsTrigger value="admin">Admin</TabsTrigger>
-                <TabsTrigger value="teacher">Guru</TabsTrigger>
                 <TabsTrigger value="student">Murid</TabsTrigger>
+                <TabsTrigger value="teacher">Guru</TabsTrigger>
+                <TabsTrigger value="admin">Admin</TabsTrigger>
                 <TabsTrigger value="parent">Ibu Bapa</TabsTrigger>
               </TabsList>
             </div>

@@ -45,6 +45,10 @@ export function NavMain({
 }) {
   const { pathname } = useLocation()
 
+  if (!items.length) {
+    return null
+  }
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Pengurusan Sistem</SidebarGroupLabel>

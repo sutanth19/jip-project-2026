@@ -1,7 +1,23 @@
-import loginImage from "@/assets/images/login_img.png";
+import adminLoginImage from "@/assets/images/admin_login.jpg";
+import parentLoginImage from "@/assets/images/ibu_bapa_login.jpg";
+import studentLoginImage from "@/assets/images/login_img.png";
+import teacherLoginImage from "@/assets/images/guru_login.jpg";
 import logoWeb from "@/assets/images/logo_web.svg";
 
-export default function AuthBrandPanel() {
+type AuthBrandPanelProps = {
+  activeUserType: "student" | "teacher" | "admin" | "parent";
+};
+
+const loginImages = {
+  student: studentLoginImage,
+  teacher: teacherLoginImage,
+  admin: adminLoginImage,
+  parent: parentLoginImage,
+} as const;
+
+export default function AuthBrandPanel({ activeUserType }: AuthBrandPanelProps) {
+  const loginImage = loginImages[activeUserType];
+
   return (
     <aside className="relative hidden h-full overflow-hidden border-l border-border bg-muted/30 lg:flex lg:flex-col">
       <div

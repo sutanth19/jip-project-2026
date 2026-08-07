@@ -54,6 +54,12 @@ import {
   SERET_SUKU_KATA_TEMPLATE_CODE,
 } from "@/features/admin/utils/admin-activity-create";
 import {
+  activityScoringModeOptions,
+  buildActivitySettingsUpdatePayload,
+  getActivitySettingsFormValues,
+  getActivitySettingsProgress,
+} from "@/features/admin/utils/admin-activity-settings";
+import {
   buildActivityCurriculumLinkPayload,
   deriveMappedContentStandards,
   deriveMappedLearningStandards,
@@ -131,6 +137,10 @@ describe("Admin activity management page", () => {
     expect(routes).toContain('{ path: "aktiviti/cipta/membaca", element: <AdminReadingTemplateGalleryPage /> }');
     expect(routes).toContain('{ path: "aktiviti/cipta/membaca/seret-suku-kata", element: <AdminReadingTemplateWizardPlaceholderPage /> }');
     expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/maklumat", element: <AdminReadingTemplateWizardPlaceholderPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/kurikulum", element: <AdminActivityCurriculumPlaceholderPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/tetapan", element: <AdminActivitySettingsPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/pratonton", element: <AdminActivityPreviewPlaceholderPage /> }');
     expect(routes).toContain('{ path: "aktiviti/cipta/menulis", element: <AdminActivityGalleryPlaceholderPage category="WRITING" /> }');
     expect(routes).not.toContain('aktiviti/cipta/mengira');
     expect(routes).toContain('path: "digital-activities"');
@@ -641,6 +651,7 @@ describe("Admin activity management page", () => {
       hasDraft: true,
       hasCurriculumLink: false,
       hasContent: false,
+      hasSettings: false,
     });
 
     expect(getActivityWizardProgress({
@@ -650,6 +661,7 @@ describe("Admin activity management page", () => {
       hasDraft: true,
       hasCurriculumLink: true,
       hasContent: false,
+      hasSettings: false,
     });
 
     expect(getActivityWizardProgress({
@@ -660,7 +672,50 @@ describe("Admin activity management page", () => {
       hasDraft: true,
       hasCurriculumLink: true,
       hasContent: true,
+      hasSettings: false,
     });
+
+    expect(getActivityWizardProgress({
+      id: "activity-1",
+      curriculumLinks: [{ id: "link-1", isPrimary: true }],
+      items: [{ id: "item-1" }],
+      settingsCompletedAt: "2026-08-07T00:00:00.000Z",
+    })).toMatchObject({
+      hasDraft: true,
+      hasCurriculumLink: true,
+      hasContent: true,
+      hasSettings: true,
+    });
+
+    expect(getActivityWizardStepStates({
+      activeStep: "settings",
+      progress: {
+        hasDraft: true,
+        hasCurriculumLink: true,
+        hasContent: true,
+        hasSettings: true,
+      },
+      stepLinks: {
+        information: "/admin/aktiviti/activity-1/cipta/maklumat",
+        curriculum: "/admin/aktiviti/activity-1/cipta/kurikulum",
+        content: "/admin/aktiviti/activity-1/cipta/kandungan",
+        settings: "/admin/aktiviti/activity-1/cipta/tetapan",
+        preview: "/admin/aktiviti/activity-1/cipta/pratonton",
+      },
+    }).map((step) => ({
+      key: step.key,
+      isCurrent: step.isCurrent,
+      isCompleted: step.isCompleted,
+      isAccessible: step.isAccessible,
+      isLocked: step.isLocked,
+    }))).toEqual([
+      { key: "information", isCurrent: false, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "curriculum", isCurrent: false, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "content", isCurrent: false, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "settings", isCurrent: true, isCompleted: true, isAccessible: true, isLocked: false },
+      { key: "preview", isCurrent: false, isCompleted: false, isAccessible: true, isLocked: false },
+      { key: "publish", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+    ]);
 
     expect(getActivityWizardStepStates({
       activeStep: "information",
@@ -940,5 +995,136 @@ describe("Admin activity management page", () => {
     expect(pageSource).toContain("Tiada aktiviti lagi");
     expect(pageSource).toContain("Tiada aktiviti ditemui");
     expect(pageSource).toContain("Aktiviti tidak dapat dimuatkan");
+  });
+
+  it("maps Step 4 settings into the real narrow digital-activity PATCH payload", () => {
+    expect(
+      buildActivitySettingsUpdatePayload({
+        estimatedMinutes: "15",
+        hasTimeLimit: true,
+        timeLimitMinutes: "7.5",
+        attemptsAllowed: "3",
+        allowRetry: true,
+        shuffleItems: false,
+        showImmediateFeedback: true,
+        scoringMode: "MASTERY_THRESHOLD",
+        totalMarks: "6",
+        masteryThreshold: "80",
+      }),
+    ).toEqual({
+      estimatedMinutes: 15,
+      attemptsAllowed: 3,
+      timeLimitSeconds: 450,
+      shuffleItems: false,
+      showImmediateFeedback: true,
+      allowRetry: true,
+      scoringMode: "MASTERY_THRESHOLD",
+      totalMarks: 6,
+      masteryThreshold: 80,
+    });
+  });
+
+  it("hydrates Step 4 settings from the real activity DTO fields", () => {
+    expect(
+      getActivitySettingsFormValues({
+        estimatedMinutes: 20,
+        timeLimitSeconds: 900,
+        attemptsAllowed: 2,
+        allowRetry: false,
+        shuffleItems: true,
+        showImmediateFeedback: false,
+        scoringMode: "TOTAL_SCORE",
+        totalMarks: 5,
+        masteryThreshold: null,
+      } as never),
+    ).toEqual({
+      estimatedMinutes: "20",
+      hasTimeLimit: true,
+      timeLimitMinutes: "15",
+      attemptsAllowed: "2",
+      allowRetry: false,
+      shuffleItems: true,
+      showImmediateFeedback: false,
+      scoringMode: "TOTAL_SCORE",
+      totalMarks: "5",
+      masteryThreshold: "",
+    });
+  });
+
+  it("only marks Step 4 settings as complete after draft content exists on the same activity", () => {
+    expect(
+      getActivitySettingsProgress({ hasDraft: true, hasCurriculumLink: true, hasContent: true }),
+    ).toMatchObject({
+      hasDraft: true,
+      hasCurriculumLink: true,
+      hasContent: true,
+      hasSettings: false,
+    });
+
+    expect(getActivitySettingsProgress({ hasDraft: true, hasCurriculumLink: true, hasContent: false }).hasSettings).toBe(false);
+    expect(getActivitySettingsProgress({
+      hasDraft: true,
+      hasCurriculumLink: true,
+      hasContent: true,
+      hasSettings: true,
+    }).hasSettings).toBe(true);
+  });
+
+  it("keeps Step 4 scoring options aligned with the backend enum values", () => {
+    expect(activityScoringModeOptions).toEqual([
+      { value: "NONE", label: "Tanpa Pemarkahan" },
+      { value: "TOTAL_SCORE", label: "Jumlah Markah" },
+      { value: "PERCENTAGE", label: "Peratus" },
+      { value: "MASTERY_THRESHOLD", label: "Ambang Penguasaan" },
+    ]);
+  });
+
+  it("keeps the Step 4 and Step 5 wizard pages scoped to activity settings only", () => {
+    const settingsPageSource = readFileSync(
+      new URL("../src/features/admin/pages/AdminActivitySettingsPage.tsx", import.meta.url),
+      "utf8",
+    );
+    const previewPageSource = readFileSync(
+      new URL("../src/features/admin/pages/AdminActivityPreviewPlaceholderPage.tsx", import.meta.url),
+      "utf8",
+    );
+    const settingsApiSource = readFileSync(
+      new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(settingsPageSource).toContain("Tetapan Aktiviti");
+    expect(settingsPageSource).toContain("Anggaran Masa");
+    expect(settingsPageSource).toContain("Bilangan Percubaan");
+    expect(settingsPageSource).toContain("Rawakkan Susunan Soalan");
+    expect(settingsPageSource).toContain("Maklum Balas Serta-merta");
+    expect(settingsPageSource).toContain("Mod Pemarkahan");
+    expect(settingsPageSource).toContain("Tetapkan tempoh aktiviti untuk murid.");
+    expect(settingsPageSource).toContain("Aktifkan untuk menetapkan tempoh maksimum murid menyelesaikan aktiviti.");
+    expect(settingsPageSource).toContain("Murid boleh mencuba semula selagi masih mempunyai baki percubaan.");
+    expect(settingsPageSource).toContain("Tetapkan jumlah maksimum percubaan yang dibenarkan.");
+    expect(settingsPageSource).toContain("Susunan soalan akan dirawakkan semasa aktiviti dijalankan.");
+    expect(settingsPageSource).toContain("Murid menerima maklum balas selepas menjawab soalan.");
+    expect(settingsPageSource).toContain("useActivityWizardStep");
+    expect(settingsPageSource).toContain("MinimalToggle");
+    expect(settingsPageSource).toContain("space-y-6");
+    expect(settingsPageSource).not.toContain("xl:grid-cols-2");
+    expect(settingsPageSource).toContain("{allowRetry ? (");
+    expect(settingsPageSource).not.toContain("Semakan");
+    expect(settingsPageSource).not.toContain("backend");
+    expect(settingsPageSource).toContain("AdminActivityWizardStepFooter");
+    expect(settingsPageSource).toContain("continueDestination: stepFivePath(activityId)");
+    expect(settingsPageSource).toContain("cancelDestination: galleryPath");
+    expect(settingsPageSource).toContain("Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini.");
+    expect(settingsPageSource).toContain("queryClient.setQueryData");
+    expect(settingsPageSource).not.toContain("Tarikh Mula");
+    expect(settingsPageSource).not.toContain("Tarikh Tamat");
+    expect(settingsPageSource).not.toContain("Keutamaan Tugasan");
+    expect(settingsPageSource).not.toContain("showResultsAfterCompletion");
+    expect(settingsApiSource).toContain("updateAdminDigitalActivitySettings");
+    expect(settingsApiSource).toContain('apiRequest<ActivityPayload>(`/digital-activities/${activityId}`, {');
+    expect(settingsApiSource).toContain('method: "PATCH"');
+    expect(previewPageSource).toContain("placeholder selamat");
+    expect(previewPageSource).toContain("Pratonton aktiviti akan disediakan dalam langkah seterusnya.");
   });
 });

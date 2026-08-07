@@ -14,6 +14,7 @@ import type {
   ProgrammeResolution,
   UpdateDigitalActivityBasicInfoPayload,
 } from "@/features/admin/utils/admin-activity-create";
+import type { UpdateDigitalActivitySettingsPayload } from "@/features/admin/utils/admin-activity-settings";
 import type {
   AdminActivityCurriculumLinkPayload,
   AdminContentStandardOption,
@@ -120,10 +121,25 @@ type ActivityPayload = {
     description?: string | null;
     instructions?: string | null;
     estimatedMinutes?: number | null;
+    scoringMode?: "NONE" | "TOTAL_SCORE" | "PERCENTAGE" | "MASTERY_THRESHOLD" | null;
+    reviewMode?: "AUTO" | "TEACHER" | "HYBRID" | "AI_ASSISTED" | null;
+    totalMarks?: number | null;
+    masteryThreshold?: number | null;
+    attemptsAllowed?: number | null;
+    timeLimitSeconds?: number | null;
+    shuffleItems?: boolean;
+    showImmediateFeedback?: boolean;
+    allowRetry?: boolean;
+    configuration?: unknown;
+    rewardConfiguration?: unknown;
+    presentationSettings?: unknown;
+    settingsCompletedAt?: string | null;
     programme?: ProgrammeResolution | null;
     template?: ActivityTemplateResolution | null;
   };
 };
+
+export type AdminActivityDetailRecord = NonNullable<ActivityPayload["activity"]>;
 
 function normalizeActivityRecord(record: NonNullable<ListActivitiesPayload["activities"]>[number]): AdminActivityRecord {
   return {
@@ -215,7 +231,7 @@ export async function listAdminCurriculumProgrammesForCreate(): Promise<Programm
   return payload.programmes ?? [];
 }
 
-export async function createAdminDigitalActivity(payload: CreateDigitalActivityPayload): Promise<NonNullable<ActivityPayload["activity"]>> {
+export async function createAdminDigitalActivity(payload: CreateDigitalActivityPayload): Promise<AdminActivityDetailRecord> {
   const response = await apiRequest<ActivityPayload>("/digital-activities", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -228,7 +244,7 @@ export async function createAdminDigitalActivity(payload: CreateDigitalActivityP
   return response.activity;
 }
 
-export async function getAdminDigitalActivity(activityId: string): Promise<NonNullable<ActivityPayload["activity"]>> {
+export async function getAdminDigitalActivity(activityId: string): Promise<AdminActivityDetailRecord> {
   const response = await apiRequest<ActivityPayload>(`/digital-activities/${activityId}`);
 
   if (!response.activity?.id) {
@@ -241,7 +257,7 @@ export async function getAdminDigitalActivity(activityId: string): Promise<NonNu
 export async function updateAdminDigitalActivity(
   activityId: string,
   payload: UpdateDigitalActivityBasicInfoPayload,
-): Promise<NonNullable<ActivityPayload["activity"]>> {
+): Promise<AdminActivityDetailRecord> {
   const response = await apiRequest<ActivityPayload>(`/digital-activities/${activityId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
@@ -249,6 +265,22 @@ export async function updateAdminDigitalActivity(
 
   if (!response.activity?.id) {
     throw new Error("Digital activity update response did not include an activity ID.");
+  }
+
+  return response.activity;
+}
+
+export async function updateAdminDigitalActivitySettings(
+  activityId: string,
+  payload: UpdateDigitalActivitySettingsPayload,
+): Promise<AdminActivityDetailRecord> {
+  const response = await apiRequest<ActivityPayload>(`/digital-activities/${activityId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.activity?.id) {
+    throw new Error("Digital activity settings update response did not include an activity ID.");
   }
 
   return response.activity;
