@@ -36,6 +36,7 @@ import {
   getMissingSyllables,
   getQuestionIncorrectDistractors,
   getQuestionStatus,
+  getQuestionStatusLabel,
   getQuestionStructurePreview,
   getQuestionWordSummary,
   getWordDisplayValue,
@@ -264,6 +265,7 @@ export function ArrangeSyllablesQuestionForm({
 }) {
   const toast = useToast();
   const status = getQuestionStatus(question);
+  const statusLabel = getQuestionStatusLabel(question);
   const imageInputRef = React.useRef<HTMLInputElement | null>(null);
   const audioInputRef = React.useRef<HTMLInputElement | null>(null);
   const [uploadingImage, setUploadingImage] = React.useState(false);
@@ -442,9 +444,14 @@ export function ArrangeSyllablesQuestionForm({
               <h2 className="text-xl font-semibold tracking-tight text-foreground">Soalan {index + 1}</h2>
               <Badge
                 variant={status === "complete" ? "secondary" : "outline"}
-                className={cn("h-6 rounded-full px-2.5", status === "complete" ? "" : "border-warning/30 bg-warning/10 text-warning")}
+                className={cn(
+                  "h-6 rounded-full px-2.5",
+                  status === "complete"
+                    ? ""
+                    : "border-warning/30 bg-warning/10 text-warning",
+                )}
               >
-                {status === "complete" ? "Lengkap" : "Belum Lengkap"}
+                {statusLabel}
               </Badge>
             </div>
             <p className="text-sm leading-6 text-muted-foreground">Lengkapkan lima langkah di bawah untuk membina soalan.</p>
@@ -930,7 +937,9 @@ export function ArrangeSyllablesQuestionForm({
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">
-                {status === "complete" ? "Soalan sedia untuk disimpan" : "Semak semula langkah yang belum lengkap"}
+                {status === "complete"
+                  ? "Soalan sedia untuk disimpan"
+                  : "Semak semula langkah yang belum lengkap"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {countLabel(question.words.length, "perkataan", "perkataan")} • {countLabel(missingSyllables.length, "ruang kosong", "ruang kosong")} • {countLabel(incorrectDistractors.length, "pilihan salah", "pilihan salah")}

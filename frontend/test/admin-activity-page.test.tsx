@@ -636,6 +636,8 @@ describe("Admin activity management page", () => {
     expect(contentHookSource).toContain("updateDigitalActivityItem");
     expect(contentHookSource).toContain("removeDigitalActivityItem");
     expect(contentHookSource).toContain("reorderDigitalActivityItems");
+    expect(contentHookSource).not.toContain("isQuestionDuplicatePendingChange");
+    expect(contentHookSource).toContain("canSaveSelectedQuestion");
     expect(contentApiSource).toContain('"/question-bank/items"');
     expect(contentApiSource).toContain('`/question-bank/items/${itemId}/curriculum-links`');
     expect(contentApiSource).toContain('`/question-bank/items/${itemId}/activate`');
@@ -1117,6 +1119,7 @@ describe("Admin activity management page", () => {
     expect(settingsPageSource).toContain("cancelDestination: galleryPath");
     expect(settingsPageSource).toContain("Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini.");
     expect(settingsPageSource).toContain("queryClient.setQueryData");
+    expect(settingsPageSource).toContain('await queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityPreview(savedActivity.id) });');
     expect(settingsPageSource).not.toContain("Tarikh Mula");
     expect(settingsPageSource).not.toContain("Tarikh Tamat");
     expect(settingsPageSource).not.toContain("Keutamaan Tugasan");
@@ -1124,7 +1127,13 @@ describe("Admin activity management page", () => {
     expect(settingsApiSource).toContain("updateAdminDigitalActivitySettings");
     expect(settingsApiSource).toContain('apiRequest<ActivityPayload>(`/digital-activities/${activityId}`, {');
     expect(settingsApiSource).toContain('method: "PATCH"');
-    expect(previewPageSource).toContain("placeholder selamat");
-    expect(previewPageSource).toContain("Pratonton aktiviti akan disediakan dalam langkah seterusnya.");
+    expect(previewPageSource).toContain("getAdminDigitalActivityPreview");
+    expect(previewPageSource).toContain("previewMode");
+    expect(previewPageSource).toContain("Mod Pratonton");
+    expect(previewPageSource).toContain("Ringkasan Pratonton");
+    expect(previewPageSource).toContain("Cuba aktiviti seperti murid tanpa merekod percubaan, markah atau kemajuan.");
+    expect(previewPageSource).not.toContain("konfigurasi backend");
+    expect(previewPageSource).not.toContain("placeholder selamat");
+    expect(previewPageSource).not.toContain("Pratonton aktiviti akan disediakan dalam langkah seterusnya.");
   });
 });

@@ -91,3 +91,9 @@ test("Digital Activity item create/update paths use the same persistence safety 
   assert.ok(serviceSource.includes("validateDigitalActivityItemConfigurationForPersistence"));
   assert.ok(serviceSource.includes("arrangeSyllablesMediaUrlPaths"));
 });
+
+test("Digital Activity preview keeps settingsCompletedAt in the preview payload", async () => {
+  const serviceSource = await readFile(new URL("../src/services/digitalActivity.service.ts", import.meta.url), "utf8");
+
+  assert.ok(serviceSource.includes("settingsCompletedAt: record.settingsCompletedAt"));
+});

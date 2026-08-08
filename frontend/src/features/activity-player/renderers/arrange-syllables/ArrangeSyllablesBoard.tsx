@@ -10,11 +10,11 @@ import { DndProvider } from "../../interactions/DndProvider"
 import { ArrangeSyllablesFeedback } from "./ArrangeSyllablesFeedback"
 import { SyllableAnswerRow } from "./SyllableAnswerRow"
 import { SyllableBank } from "./SyllableBank"
-import type { ArrangeSyllablesQuestion, ArrangeSyllablesSettings, ArrangeSyllablesState } from "./arrange-syllables.types"
+import type { ArrangeSyllablesLegacyQuestion, ArrangeSyllablesSettings, ArrangeSyllablesState } from "./arrange-syllables.types"
 import { canRetryArrangeSyllables, formedSyllableWord, promptMedia } from "./arrange-syllables.utils"
 
 type ArrangeSyllablesBoardProps = {
-  question: ArrangeSyllablesQuestion
+  question: ArrangeSyllablesLegacyQuestion
   state: ArrangeSyllablesState
   settings: ArrangeSyllablesSettings
   onPlace: (syllableId: string, position?: number) => void

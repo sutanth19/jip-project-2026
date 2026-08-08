@@ -35,22 +35,24 @@ function countLabel(count: number, singular: string, plural: string): string {
 }
 
 function QuestionStatusBadge({ status }: { status: "complete" | "incomplete" }) {
+  const isComplete = status === "complete";
+
   return (
     <Badge
-      variant={status === "complete" ? "secondary" : "outline"}
+      variant={isComplete ? "secondary" : "outline"}
       className={cn(
         "h-6 rounded-full px-2.5",
-        status === "complete"
+        isComplete
           ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
           : "border-warning/30 bg-warning/10 text-warning hover:bg-warning/10",
       )}
     >
-      {status === "complete" ? (
+      {isComplete ? (
         <CheckCircle2 className="size-3.5 text-secondary-foreground" aria-hidden="true" />
       ) : (
         <TriangleAlert className="size-3.5 text-warning" aria-hidden="true" />
       )}
-      {status === "complete" ? "Lengkap" : "Belum Lengkap"}
+      {isComplete ? "Lengkap" : "Belum Lengkap"}
     </Badge>
   );
 }

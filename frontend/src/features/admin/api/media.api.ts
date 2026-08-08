@@ -71,9 +71,6 @@ export async function uploadMediaFile({
     "/media/upload",
     formData,
     {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
     },
   );
 

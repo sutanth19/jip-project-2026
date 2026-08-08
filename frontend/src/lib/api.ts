@@ -1,5 +1,6 @@
 import axios, {
   AxiosError,
+  AxiosHeaders,
   type AxiosRequestConfig,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
@@ -106,6 +107,24 @@ export const apiClient = axios.create({
   },
 });
 
+function isMultipartBody(value: unknown): value is FormData | Blob | File {
+  return (
+    typeof FormData !== "undefined" && value instanceof FormData
+  ) || (
+    typeof Blob !== "undefined" && value instanceof Blob
+  ) || (
+    typeof File !== "undefined" && value instanceof File
+  );
+}
+
+export function prepareApiRequestHeaders(initHeaders: HeadersInit | undefined, body: unknown): Record<string, string> {
+  const headers = new Headers(initHeaders);
+  if (isMultipartBody(body)) {
+    headers.delete("Content-Type");
+  }
+  return Object.fromEntries(headers.entries());
+}
+
 function dispatchApiAuthEvent(status: 401 | 403, error: ApiError): void {
   if (typeof window === "undefined") {
     return;
@@ -152,6 +171,13 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
+  if (isMultipartBody(config.data)) {
+    const headers = AxiosHeaders.from(config.headers);
+    headers.delete("Content-Type");
+    headers.delete("content-type");
+    config.headers = headers;
+  }
+
   return config;
 });
 
@@ -190,13 +216,13 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
-  const headers = new Headers(init.headers);
+  const body = requestBodyFromInit(init);
   const config: AxiosRequestConfig = {
     url: path,
     method: init.method ?? "GET",
-    data: requestBodyFromInit(init),
+    data: body,
     signal: init.signal ?? undefined,
-    headers: Object.fromEntries(headers.entries()),
+    headers: prepareApiRequestHeaders(init.headers, body),
   };
 
   if (token) {

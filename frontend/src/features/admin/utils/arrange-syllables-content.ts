@@ -55,6 +55,7 @@ export type ArrangeSyllablesQuestionForm = {
   id?: string;
   activityItemId?: string;
   questionBankItemId?: string;
+  duplicatedFromNormalizedContent?: string | null;
   sequence: number;
   contractMode: ArrangeSyllablesContractMode;
   words: ArrangeSyllablesWordForm[];
@@ -446,6 +447,7 @@ export function createEmptyQuestion(sequence: number): ArrangeSyllablesQuestionF
   return {
     localId: crypto.randomUUID(),
     sequence,
+    duplicatedFromNormalizedContent: null,
     contractMode: "MISSING_SYLLABLES",
     words: [createEmptyWord(1)],
     distractors: [],
@@ -463,6 +465,7 @@ export function duplicateQuestion(question: ArrangeSyllablesQuestionForm, nextSe
     id: undefined,
     activityItemId: undefined,
     questionBankItemId: undefined,
+    duplicatedFromNormalizedContent: normalizeQuestionBankContent(buildQuestionBankItemContent(question)),
     sequence: nextSequence,
     contractMode: question.contractMode,
     words: question.words.map((word, wordIndex) => ({
@@ -512,6 +515,10 @@ export function normalizeDistractorSequence(distractors: ArrangeSyllablesDistrac
 
 function normalizeWordValue(value: string): string {
   return value.trim().replace(/\s+/g, "").normalize("NFC").toUpperCase();
+}
+
+export function normalizeQuestionBankContent(value: string): string {
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ms-MY");
 }
 
 export function getWordDisplayValue(word: ArrangeSyllablesWordForm): string {
@@ -602,6 +609,15 @@ export function isQuestionComplete(question: ArrangeSyllablesQuestionForm): bool
 
 export function getQuestionStatus(question: ArrangeSyllablesQuestionForm): "complete" | "incomplete" {
   return isQuestionComplete(question) ? "complete" : "incomplete";
+}
+
+export function getQuestionStatusLabel(question: ArrangeSyllablesQuestionForm): string {
+  const status = getQuestionStatus(question);
+  return status === "complete" ? "Lengkap" : "Belum Lengkap";
+}
+
+export function isQuestionDuplicatePendingChange(): boolean {
+  return false;
 }
 
 export function buildArrangeSyllablesConfiguration(question: ArrangeSyllablesQuestionForm): {
@@ -746,6 +762,7 @@ export function mapItemDtoToQuestion(item: ArrangeSyllablesItemDto, sequence: nu
     id: item.questionBankItem.id,
     activityItemId: item.id,
     questionBankItemId: item.questionBankItem.id,
+    duplicatedFromNormalizedContent: null,
     sequence,
     contractMode: parsed?.contractMode ?? "MISSING_SYLLABLES",
     words: parsed?.words ?? [createEmptyWord(1)],

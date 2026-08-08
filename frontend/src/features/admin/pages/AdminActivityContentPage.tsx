@@ -247,7 +247,7 @@ export function AdminActivityContentPage() {
               <div>
                 <AdminActivityWizardStepFooter
                   isSaving={content.isSaving}
-                  canSave={Boolean(content.selectedQuestion) && !content.isSaving}
+                  canSave={content.canSaveSelectedQuestion}
                   canContinue={content.hasValidContent && !content.isSaving}
                   onCancel={() => requestNavigation(galleryPath)}
                   onSave={handleSave}

@@ -18,5 +18,5 @@ export function DraggableLearningCard({ id, children, disabled = false, dragDisa
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id, disabled: disabled || dragDisabled })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
 
-  return <button ref={setNodeRef} type="button" disabled={disabled} style={style} className={cn("w-full touch-none rounded-xl outline-none transition-opacity motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50", isDragging && "opacity-40", selected && "ring-2 ring-primary", className)} {...listeners} {...attributes} aria-label={ariaLabel} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect?.() }}>{children}</button>
+  return <button ref={setNodeRef} type="button" disabled={disabled} style={style} className={cn("w-full touch-none rounded-xl outline-none transition-[opacity,transform] motion-reduce:transition-none focus-visible:ring-3 focus-visible:ring-ring/50", isDragging && "scale-105 opacity-40", selected && "ring-4 ring-blue-500 ring-offset-2", className)} {...listeners} {...attributes} aria-label={ariaLabel} aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onSelect?.() }}>{children}</button>
 }

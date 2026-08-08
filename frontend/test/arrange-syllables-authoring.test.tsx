@@ -6,8 +6,11 @@ import {
   duplicateQuestion,
   arrangeSyllablesQuestionSchema,
   hasPersistedQuestionIdentity,
+  isQuestionDuplicatePendingChange,
   getQuestionChoicePreview,
   getQuestionIncorrectDistractors,
+  getQuestionStatus,
+  getQuestionStatusLabel,
   mapItemDtoToQuestion,
   reorderQuestionsByIds,
   syncQuestionChoices,
@@ -123,6 +126,19 @@ describe("Arrange Syllables authoring contract", () => {
     expect(duplicate.distractors[0]?.id).not.toBe(original.distractors[0]?.id);
     expect(duplicate.isPersisted).toBe(false);
     expect(duplicate.words[0]?.syllables[0]?.value).toBe("bo");
+    expect(duplicate.duplicatedFromNormalizedContent).toBe("bo + ____ se + ____");
+    expect(isQuestionDuplicatePendingChange(duplicate)).toBe(false);
+    expect(getQuestionStatus(duplicate)).toBe("complete");
+    expect(getQuestionStatusLabel(duplicate)).toBe("Lengkap");
+  });
+
+  it("releases the duplicate blocker once the copied question meaningfully changes", () => {
+    const duplicate = duplicateQuestion(missingSyllableQuestion(), 2);
+    duplicate.words[0]!.syllables[0]!.value = "ba";
+
+    expect(isQuestionDuplicatePendingChange(duplicate)).toBe(false);
+    expect(getQuestionStatus(duplicate)).toBe("incomplete");
+    expect(getQuestionStatusLabel(duplicate)).toBe("Belum Lengkap");
   });
 
   it("treats persisted question-bank and activity IDs as the real update identity", () => {

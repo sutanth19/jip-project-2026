@@ -7,7 +7,7 @@ type AdminActivityWizardStepFooterProps = {
   canSave: boolean;
   canContinue: boolean;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: () => void | Promise<void>;
   onContinue: () => void;
 };
 
@@ -34,7 +34,9 @@ export function AdminActivityWizardStepFooter({
         type="button"
         variant="outline"
         className="h-11 w-full gap-2 rounded-xl px-5 font-semibold focus-visible:ring-primary/30 sm:w-auto"
-        onClick={onSave}
+        onClick={() => {
+          void Promise.resolve(onSave()).catch(() => undefined);
+        }}
         disabled={!canSave}
       >
         {isSaving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}

@@ -50,6 +50,7 @@ const stepFivePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipt
 
 const settingsQueryKeys = {
   activityDetail: (activityId: string) => ["admin", "activities", "detail", activityId] as const,
+  activityPreview: (activityId: string) => ["admin", "activities", "preview", activityId] as const,
 };
 
 function getSettingsErrorMessage(error: unknown): string {
@@ -427,6 +428,7 @@ export function AdminActivitySettingsPage() {
     mutationFn: async (values: ActivitySettingsValues) => updateAdminDigitalActivitySettings(activityId, buildActivitySettingsUpdatePayload(values)),
     onSuccess: async (savedActivity) => {
       queryClient.setQueryData(settingsQueryKeys.activityDetail(savedActivity.id), savedActivity);
+      await queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityPreview(savedActivity.id) });
       form.reset(getActivitySettingsFormValues(savedActivity));
       setServerError(null);
       toast.success("Berjaya", "Tetapan aktiviti berjaya disimpan.");

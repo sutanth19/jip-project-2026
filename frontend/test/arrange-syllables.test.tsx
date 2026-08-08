@@ -2,9 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 
 import { getActivityRenderer } from "@/features/activity-player/renderer-registry"
+import { MissingSyllablesPreview } from "@/features/activity-player/renderers/arrange-syllables/MissingSyllablesPreview"
 import { ArrangeSyllablesBoard } from "@/features/activity-player/renderers/arrange-syllables/ArrangeSyllablesBoard"
-import type { ArrangeSyllablesQuestion } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables.types"
-import { buildArrangeSyllablesCompletionSummary, canRetryArrangeSyllables, createArrangeSyllablesState, formedSyllableWord, getArrangeSyllablesSettings, isArrangeSyllablesCorrect, mapArrangeSyllablesQuestion, placeArrangeSyllable, reorderArrangeSyllable, resetArrangeSyllables, returnArrangeSyllable, retryArrangeSyllables, submitArrangeSyllables } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables.utils"
+import type { ArrangeSyllablesMissingQuestion, ArrangeSyllablesQuestion } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables.types"
+import { buildArrangeSyllablesCompletionSummary, buildMissingSyllablesCompletionSummary, canRetryArrangeSyllables, createArrangeSyllablesState, createMissingSyllablesState, createMissingSyllableBlankSelectHandler, formedSyllableWord, getArrangeSyllablesSettings, getMissingSyllablesSettings, isArrangeSyllablesCorrect, isMissingSyllableChoiceCorrectForBlank, isMissingSyllablesCorrect, mapArrangeSyllablesQuestion, missingSyllableBlankIdFromDropTarget, missingSyllableBlanks, missingSyllableChoices, placeArrangeSyllable, placeMissingSyllable, placeMissingSyllableInFirstOpenBlank, recordIncorrectMissingSyllableAttempt, reorderArrangeSyllable, resetArrangeSyllables, resetMissingSyllables, returnArrangeSyllable, returnMissingSyllable, retryArrangeSyllables, retryMissingSyllables, submitArrangeSyllables, submitMissingSyllables } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables.utils"
 import type { ActivityQuestion } from "@/features/activity-player/types"
 
 const arrangeSyllablesItem: ActivityQuestion = {
@@ -27,6 +28,58 @@ function question(item: ActivityQuestion = arrangeSyllablesItem): ArrangeSyllabl
 
 function settings(item: ArrangeSyllablesQuestion = question(), overrides: Partial<{ attemptsAllowed: number | null; allowRetry: boolean; showImmediateFeedback: boolean }> = {}) {
   return getArrangeSyllablesSettings({ attemptsAllowed: 2, allowRetry: true, showImmediateFeedback: true, configuration: { showExplanation: true }, ...overrides }, item)
+}
+
+const missingSyllablesItem: ActivityQuestion = {
+  ...arrangeSyllablesItem,
+  id: "missing-item-1",
+  configuration: {
+    arrangeSyllables: {
+      mode: "MISSING_SYLLABLES",
+      interactionMode: "DRAG_TO_BLANK",
+      words: [
+        {
+          id: "word-1",
+          sequence: 1,
+          syllables: [
+            { id: "pen-1", value: "PEN", sequence: 1, isMissing: false },
+            { id: "sil-1", value: "SIL", sequence: 2, isMissing: true },
+          ],
+        },
+        {
+          id: "word-2",
+          sequence: 2,
+          syllables: [
+            { id: "se-1", value: "SE", sequence: 1, isMissing: false },
+            { id: "ko-1", value: "KO", sequence: 2, isMissing: true },
+            { id: "lah-1", value: "LAH", sequence: 3, isMissing: false },
+          ],
+        },
+      ],
+      distractors: [
+        { id: "sil-choice-1", value: "SIL", sequence: 1 },
+        { id: "ko-choice-1", value: "KO", sequence: 2 },
+        { id: "pan-1", value: "PAN", sequence: 3 },
+        { id: "sel-1", value: "SEL", sequence: 4 },
+      ],
+      hint: "Dengar bunyi perkataan.",
+      media: {
+        image: { mediaKey: "pensil.png", mediaRole: "PRIMARY_IMAGE", originalName: "pensil.png", mimeType: "image/png", url: "https://cdn.example.test/pensil.png", altText: "Pensil" },
+        audio: { mediaKey: "pensil.mp3", mediaRole: "REFERENCE_AUDIO", originalName: "pensil.mp3", mimeType: "audio/mpeg", url: "https://cdn.example.test/pensil.mp3", altText: null },
+      },
+      showReferenceText: false,
+      allowRetry: true,
+      clearOnRetry: true,
+      maximumSyllables: 10,
+    },
+  },
+  questionBankItem: { ...arrangeSyllablesItem.questionBankItem, title: "Pensil", content: "PENSIL SEKOLAH", instructions: "Lengkapkan suku kata." },
+}
+
+function missingQuestion(item: ActivityQuestion = missingSyllablesItem): ArrangeSyllablesMissingQuestion {
+  const mapped = mapArrangeSyllablesQuestion(item)
+  if (!mapped.ok || mapped.question.mode !== "MISSING_SYLLABLES") throw new Error("Malformed missing syllables fixture")
+  return mapped.question
 }
 
 describe("Arrange Syllables player", () => {
@@ -130,6 +183,151 @@ describe("Arrange Syllables player", () => {
     const correct = submitArrangeSyllables(placeArrangeSyllable(placeArrangeSyllable(createArrangeSyllablesState(mapped, "activity-1"), "ba-1"), "ju-1"), mapped, settings(mapped))
     const fetchSpy = vi.spyOn(globalThis, "fetch")
     expect(buildArrangeSyllablesCompletionSummary({ [mapped.itemId]: correct }, [mapped])).toEqual({ totalQuestions: 1, completedQuestions: 1, correctQuestions: 1, incorrectQuestions: 0, totalAttempts: 1 })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
+  it("maps MISSING_SYLLABLES media, hint, correct choices, distractors, and multiple blanks from the saved activity configuration", () => {
+    const mapped = missingQuestion()
+    expect(mapped.media.map((media) => media.url)).toEqual(["https://cdn.example.test/pensil.png", "https://cdn.example.test/pensil.mp3"])
+    expect(mapped.hint).toBe("Dengar bunyi perkataan.")
+    expect(missingSyllableBlanks(mapped).map((blank) => blank.value)).toEqual(["SIL", "KO"])
+    expect(missingSyllableChoices(mapped).map((choice) => choice.value)).toEqual(["SIL", "KO", "PAN", "SEL"])
+    expect(isMissingSyllableChoiceCorrectForBlank(mapped, "answer:ko-1", "word-1:sil-1")).toBe(false)
+    expect(isMissingSyllableChoiceCorrectForBlank(mapped, "answer:sil-1", "word-1:sil-1")).toBe(true)
+    expect(missingSyllableBlankIdFromDropTarget("missing-syllable-blank:word-1:sil-1")).toBe("word-1:sil-1")
+    expect(missingSyllableBlankIdFromDropTarget("missing-syllable-bank")).toBeNull()
+    expect(missingSyllableBlankIdFromDropTarget("")).toBeNull()
+  })
+
+  it("normalizes persisted complete choice banks without removing legitimate repeated blank answers", () => {
+    const configuration = structuredClone(missingSyllablesItem.configuration) as { arrangeSyllables: { words: Array<{ syllables: Array<{ id: string; value: string; sequence: number; isMissing: boolean }> }>; distractors: Array<{ id: string; value: string; sequence: number }> } }
+    configuration.arrangeSyllables.words = [{
+      id: "word-ba",
+      sequence: 1,
+      syllables: [
+        { id: "ba-1", value: "BA", sequence: 1, isMissing: true },
+        { id: "ba-2", value: "BA", sequence: 2, isMissing: true },
+      ],
+    }]
+    configuration.arrangeSyllables.distractors = [
+      { id: "choice-ba-1", value: "BA", sequence: 1 },
+      { id: "choice-ba-2", value: "BA", sequence: 2 },
+      { id: "choice-ka", value: "KA", sequence: 3 },
+    ]
+
+    const mapped = missingQuestion({ ...missingSyllablesItem, configuration })
+
+    expect(mapped.distractors.map((choice) => choice.value)).toEqual(["KA"])
+    expect(missingSyllableChoices(mapped).map((choice) => choice.value)).toEqual(["BA", "BA", "KA"])
+  })
+
+  it("plays MISSING_SYLLABLES locally with quick placement, drag-equivalent placement, reset, retry, and delayed feedback", () => {
+    const mapped = missingQuestion()
+    const initial = createMissingSyllablesState(mapped, "activity-1")
+    const blanks = missingSyllableBlanks(mapped)
+    const quick = placeMissingSyllableInFirstOpenBlank(initial, mapped, "answer:sil-1")
+    const complete = placeMissingSyllable(quick, "answer:ko-1", blanks[1]?.id ?? "")
+    const correct = submitMissingSyllables(complete, mapped, getMissingSyllablesSettings({ attemptsAllowed: 2, allowRetry: true, showImmediateFeedback: true, configuration: { showExplanation: true } }, mapped))
+    const wrong = submitMissingSyllables(placeMissingSyllable(quick, "distractor:pan-1", blanks[1]?.id ?? ""), mapped, getMissingSyllablesSettings({ attemptsAllowed: 2, allowRetry: true, showImmediateFeedback: true, configuration: {} }, mapped))
+    const delayed = submitMissingSyllables(complete, mapped, getMissingSyllablesSettings({ attemptsAllowed: null, allowRetry: true, showImmediateFeedback: false, configuration: {} }, mapped))
+    expect(quick.assignments[blanks[0]?.id ?? ""]).toBe("answer:sil-1")
+    expect(isMissingSyllablesCorrect(mapped, complete)).toBe(true)
+    expect(correct).toMatchObject({ isCorrect: true, completed: true, feedback: "Betul. Hebat!" })
+    expect(wrong).toMatchObject({ isCorrect: false, completed: false, feedback: "Cuba lagi." })
+    expect(retryMissingSyllables(wrong, mapped).assignments).toEqual({})
+    expect(recordIncorrectMissingSyllableAttempt(quick)).toMatchObject({ assignments: quick.assignments, submitted: false, completed: false, attemptCount: 1 })
+    expect(returnMissingSyllable(complete, "answer:sil-1").assignments[blanks[0]?.id ?? ""]).toBeUndefined()
+    expect(resetMissingSyllables(correct)).toMatchObject({ assignments: {}, completed: false, attemptCount: 1 })
+    expect(delayed).toMatchObject({ completed: true, feedback: "Jawapan disemak dalam pratonton ini." })
+  })
+
+  it("renders the MISSING_SYLLABLES board as a playable student-style preview without structural debug copy", () => {
+    const mapped = missingQuestion()
+    const state = createMissingSyllablesState(mapped, "activity-1")
+    const markup = renderToStaticMarkup(
+      <MissingSyllablesPreview
+        question={mapped}
+        state={state}
+        settings={getMissingSyllablesSettings({ attemptsAllowed: 2, allowRetry: true, showImmediateFeedback: true, configuration: { showExplanation: true } }, mapped)}
+        onPlace={() => undefined}
+        onReject={() => undefined}
+        onReturn={() => undefined}
+        onReset={() => undefined}
+        onRetry={() => undefined}
+        onPrevious={() => undefined}
+        onNext={() => undefined}
+        isFirst
+        isLast={false}
+        currentIndex={0}
+        itemIds={[mapped.itemId, "next-item"]}
+        completedItemIds={new Set()}
+      />,
+    )
+    expect(markup).toContain("Seret suku kata yang betul ke ruang kosong.")
+    expect(markup).toContain("Seret Suku Kata")
+    expect(markup).toContain("Soalan 1 daripada 2")
+    expect(markup).toContain("PILIHAN JAWAPAN")
+    expect(markup).toContain("Petunjuk")
+    expect(markup).toContain("https://cdn.example.test/pensil.png")
+    expect(markup).toContain("https://cdn.example.test/pensil.mp3")
+    expect(markup).toContain("SIL")
+    expect(markup).toContain("KO")
+    expect(markup).toContain("PAN")
+    expect(markup).toContain("Cuba Semula")
+    expect(markup).toContain("data-voxel-game-environment")
+    expect(markup).not.toContain("Semak Jawapan")
+    expect(markup).not.toContain("dark:from-amber-950")
+    expect(markup).not.toContain("Pratonton suku kata hilang")
+    expect(markup).not.toContain("Ruang jawapan")
+    expect(markup).not.toContain("kontrak aktiviti sebenar")
+  })
+
+  it("suppresses blank placement for drag gestures while preserving tap and keyboard placement handlers", () => {
+    const onReturn = vi.fn()
+    const onPlace = vi.fn()
+
+    expect(createMissingSyllableBlankSelectHandler({
+      dragging: true,
+      assignedChoiceId: "answer:sil-1",
+      activeChoiceId: "answer:ko-1",
+      blankId: "word-1:sil-1",
+      onReturn,
+      onPlace,
+    })).toBeUndefined()
+
+    const returnHandler = createMissingSyllableBlankSelectHandler({
+      dragging: false,
+      assignedChoiceId: "answer:sil-1",
+      blankId: "word-1:sil-1",
+      onReturn,
+      onPlace,
+    })
+    returnHandler?.()
+    expect(onReturn).toHaveBeenCalledWith("answer:sil-1")
+    expect(onPlace).not.toHaveBeenCalled()
+
+    const placeHandler = createMissingSyllableBlankSelectHandler({
+      dragging: false,
+      activeChoiceId: "answer:ko-1",
+      blankId: "word-1:ko-1",
+      onReturn,
+      onPlace,
+    })
+    placeHandler?.()
+    expect(onPlace).toHaveBeenCalledWith("answer:ko-1", "word-1:ko-1")
+  })
+
+  it("summarizes MISSING_SYLLABLES preview progress without backend persistence", () => {
+    const mapped = missingQuestion()
+    const blanks = missingSyllableBlanks(mapped)
+    const state = submitMissingSyllables(
+      placeMissingSyllable(placeMissingSyllable(createMissingSyllablesState(mapped, "activity-1"), "answer:sil-1", blanks[0]?.id ?? ""), "answer:ko-1", blanks[1]?.id ?? ""),
+      mapped,
+      getMissingSyllablesSettings({ attemptsAllowed: null, allowRetry: true, showImmediateFeedback: true, configuration: {} }, mapped),
+    )
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+    expect(buildMissingSyllablesCompletionSummary({ [mapped.itemId]: state }, [mapped])).toEqual({ totalQuestions: 1, completedQuestions: 1, correctQuestions: 1, incorrectQuestions: 0, totalAttempts: 1 })
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
   })

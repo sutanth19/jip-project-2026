@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api";
+import type { ActivityPreview } from "@/features/activity-player/types";
 import type {
   AdminActivityCategory,
   AdminActivityListQuery,
@@ -139,7 +140,35 @@ type ActivityPayload = {
   };
 };
 
+type ActivityPreviewPayload = {
+  activity?: ActivityPreview & {
+    status: string;
+    settingsCompletedAt: string | null;
+    programme: {
+      id: string;
+      code: string;
+      name: string;
+      version: {
+        id: string;
+        code: string | null;
+        name: string | null;
+        status: string | null;
+      } | null;
+    } | null;
+    curriculumLinks: Array<{
+      id: string;
+      isPrimary: boolean;
+      curriculumYear: { id?: string; yearLevel: number; name: string | null } | null;
+      remedialSkill: { id?: string; code?: string | null; name: string } | null;
+      contentStandard: { id: string; code: string; title: string } | null;
+      learningStandard: { id: string; code: string } | null;
+      learningObjective: { id: string; code: string | null; description: string } | null;
+    }>;
+  };
+};
+
 export type AdminActivityDetailRecord = NonNullable<ActivityPayload["activity"]>;
+export type AdminActivityPreviewRecord = NonNullable<ActivityPreviewPayload["activity"]>;
 
 function normalizeActivityRecord(record: NonNullable<ListActivitiesPayload["activities"]>[number]): AdminActivityRecord {
   return {
@@ -249,6 +278,16 @@ export async function getAdminDigitalActivity(activityId: string): Promise<Admin
 
   if (!response.activity?.id) {
     throw new Error("Digital activity detail response did not include an activity ID.");
+  }
+
+  return response.activity;
+}
+
+export async function getAdminDigitalActivityPreview(activityId: string): Promise<AdminActivityPreviewRecord> {
+  const response = await apiRequest<ActivityPreviewPayload>(`/digital-activities/${activityId}/preview`);
+
+  if (!response.activity?.id) {
+    throw new Error("Digital activity preview response did not include an activity ID.");
   }
 
   return response.activity;

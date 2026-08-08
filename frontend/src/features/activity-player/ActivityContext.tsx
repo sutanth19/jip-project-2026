@@ -15,6 +15,7 @@ export type ActivityPlayerContextValue = {
   items: ActivityPreview["items"]
   currentIndex: number
   currentItem: ActivityPreview["items"][number] | undefined
+  isPreview: boolean
   answers: ActivityAnswerMap
   temporaryState: ActivityTemporaryState
   completedItemIds: ReadonlySet<string>
@@ -50,10 +51,11 @@ function getTimerMode(activity: ActivityPreview): ActivityTimerMode {
 type ActivityProviderProps = {
   activity: ActivityPreview
   children: ReactNode
+  previewMode?: boolean
 }
 
-function ActivityProviderState({ activity, children }: ActivityProviderProps) {
-  const shouldShuffleItems = activity.shuffleItems || getBooleanConfiguration(activity.configuration, ["randomizeQuestions", "randomizeQuestionOrder"])
+function ActivityProviderState({ activity, children, previewMode = false }: ActivityProviderProps) {
+  const shouldShuffleItems = !previewMode && (activity.shuffleItems || getBooleanConfiguration(activity.configuration, ["randomizeQuestions", "randomizeQuestionOrder"]))
   const [orderedItems] = useState(() => shouldShuffleItems ? stableShuffle(activity.items, `${activity.id}:questions`) : activity.items)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<ActivityAnswerMap>({})
@@ -61,7 +63,7 @@ function ActivityProviderState({ activity, children }: ActivityProviderProps) {
   const [completedItemIds, setCompletedItemIds] = useState<ReadonlySet<string>>(() => new Set())
   const [completionSummary, setCompletionSummary] = useState<ActivityCompletionSummary | null>(null)
   const [isFinished, setIsFinished] = useState(false)
-  const timerMode = getTimerMode(activity)
+  const timerMode = previewMode ? "disabled" : getTimerMode(activity)
   const [timerSeconds, setTimerSeconds] = useState(() => activity.timeLimitSeconds ?? 0)
   const [isTimerPaused, setIsTimerPaused] = useState(false)
 
@@ -89,6 +91,7 @@ function ActivityProviderState({ activity, children }: ActivityProviderProps) {
       items,
       currentIndex,
       currentItem,
+      isPreview: previewMode,
       answers,
       temporaryState,
       completedItemIds,
@@ -155,12 +158,12 @@ function ActivityProviderState({ activity, children }: ActivityProviderProps) {
         setTemporaryStateValue((previous) => ({ ...previous, [key]: state }))
       },
     }
-  }, [activity, answers, completedItemIds, completionSummary, currentIndex, isFinished, isTimerPaused, orderedItems, temporaryState, timerMode, timerSeconds])
+  }, [activity, answers, completedItemIds, completionSummary, currentIndex, isFinished, isTimerPaused, orderedItems, previewMode, temporaryState, timerMode, timerSeconds])
 
   return <ActivityPlayerContext.Provider value={value}>{children}</ActivityPlayerContext.Provider>
 }
 
-export function ActivityProvider({ activity, children }: ActivityProviderProps) {
-  const activityVersion = `${activity.id}:${activity.timeLimitSeconds ?? "none"}:${activity.shuffleItems}:${activity.items.map((item) => item.id).join(":")}`
-  return <ActivityProviderState key={activityVersion} activity={activity}>{children}</ActivityProviderState>
+export function ActivityProvider({ activity, children, previewMode = false }: ActivityProviderProps) {
+  const activityVersion = `${activity.id}:${activity.timeLimitSeconds ?? "none"}:${activity.shuffleItems}:${previewMode ? "preview" : "player"}:${activity.items.map((item) => item.id).join(":")}`
+  return <ActivityProviderState key={activityVersion} activity={activity} previewMode={previewMode}>{children}</ActivityProviderState>
 }

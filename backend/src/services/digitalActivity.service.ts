@@ -761,6 +761,7 @@ async function previewDto(record: PreviewActivityRecord) {
       configuration: record.configuration,
       rewardConfiguration: record.rewardConfiguration,
       presentationSettings: record.presentationSettings,
+      settingsCompletedAt: record.settingsCompletedAt,
       status: record.status,
       template: {
         id: record.activityTemplate.id,

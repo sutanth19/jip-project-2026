@@ -373,6 +373,12 @@ export function arrangeSyllablesPreviewConfiguration(configuration: ArrangeSylla
           })),
           distractors: definition.distractors.map((distractor) => ({ ...distractor })),
           hint: definition.hint,
+          media: definition.media
+            ? {
+                image: definition.media.image ? { ...definition.media.image } : null,
+                audio: definition.media.audio ? { ...definition.media.audio } : null,
+              }
+            : undefined,
           showReferenceText: definition.showReferenceText,
           allowRetry: definition.allowRetry,
           clearOnRetry: definition.clearOnRetry,

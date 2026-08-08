@@ -8,7 +8,8 @@ export type ArrangeSyllableUnit = {
   sequence: number
 }
 
-export type ArrangeSyllablesQuestion = {
+export type ArrangeSyllablesLegacyQuestion = {
+  mode: "ORDERED_RECONSTRUCTION"
   itemId: string
   sequence: number
   title: string | null
@@ -27,6 +28,36 @@ export type ArrangeSyllablesQuestion = {
   media: ActivityMedia[]
 }
 
+export type ArrangeSyllableMissingUnit = ArrangeSyllableUnit & {
+  isMissing: boolean
+}
+
+export type ArrangeSyllableMissingWord = {
+  id: string
+  sequence: number
+  syllables: ArrangeSyllableMissingUnit[]
+}
+
+export type ArrangeSyllablesMissingQuestion = {
+  mode: "MISSING_SYLLABLES"
+  itemId: string
+  sequence: number
+  title: string | null
+  prompt: string
+  instructions: string | null
+  explanation: string | null
+  words: ArrangeSyllableMissingWord[]
+  distractors: ArrangeSyllableUnit[]
+  hint: string | null
+  showReferenceText: boolean
+  allowRetry: boolean
+  clearOnRetry: boolean
+  maximumSyllables: number
+  media: ActivityMedia[]
+}
+
+export type ArrangeSyllablesQuestion = ArrangeSyllablesLegacyQuestion | ArrangeSyllablesMissingQuestion
+
 export type ArrangeSyllablesState = {
   bankOrder: string[]
   arrangedSyllableIds: string[]
@@ -38,7 +69,27 @@ export type ArrangeSyllablesState = {
   feedback: string | null
 }
 
-export type ArrangeSyllablesSessionState = Record<string, ArrangeSyllablesState>
+export type MissingSyllableBlank = {
+  id: string
+  wordId: string
+  syllableId: string
+  value: string
+  wordSequence: number
+  syllableSequence: number
+}
+
+export type MissingSyllablesState = {
+  bankOrder: string[]
+  assignments: Record<string, string>
+  submitted: boolean
+  isCorrect: boolean | null
+  validationError: boolean
+  attemptCount: number
+  completed: boolean
+  feedback: string | null
+}
+
+export type ArrangeSyllablesSessionState = Record<string, ArrangeSyllablesState | MissingSyllablesState>
 
 export type ArrangeSyllablesSettings = {
   attemptsAllowed: number | null

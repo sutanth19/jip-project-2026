@@ -243,6 +243,14 @@ test("Arrange Syllables preview returns the full explicit configuration for both
       { id: "SYL-2", value: "WAN", sequence: 2, isMissing: true },
     ],
   });
+
+  const mediaPreview = arrangeSyllablesPreviewConfiguration(validateArrangeSyllablesConfiguration(mediaContract({
+    image: { mediaKey: "activity/image.png", url: "https://cdn.example.test/image.png", mimeType: "image/png", originalName: "image.png", mediaRole: "PRIMARY_IMAGE", altText: "Contoh imej" },
+    audio: { mediaKey: "activity/audio.mp3", url: "https://cdn.example.test/audio.mp3", mimeType: "audio/mpeg", originalName: "audio.mp3", mediaRole: "REFERENCE_AUDIO", altText: null },
+  })));
+  if (mediaPreview.arrangeSyllables.mode !== "MISSING_SYLLABLES") throw new Error("Expected missing mode");
+  assert.equal(mediaPreview.arrangeSyllables.media?.image?.url, "https://cdn.example.test/image.png");
+  assert.equal(mediaPreview.arrangeSyllables.media?.audio?.url, "https://cdn.example.test/audio.mp3");
 });
 
 test("Arrange Syllables workflow blocks invalid contracts and marks legacy preview items incomplete", async () => {

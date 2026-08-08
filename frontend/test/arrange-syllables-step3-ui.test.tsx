@@ -6,7 +6,7 @@ import { ActivityContentSummary } from "@/features/admin/components/ActivityCont
 import { ActivityQuestionNavigator } from "@/features/admin/components/ActivityQuestionNavigator";
 import { ArrangeSyllablesQuestionForm } from "@/features/admin/components/ArrangeSyllablesQuestionForm";
 import { getActivityContentSaveMode } from "@/features/admin/hooks/use-activity-content";
-import { syncQuestionChoices, type ArrangeSyllablesQuestionForm as ArrangeSyllablesQuestionFormValues } from "@/features/admin/utils/arrange-syllables-content";
+import { duplicateQuestion, syncQuestionChoices, type ArrangeSyllablesQuestionForm as ArrangeSyllablesQuestionFormValues } from "@/features/admin/utils/arrange-syllables-content";
 
 vi.mock("@/providers/toast-context-value", () => ({
   useToast: () => ({
@@ -115,6 +115,23 @@ describe("Arrange Syllables Step 3 UI", () => {
     expect(markup).not.toContain("Naikkan soalan");
     expect(markup).not.toContain("Turunkan soalan");
     expect(markup).not.toContain("Susun semula soalan");
+  });
+
+  it("keeps an untouched duplicate question as a normal complete draft in the navigator", () => {
+    const duplicate = duplicateQuestion(buildQuestion(), 2);
+    const markup = renderToStaticMarkup(
+      <ActivityQuestionNavigator
+        questions={[duplicate]}
+        selectedQuestionId={duplicate.localId}
+        onSelect={() => undefined}
+        onAdd={() => undefined}
+        onReorder={() => undefined}
+        disabled={false}
+      />,
+    );
+
+    expect(markup).toContain("Lengkap");
+    expect(markup).not.toContain("Belum Lengkap");
   });
 
   it("keeps full question titles visible with stable card width and no title truncation", () => {
@@ -234,7 +251,7 @@ describe("Arrange Syllables Step 3 UI", () => {
     expect(hookSource).not.toContain("syncQuestionMedia");
     expect(hookSource).toContain("question.questionBankItemId");
     expect(hookSource).toContain("addDigitalActivityItem(activityId, question, question.questionBankItemId)");
-    expect(hookSource).toContain("question.isPersisted");
+    expect(hookSource).toContain("hasQuestionBankItemId && hasActivityItemId");
     expect(hookSource).toContain("ITEM_STATE_INCONSISTENT");
     expect(pageSource).toContain("try {");
     expect(pageSource).toContain("await content.saveSelectedQuestion();");
@@ -255,9 +272,16 @@ describe("Arrange Syllables Step 3 UI", () => {
   });
 
   it("keeps persisted item identity monotonic and allows partial-create retry without falling back to POST for existing items", () => {
+    const identityQuestion = {
+      ...buildQuestion(),
+      isPersisted: false,
+      questionBankItemId: "question-bank-2",
+      activityItemId: "activity-item-2",
+    };
     const persistedQuestion = {
       ...buildQuestion(),
       isPersisted: true,
+      questionBankItemId: "question-bank-1",
       activityItemId: "activity-item-1",
     };
     const recoveredQuestion = {
@@ -278,9 +302,10 @@ describe("Arrange Syllables Step 3 UI", () => {
       activityItemId: undefined,
     };
 
+    expect(getActivityContentSaveMode(identityQuestion)).toBe("update");
     expect(getActivityContentSaveMode(persistedQuestion)).toBe("update");
     expect(getActivityContentSaveMode(recoveredQuestion)).toBe("recover");
-    expect(getActivityContentSaveMode(inconsistentQuestion)).toBe("inconsistent");
+    expect(getActivityContentSaveMode(inconsistentQuestion)).toBe("create");
     expect(getActivityContentSaveMode(newQuestion)).toBe("create");
   });
 });

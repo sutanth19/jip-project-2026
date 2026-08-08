@@ -120,10 +120,6 @@ function statusInvalid(): AppError {
   return appError("QUESTION_BANK_STATUS_TRANSITION_INVALID", 409, "Peralihan status item bank soalan tidak sah.");
 }
 
-function duplicateError(): AppError {
-  return appError("QUESTION_BANK_DUPLICATE", 409, "Item dengan kandungan yang sama telah wujud dalam program ini.");
-}
-
 function isUniqueError(caught: unknown): boolean {
   return caught instanceof Prisma.PrismaClientKnownRequestError && caught.code === "P2002";
 }
@@ -314,20 +310,6 @@ async function findDuplicates(
     take: 10,
     orderBy: { createdAt: "desc" },
   });
-}
-
-async function assertDuplicatePolicy(
-  programmeId: string,
-  type: CreateQuestionBankItemBody["type"],
-  content: string,
-  context: QuestionBankAuditContext,
-  override: boolean | undefined,
-  excludeItemId?: string,
-): Promise<void> {
-  const duplicates = await findDuplicates(programmeId, type, content, excludeItemId);
-  if (duplicates.length === 0) return;
-  if (override && context.actor.role === UserRole.SUPER_ADMIN) return;
-  throw duplicateError();
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -542,7 +524,6 @@ export async function createQuestionBankItem(input: CreateQuestionBankItemBody, 
   assertManagementAccess(context);
   await assertProgrammeUsable(input.programmeId);
   assertCorrectAnswerShape(input.answerType, input.correctAnswer, false);
-  await assertDuplicatePolicy(input.programmeId, input.type, input.content, context, input.allowDuplicateOverride);
   const item = await prisma.questionBankItem.create({
     data: {
       programmeId: input.programmeId,
@@ -591,7 +572,6 @@ export async function updateQuestionBankItem(itemId: string, input: UpdateQuesti
   const answerType = input.answerType ?? existing.answerType;
   const correctAnswer = input.correctAnswer === undefined ? existing.correctAnswer : input.correctAnswer;
   assertCorrectAnswerShape(answerType, correctAnswer, false);
-  if (input.content !== undefined) await assertDuplicatePolicy(existing.programmeId, existing.type, input.content, context, input.allowDuplicateOverride, itemId);
   const updated = await prisma.questionBankItem.update({
     where: { id: itemId },
     data: {
@@ -775,7 +755,7 @@ export async function reorderQuestionBankMedia(itemId: string, mediaLinkIds: str
   });
 }
 
-export async function activateQuestionBankItem(itemId: string, context: QuestionBankAuditContext, allowDuplicateOverride?: boolean) {
+export async function activateQuestionBankItem(itemId: string, context: QuestionBankAuditContext, _allowDuplicateOverride?: boolean) {
   assertManagementAccess(context);
   const item = await getItemRecord(itemId);
   if (item.status !== QuestionBankStatus.DRAFT) throw statusInvalid();
@@ -792,8 +772,6 @@ export async function activateQuestionBankItem(itemId: string, context: Question
   for (const media of item.mediaLinks) {
     try { await assertMediaExists(media.mediaKey, media.mediaRole, media.mimeType); } catch { issues.push("MEDIA_INVALID"); break; }
   }
-  const duplicates = await findDuplicates(item.programmeId, item.type, item.content, item.id);
-  if (duplicates.length && !(allowDuplicateOverride && context.actor.role === UserRole.SUPER_ADMIN)) issues.push("DUPLICATE_CONFLICT");
   if (issues.length) throw appError("QUESTION_BANK_ACTIVATION_INVALID", 400, "Item bank soalan belum memenuhi syarat aktivasi.", { issues });
   const activated = await prisma.$transaction(async (tx) => {
     const updated = await tx.questionBankItem.update({ where: { id: itemId }, data: { status: QuestionBankStatus.ACTIVE, publishedAt: new Date() }, include: itemInclude });
