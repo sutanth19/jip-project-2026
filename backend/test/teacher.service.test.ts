@@ -853,8 +853,8 @@ test("resending teacher setup sends the fresh token through the default Resend d
       assert.equal(bodies.length, 1);
       assert.equal(bodies[0]?.from, "Digital MoLIB <no-reply@digitalmolib.edu.my>");
       assert.equal(bodies[0]?.to, "aisyah@example.com");
-      assert.equal(bodies[0]?.subject, "Lengkapkan Penyediaan Akaun Digital MoLIB");
-      assert.match(bodies[0]?.html ?? "", /Akaun Guru Digital MoLIB/);
+      assert.equal(bodies[0]?.subject, "Lengkapkan Penyediaan Akaun Digital Main-LiT");
+      assert.match(bodies[0]?.html ?? "", /Akaun Guru Digital Main-LiT/);
       assert.match(bodies[0]?.html ?? "", /setup-password\?token=fresh-teacher-token/);
       assert.match(bodies[0]?.text ?? "", /Cikgu Aisyah/);
       assert.doesNotMatch(JSON.stringify(result), /fresh-teacher-token/);

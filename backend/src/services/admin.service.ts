@@ -414,11 +414,11 @@ export function adminSetupEmailTemplate(input: {
   });
   const safeName = escapeHtml(input.fullName);
   const safeUrl = escapeHtml(input.setupUrl);
-  const subject = "Lengkapkan Penyediaan Akaun Digital MoLIB";
+  const subject = "Lengkapkan Penyediaan Akaun Digital Main-LiT";
   const text = [
     `Salam ${input.fullName},`,
     "",
-    "Akaun Admin Digital MoLIB telah dicipta untuk anda dan kini berada dalam status menunggu.",
+    "Akaun Admin Digital Main-LiT telah dicipta untuk anda dan kini berada dalam status menunggu.",
     "Sila cipta kata laluan anda untuk melengkapkan penyediaan akaun.",
     `Pautan ini akan tamat tempoh pada ${expiry}.`,
     "",
@@ -426,7 +426,7 @@ export function adminSetupEmailTemplate(input: {
     "",
     "Jika anda tidak menjangkakan e-mel ini, abaikan mesej ini.",
   ].join("\n");
-  const html = `<!doctype html><html><body><main style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#1e293b"><h1>Lengkapkan Penyediaan Akaun Digital MoLIB</h1><p>Salam ${safeName},</p><p>Akaun Admin Digital MoLIB telah dicipta untuk anda dan kini berada dalam status menunggu.</p><p>Sila cipta kata laluan anda untuk melengkapkan penyediaan akaun.</p><p>Pautan ini akan tamat tempoh pada <strong>${escapeHtml(expiry)}</strong>.</p><p><a href="${safeUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">Lengkapkan Akaun</a></p><p>Jika butang tidak berfungsi, buka pautan ini:</p><p><a href="${safeUrl}">${safeUrl}</a></p><p>Jika anda tidak menjangkakan e-mel ini, abaikan mesej ini.</p><hr><small>Digital MoLIB</small></main></body></html>`;
+  const html = `<!doctype html><html><body><main style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#1e293b"><h1>Lengkapkan Penyediaan Akaun Digital Main-LiT</h1><p>Salam ${safeName},</p><p>Akaun Admin Digital Main-LiT telah dicipta untuk anda dan kini berada dalam status menunggu.</p><p>Sila cipta kata laluan anda untuk melengkapkan penyediaan akaun.</p><p>Pautan ini akan tamat tempoh pada <strong>${escapeHtml(expiry)}</strong>.</p><p><a href="${safeUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700">Lengkapkan Akaun</a></p><p>Jika butang tidak berfungsi, buka pautan ini:</p><p><a href="${safeUrl}">${safeUrl}</a></p><p>Jika anda tidak menjangkakan e-mel ini, abaikan mesej ini.</p><hr><small>Digital Main-LiT</small></main></body></html>`;
 
   return { subject, html, text };
 }

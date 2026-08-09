@@ -327,10 +327,10 @@ test("admin setup email builds the real setup URL and Malay email content", () =
     expiresAt: new Date("2026-07-27T00:00:00.000Z"),
   });
 
-  assert.equal(email.subject, "Lengkapkan Penyediaan Akaun Digital MoLIB");
+  assert.equal(email.subject, "Lengkapkan Penyediaan Akaun Digital Main-LiT");
   assert.match(email.html, /Lengkapkan Akaun/);
   assert.match(email.html, /https:\/\/app\.digitalmolib\.test\/setup-password\?token=safe-token/);
-  assert.match(email.text, /Akaun Admin Digital MoLIB telah dicipta/);
+  assert.match(email.text, /Akaun Admin Digital Main-LiT telah dicipta/);
   assert.match(email.text, /abaikan mesej ini/);
 });
 
@@ -447,8 +447,9 @@ test("admin provisioning sends setup email through Resend with safe response fie
       const body = JSON.parse(String(calls[0]?.init?.body)) as Record<string, string>;
       assert.equal(body.from, "Digital MoLIB <no-reply@digitalmolib.edu.my>");
       assert.equal(body.to, "admin.delivery@example.com");
-      assert.equal(body.subject, "Lengkapkan Penyediaan Akaun Digital MoLIB");
+      assert.equal(body.subject, "Lengkapkan Penyediaan Akaun Digital Main-LiT");
       assert.match(body.html, /setup-password\?token=secure-email-token/);
+      assert.match(body.html, /Digital Main-LiT/);
       assert.match(body.text, /Lengkapkan Akaun/);
       assert.equal(records.values().next().value?.user.setupToken, "secure-email-token");
       assert.doesNotMatch(JSON.stringify(result), /secure-email-token/);
