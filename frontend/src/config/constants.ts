@@ -1,4 +1,4 @@
-export const APP_NAME = "Digital Main-LiT";
+export const APP_NAME = "DIGITAL MAIN-LiT";
 
 export const APP_TAGLINE = "School Literacy Management System";
 

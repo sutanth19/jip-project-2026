@@ -206,7 +206,7 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
             { label: "Butiran Guru" },
           ]}
           title="Butiran Guru"
-          description="Lihat dan urus maklumat akaun guru platform Digital Main-LiT."
+          description="Lihat dan urus maklumat akaun guru platform DIGITAL MAIN-LiT."
           actions={detailActions}
         >
           {record.isLoading ? <TeacherDetailSkeleton /> : null}
@@ -297,7 +297,7 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
             { label: "Butiran Sekolah" },
           ]}
           title="Butiran Sekolah"
-          description="Lihat dan urus maklumat sekolah dalam platform Digital Main-LiT."
+          description="Lihat dan urus maklumat sekolah dalam platform DIGITAL MAIN-LiT."
           actions={detailActions}
         >
           {record.isLoading ? <SchoolDetailSkeleton /> : null}
@@ -414,7 +414,7 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
               { label: "Butiran Pentadbir" },
             ]}
             title="Butiran Pentadbir"
-            description="Lihat dan urus maklumat akaun pentadbir platform Digital Main-LiT."
+            description="Lihat dan urus maklumat akaun pentadbir platform DIGITAL MAIN-LiT."
             actions={detailActions}
           >
             <AdminAccountDetailSkeleton />
@@ -450,7 +450,7 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
               { label: "Butiran Pentadbir" },
             ]}
             title="Butiran Pentadbir"
-            description="Lihat dan urus maklumat akaun pentadbir platform Digital Main-LiT."
+            description="Lihat dan urus maklumat akaun pentadbir platform DIGITAL MAIN-LiT."
             actions={detailActions}
           >
             <AdminAccountDetailView
@@ -474,7 +474,7 @@ export function AdminEntityDetailPage({ entityKey }: { entityKey: AdminEntityKey
     <PageContainer>
       <AdminPageHeader
         title={isAdminAccounts ? "Pentadbir" : `${config.singular} Detail`}
-        description={isAdminAccounts ? "Paparan profil pentadbir platform Digital Main-LiT." : config.description}
+        description={isAdminAccounts ? "Paparan profil pentadbir platform DIGITAL MAIN-LiT." : config.description}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => navigate(config.path)}>

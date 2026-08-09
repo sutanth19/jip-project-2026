@@ -1,37 +1,50 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import Logo from "@/components/common/Logo";
 import { navigation } from "@/config/navigation";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { pathname, hash } = useLocation();
+
+  const isNavItemActive = (href: string) => {
+    if (href.startsWith("/#")) {
+      return pathname === "/" && hash === href.slice(1);
+    }
+
+    return pathname === href;
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full">
       <nav className="border-b border-border bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/90">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link to="/" aria-label="Digital Main-LiT home">
+          <Link to="/" aria-label="DIGITAL MAIN-LiT home">
             <Logo size="md" />
           </Link>
 
           <div className="flex items-center gap-3 lg:gap-8">
             <ul className="hidden items-center gap-8 text-base font-medium lg:flex">
-              {navigation.map((item, index) => (
-                <li key={item.label}>
-                  <Link
-                    to={item.href}
-                    aria-current={index === 0 ? "page" : undefined}
-                    className={
-                      index === 0
-                        ? "text-primary"
-                        : "text-muted-foreground transition-colors hover:text-foreground"
-                    }
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+              {navigation.map((item) => {
+                const isActive = isNavItemActive(item.href);
+
+                return (
+                  <li key={item.label}>
+                    <Link
+                      to={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className={
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground transition-colors hover:text-foreground"
+                      }
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
             <Link
               to="/login"
@@ -84,22 +97,26 @@ export default function Navbar() {
             id="mobile-menu-2"
           >
             <ul className="mt-4 flex w-full flex-col gap-1 rounded-2xl border border-border bg-card p-2 font-medium shadow-sm lg:mt-0 lg:w-auto lg:flex-row lg:space-x-8 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-              {navigation.map((item, index) => (
-                <li key={item.label}>
-                  <Link
-                    to={item.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    aria-current={index === 0 ? "page" : undefined}
-                    className={
-                      index === 0
-                        ? "block rounded-xl bg-primary px-3 py-2 text-primary-foreground"
-                        : "block rounded-xl px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    }
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+              {navigation.map((item) => {
+                const isActive = isNavItemActive(item.href);
+
+                return (
+                  <li key={item.label}>
+                    <Link
+                      to={item.href}
+                      onClick={() => setIsMenuOpen(false)}
+                      aria-current={isActive ? "page" : undefined}
+                      className={
+                        isActive
+                          ? "block rounded-xl bg-primary px-3 py-2 text-primary-foreground"
+                          : "block rounded-xl px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      }
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import Container from "@/components/common/Container";
@@ -31,7 +31,7 @@ export default function Footer() {
               to="/"
               className="mb-4 inline-flex text-xl font-bold tracking-wide text-foreground transition-colors hover:text-primary"
             >
-              Digital Main-LiT
+              DIGITAL MAIN-LiT
             </Link>
             <p className="max-w-sm text-sm leading-6 text-muted-foreground">
               Sistem pengurusan literasi sekolah moden yang membantu pentadbir, guru, murid dan ibu bapa mengurus aktiviti bacaan,
@@ -80,7 +80,7 @@ export default function Footer() {
                   className={`flex items-start gap-3 ${linkClassName}`}
                 >
                   <Mail className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                  <span>support@digitalmainlit.my</span>
+                  <span>mainlitipg@gmail.com</span>
                 </a>
               </li>
               <li>
@@ -88,8 +88,7 @@ export default function Footer() {
                   href="tel:+60123456789"
                   className={`flex items-start gap-3 ${linkClassName}`}
                 >
-                  <Phone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                  <span>+60 12-345 6789</span>
+                  
                 </a>
               </li>
               <li className="flex items-start gap-3 text-muted-foreground">
@@ -101,7 +100,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          <p>©️ 2026 Digital Main-LiT.</p>
+          <p>©️ 2026 DIGITAL MAIN-LiT.</p>
           <p>All rights reserved.</p>
         </div>
       </Container>

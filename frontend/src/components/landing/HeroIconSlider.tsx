@@ -55,7 +55,7 @@ const heroIconTones = [
 export default function HeroIconSlider() {
   return (
     <div
-      aria-label="Digital Main-LiT learning tools"
+      aria-label="DIGITAL MAIN-LiT learning tools"
       role="region"
       className="relative mt-8 pb-2 md:mt-10"
     >

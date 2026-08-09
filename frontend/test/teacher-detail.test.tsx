@@ -75,7 +75,7 @@ describe("Butiran Guru detail page", () => {
     expect(page).toContain('if (entityKey === "teachers")');
     expect(page).toContain("TeacherDetailView");
     expect(page).toContain('title="Butiran Guru"');
-    expect(page).toContain('description="Lihat dan urus maklumat akaun guru platform Digital Main-LiT."');
+    expect(page).toContain('description="Lihat dan urus maklumat akaun guru platform DIGITAL MAIN-LiT."');
     expect(page).toContain("Edit Guru");
     expect(page).toContain("`${detailPath}/edit`");
     expect(page).toContain("Kembali");

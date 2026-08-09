@@ -10,7 +10,7 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
     <Card className="overflow-hidden border-border/70 bg-gradient-to-r from-blue-50 via-background to-emerald-50 shadow-sm dark:from-blue-950/20 dark:via-card dark:to-emerald-950/20">
       <CardContent className="flex flex-col gap-3 p-5 sm:p-6 lg:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300 sm:text-sm">
-          Digital Main-LiT
+          DIGITAL MAIN-LiT
         </p>
         <div className="max-w-3xl space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">

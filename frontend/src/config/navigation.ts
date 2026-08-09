@@ -5,7 +5,7 @@ export const navigation = [
   },
   {
     label: "Tentang",
-    href: "/#about",
+    href: "/about",
   },
   {
     label: "Ciri-ciri",

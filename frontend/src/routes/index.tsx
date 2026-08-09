@@ -11,6 +11,7 @@ import { ParentLayout } from "@/layouts/ParentLayout"
 import PublicLayout from "@/layouts/PublicLayout"
 import { StudentLayout } from "@/layouts/StudentLayout"
 import { TeacherLayout } from "@/layouts/TeacherLayout"
+import AboutPage from "@/pages/AboutPage"
 import LandingPage from "../pages/LandingPage"
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage"
 import LoginPage from "../pages/auth/LoginPage"
@@ -68,6 +69,10 @@ const router = createBrowserRouter([
           {
             index: true,
             element: <LandingPage />,
+          },
+          {
+            path: "about",
+            element: <AboutPage />,
           },
         ],
       },

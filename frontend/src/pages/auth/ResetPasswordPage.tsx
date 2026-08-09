@@ -188,7 +188,7 @@ export default function ResetPasswordPage() {
             Tetapkan Kata Laluan Baharu
           </CardTitle>
           <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-            Cipta kata laluan baharu untuk akaun Digital Main-LiT anda.
+            Cipta kata laluan baharu untuk akaun DIGITAL MAIN-LiT anda.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -90,7 +90,7 @@ function renderAdminDetailManagementPage() {
           { label: "Butiran Pentadbir" },
         ]}
         title="Butiran Pentadbir"
-        description="Lihat dan urus maklumat akaun pentadbir platform Digital Main-LiT."
+        description="Lihat dan urus maklumat akaun pentadbir platform DIGITAL MAIN-LiT."
         actions={
           <>
             <Button asChild variant="outline" className="h-11 w-full gap-2 rounded-xl px-5 focus-visible:ring-primary/30 sm:w-auto">
@@ -559,7 +559,7 @@ describe("Phase 27B Admin module contracts", () => {
     expect(markup).toContain("Pentadbir");
     expect(markup).toContain("lucide-chevron-right");
     expect(markup).toContain("Butiran Pentadbir");
-    expect(markup).toContain("Lihat dan urus maklumat akaun pentadbir platform Digital Main-LiT.");
+    expect(markup).toContain("Lihat dan urus maklumat akaun pentadbir platform DIGITAL MAIN-LiT.");
     expect(markup).toContain("Puan Kavitha");
     expect(markup).toContain("Pentadbir");
     expect(markup).toContain("kavitha@example.edu.my");
@@ -1415,7 +1415,7 @@ describe("Phase 27B Admin module contracts", () => {
     expect(form).not.toContain("await onSubmit(payload)");
   });
 
-  it("maps protected dashboard theme tokens to Digital Main-LiT brand colours", () => {
+  it("maps protected dashboard theme tokens to DIGITAL MAIN-LiT brand colours", () => {
     const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
 
     expect(css).toContain("--primary: #2563eb;");

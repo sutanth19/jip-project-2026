@@ -340,7 +340,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <TeamSwitcher
           teams={[
             {
-              name: "Digital Main-LiT",
+              name: "DIGITAL MAIN-LiT",
               logo: <School />,
               plan: school?.name ?? school?.id ?? "Semua sekolah",
             },

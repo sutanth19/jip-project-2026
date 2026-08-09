@@ -80,7 +80,7 @@ export const adminEntities: AdminEntityConfig[] = [
     key: "teachers",
     title: "Guru",
     singular: "Guru",
-    description: "Urus akaun guru yang menggunakan platform Digital Main-LiT.",
+    description: "Urus akaun guru yang menggunakan platform DIGITAL MAIN-LiT.",
     path: "/admin/guru",
     endpoint: "/teachers",
     roles: ["SUPER_ADMIN", "ADMIN"],

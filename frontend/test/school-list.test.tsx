@@ -139,7 +139,7 @@ describe("Pengurusan Sekolah list", () => {
     expect(schoolBranch).toContain("<PageContainer>");
     expect(schoolBranch).toContain("<AdminPageHeader");
     expect(schoolBranch).toContain('title="Pengurusan Sekolah"');
-    expect(schoolBranch).toContain('description="Urus maklumat dan status sekolah yang menggunakan platform Digital Main-LiT."');
+    expect(schoolBranch).toContain('description="Urus maklumat dan status sekolah yang menggunakan platform DIGITAL MAIN-LiT."');
     expect(schoolBranch).toContain('variant="secondary"');
     expect(schoolBranch).toContain('className="h-12 rounded-xl px-6 font-semibold shadow-sm hover:bg-secondary/90 focus-visible:ring-secondary/30"');
     expect(schoolBranch).not.toContain("ManagementPageLayout");
@@ -730,7 +730,7 @@ describe("Pengurusan Sekolah list", () => {
     expect(page).toContain('{ label: "Sekolah", to: config.path }');
     expect(page).toContain('{ label: "Butiran Sekolah" }');
     expect(page).toContain('title="Butiran Sekolah"');
-    expect(page).toContain('description="Lihat dan urus maklumat sekolah dalam platform Digital Main-LiT."');
+    expect(page).toContain('description="Lihat dan urus maklumat sekolah dalam platform DIGITAL MAIN-LiT."');
     expect(page).toContain("Edit Sekolah");
     expect(page).toContain("Pencil");
     expect(component).toContain("rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6");

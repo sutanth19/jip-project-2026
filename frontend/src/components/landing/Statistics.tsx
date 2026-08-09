@@ -50,7 +50,7 @@ export default function Statistics() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-            Digital Main-LiT menghimpunkan semua aspek penting pengurusan
+            DIGITAL MAIN-LiT menghimpunkan semua aspek penting pengurusan
             literasi sekolah dalam satu platform yang selamat, sistematik dan
             bersepadu.
           </p>

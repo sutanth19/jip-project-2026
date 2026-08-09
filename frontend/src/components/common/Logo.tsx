@@ -30,14 +30,14 @@ export default function Logo({ showText = true, size = "md" }: LogoProps) {
     <div className="flex items-center gap-3 sm:gap-4">
       <img
         src={logo}
-        alt="Digital Main-LiT logo"
+        alt="DIGITAL MAIN-LiT logo"
         className={`${variant.image} object-contain`}
       />
 
       {showText && (
         <div className="leading-tight">
           <h1 className={`${variant.title} font-bold tracking-wide text-foreground`}>
-            Digital Main-LiT
+            DIGITAL MAIN-LiT
           </h1>
 
           <p className={`${variant.subtitle} text-muted-foreground`}>

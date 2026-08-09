@@ -325,7 +325,7 @@ export default function LoginForm({ className, activeUserType, onActiveUserTypeC
           Selamat Datang
         </CardTitle>
         <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-          Log masuk untuk mengakses Digital Main-LiT.
+          Log masuk untuk mengakses DIGITAL MAIN-LiT.
         </CardDescription>
       </CardHeader>
 

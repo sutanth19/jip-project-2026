@@ -37,7 +37,7 @@ export function AdminEntityListPage({ entityKey }: { entityKey: AdminEntityKey }
       <PageContainer>
         <AdminPageHeader
           title="Pengurusan Sekolah"
-          description="Urus maklumat dan status sekolah yang menggunakan platform Digital Main-LiT."
+          description="Urus maklumat dan status sekolah yang menggunakan platform DIGITAL MAIN-LiT."
           actions={
             canCreate ? (
               <Button asChild variant="secondary">
@@ -74,7 +74,7 @@ export function AdminEntityListPage({ entityKey }: { entityKey: AdminEntityKey }
       <PageContainer>
         <AdminPageHeader
           title="Guru"
-          description="Urus akaun guru yang menggunakan platform Digital Main-LiT."
+          description="Urus akaun guru yang menggunakan platform DIGITAL MAIN-LiT."
           actions={
             canCreate ? (
               <Button asChild variant="secondary">
@@ -110,7 +110,7 @@ export function AdminEntityListPage({ entityKey }: { entityKey: AdminEntityKey }
     <PageContainer>
       <AdminPageHeader
         title={isAdminAccounts ? "Pentadbir" : config.title}
-        description={isAdminAccounts ? "Urus akaun pentadbir platform Digital Main-LiT." : config.description}
+        description={isAdminAccounts ? "Urus akaun pentadbir platform DIGITAL MAIN-LiT." : config.description}
         actions={
           canCreate ? (
             <Button asChild variant="secondary">
