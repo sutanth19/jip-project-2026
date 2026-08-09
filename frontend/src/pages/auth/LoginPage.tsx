@@ -15,18 +15,20 @@ export default function LoginPage() {
           <div className="pb-4 lg:hidden">
             <Link
               to="/"
-              className="inline-flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex items-center gap-4 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <img
                 src={logoWeb}
                 alt="DIGITAL MAIN-LiT"
-                className="h-10 w-10 object-contain sm:h-12 sm:w-12"
+                className="h-14 w-14 object-contain sm:h-16 sm:w-16"
               />
               <div className="leading-tight">
-                <p className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                <p className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
                   DIGITAL MAIN-LiT
                 </p>
-                <p className="text-sm text-muted-foreground">Kampus Darul Aman</p>
+                <p className="mt-1 text-sm font-medium text-muted-foreground sm:text-base">
+                  Revolusi Literasi Bersepadu
+                </p>
               </div>
             </Link>
           </div>
@@ -39,9 +41,6 @@ export default function LoginPage() {
             />
           </main>
 
-          <footer className="pt-4 text-left text-sm leading-6 text-muted-foreground sm:text-base lg:hidden">
-            © 2026 DIGITAL MAIN-LiT Kampus Darul Aman
-          </footer>
         </div>
       </section>
 

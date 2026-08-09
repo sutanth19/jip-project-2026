@@ -2,6 +2,7 @@
 "use client";
 import React, {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -32,6 +33,8 @@ interface CircularTestimonialsProps {
   autoplay?: boolean;
   colors?: Colors;
   fontSizes?: FontSizes;
+  renderSlideContent?: (testimonial: Testimonial, activeIndex: number, total: number) => React.ReactNode;
+  showIndicator?: boolean;
 }
 
 function calculateGap(width: number) {
@@ -50,6 +53,8 @@ export const CircularTestimonials = ({
   autoplay = true,
   colors = {},
   fontSizes = {},
+  renderSlideContent,
+  showIndicator = false,
 }: CircularTestimonialsProps) => {
   // Color & font config
   const colorName = colors.name ?? "#000";
@@ -73,6 +78,60 @@ export const CircularTestimonials = ({
 
   const testimonialsLength = testimonials.length;
   const activeTestimonial = testimonials[activeIndex];
+  const defaultSlideContent = useMemo(() => (
+    <>
+      <h3
+        className="name"
+        style={{ color: colorName, fontSize: fontSizeName }}
+      >
+        {activeTestimonial.name}
+      </h3>
+      <p
+        className="designation"
+        style={{ color: colorDesignation, fontSize: fontSizeDesignation }}
+      >
+        {activeTestimonial.designation}
+      </p>
+      <motion.p
+        className="quote"
+        style={{ color: colorTestimony, fontSize: fontSizeQuote }}
+      >
+        {activeTestimonial.quote.split(" ").map((word, i) => (
+          <motion.span
+            key={i}
+            initial={{
+              filter: "blur(10px)",
+              opacity: 0,
+              y: 5,
+            }}
+            animate={{
+              filter: "blur(0px)",
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: 0.22,
+              ease: "easeInOut",
+              delay: 0.025 * i,
+            }}
+            style={{ display: "inline-block" }}
+          >
+            {word}&nbsp;
+          </motion.span>
+        ))}
+      </motion.p>
+    </>
+  ), [
+    activeTestimonial.designation,
+    activeTestimonial.name,
+    activeTestimonial.quote,
+    colorDesignation,
+    colorName,
+    colorTestimony,
+    fontSizeDesignation,
+    fontSizeName,
+    fontSizeQuote,
+  ]);
 
   // Responsive gap calculation
   useEffect(() => {
@@ -204,48 +263,28 @@ export const CircularTestimonials = ({
               exit="exit"
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
-              <h3
-                className="name"
-                style={{ color: colorName, fontSize: fontSizeName }}
-              >
-                {activeTestimonial.name}
-              </h3>
-              <p
-                className="designation"
-                style={{ color: colorDesignation, fontSize: fontSizeDesignation }}
-              >
-                {activeTestimonial.designation}
-              </p>
-              <motion.p
-                className="quote"
-                style={{ color: colorTestimony, fontSize: fontSizeQuote }}
-              >
-                {activeTestimonial.quote.split(" ").map((word, i) => (
-                  <motion.span
-                    key={i}
-                    initial={{
-                      filter: "blur(10px)",
-                      opacity: 0,
-                      y: 5,
-                    }}
-                    animate={{
-                      filter: "blur(0px)",
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    transition={{
-                      duration: 0.22,
-                      ease: "easeInOut",
-                      delay: 0.025 * i,
-                    }}
-                    style={{ display: "inline-block" }}
-                  >
-                    {word}&nbsp;
-                  </motion.span>
-                ))}
-              </motion.p>
+              {renderSlideContent
+                ? renderSlideContent(activeTestimonial, activeIndex, testimonialsLength)
+                : defaultSlideContent}
             </motion.div>
           </AnimatePresence>
+          {showIndicator ? (
+            <div className="indicator-row" aria-label="Slide indicator">
+              {testimonials.map((testimonial, index) => (
+                <button
+                  key={`${testimonial.src}-${index}`}
+                  type="button"
+                  className={`indicator-dot${index === activeIndex ? " indicator-dot-active" : ""}`}
+                  onClick={() => {
+                    setActiveIndex(index);
+                    if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current);
+                  }}
+                  aria-label={`Pergi ke slaid ${index + 1}`}
+                  aria-current={index === activeIndex ? "true" : undefined}
+                />
+              ))}
+            </div>
+          ) : null}
           <div className="arrow-buttons">
             <button
               className="arrow-button prev-button"
@@ -317,6 +356,25 @@ export const CircularTestimonials = ({
           display: flex;
           gap: 1.5rem;
           padding-top: 3rem;
+        }
+        .indicator-row {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          padding-top: 1.75rem;
+        }
+        .indicator-dot {
+          width: 0.7rem;
+          height: 0.7rem;
+          border-radius: 9999px;
+          border: none;
+          background: rgba(37, 99, 235, 0.2);
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .indicator-dot-active {
+          width: 2rem;
+          background: #2563eb;
         }
         .arrow-button {
           width: 2.7rem;

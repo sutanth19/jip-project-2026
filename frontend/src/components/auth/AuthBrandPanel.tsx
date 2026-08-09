@@ -30,17 +30,19 @@ export default function AuthBrandPanel({ activeUserType }: AuthBrandPanelProps) 
 
       <div className="relative flex h-full w-full flex-col">
         <header className="flex justify-center px-10 pt-8 lg:px-12 xl:px-16">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <img
               src={logoWeb}
               alt="Logo DIGITAL MAIN-LiT"
-              className="h-14 w-14 object-contain"
+              className="h-20 w-20 object-contain xl:h-24 xl:w-24"
             />
             <div className="text-center leading-tight">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground xl:text-4xl">
                 DIGITAL MAIN-LiT
               </h1>
-              <p className="text-sm text-muted-foreground">Kampus Darul Aman</p>
+              <p className="mt-1 text-base font-medium text-muted-foreground xl:text-lg">
+                Revolusi Literasi Bersepadu
+              </p>
             </div>
           </div>
         </header>
@@ -54,9 +56,7 @@ export default function AuthBrandPanel({ activeUserType }: AuthBrandPanelProps) 
         </main>
 
         <footer className="px-10 pb-6 text-center lg:px-12 xl:px-16">
-          <p className="text-sm text-muted-foreground">
-            © 2026 DIGITAL MAIN-LiT Kampus Darul Aman
-          </p>
+
         </footer>
       </div>
     </aside>
