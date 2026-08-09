@@ -39,9 +39,28 @@ import notificationRoutes from "./routes/notification.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
+const rawAllowedOrigins = [process.env.FRONTEND_URL, process.env.APP_URL]
+  .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+  .map((value) => value.trim().replace(/\/$/, ""));
+const developmentOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+const allowedOrigins = new Set([...developmentOrigins, ...rawAllowedOrigins]);
 
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin.replace(/\/$/, ""))) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("CORS_NOT_ALLOWED"));
+    },
+    credentials: false,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 app.use(
   rateLimit({

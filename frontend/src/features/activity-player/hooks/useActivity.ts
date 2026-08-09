@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { API_BASE_URL } from "@/constants/env"
 import type { ActivityPreview } from "../types"
 
 type PreviewResponse = { success: boolean; data?: { activity?: ActivityPreview }; message?: string }
@@ -17,8 +18,7 @@ function getAccessToken(): string | null {
 }
 
 function getPreviewUrl(activityId: string): string {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? ""
-  return `${baseUrl}/api/digital-activities/${encodeURIComponent(activityId)}/preview`
+  return `${API_BASE_URL.replace(/\/$/, "")}/digital-activities/${encodeURIComponent(activityId)}/preview`
 }
 
 export function useActivity(activityId: string | undefined): UseActivityResult {
