@@ -16,8 +16,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PasswordInput from "@/components/auth/PasswordInput";
+import logoIpgm from "@/assets/images/logo ipgm.svg";
+import logoIpkda from "@/assets/images/logo ipkda.svg";
 import { getDashboardPathForRole } from "@/lib/auth-routes";
 import { ApiError, apiRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -319,17 +322,47 @@ export default function LoginForm({ className, activeUserType, onActiveUserTypeC
         className,
       )}
     >
-      <CardHeader className="space-y-2 pb-0 text-center">
-        <p className="text-sm font-semibold text-primary">Portal Pengguna</p>
-        <CardTitle className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Selamat Datang
-        </CardTitle>
-        <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
-          Log masuk untuk mengakses DIGITAL MAIN-LiT.
-        </CardDescription>
-      </CardHeader>
+<CardHeader className="space-y-2 pb-0 pt-0 text-center">
+    <div className="-mt-12 space-y-0">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-6">
+      <div className="flex items-center justify-end">
+        <img
+          src={logoIpkda}
+          alt="Logo Institut Pendidikan Guru Kampus Darul Aman"
+          className="block h-24 w-auto shrink-0 object-contain sm:h-28"
+        />
+      </div>
 
-      <CardContent className="pt-6 sm:pt-8">
+      <Separator
+        orientation="vertical"
+        className="h-20 bg-border/70"
+      />
+
+      <div className="flex items-center justify-start">
+        <img
+          src={logoIpgm}
+          alt="Logo Institut Pendidikan Guru Malaysia"
+          className="block h-24 w-auto shrink-0 translate-y-1 object-contain sm:h-40"
+        />
+      </div>
+    </div>
+
+    <Separator className="-mt-7 bg-border/80" />
+  </div>
+
+  <p className="text-sm font-semibold text-primary">
+    Portal Pengguna
+  </p>
+
+  <CardTitle className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+    Selamat Datang
+  </CardTitle>
+
+  <CardDescription className="text-sm leading-6 text-muted-foreground sm:text-base">
+    Log masuk untuk mengakses DIGITAL MAIN-LiT.
+  </CardDescription>
+</CardHeader>
+      <CardContent className="pt-2 sm:pt-2">
         <form className="space-y-5" onSubmit={onSubmit}>
           <input type="hidden" {...register("userType")} value={activeUserType} />
 
