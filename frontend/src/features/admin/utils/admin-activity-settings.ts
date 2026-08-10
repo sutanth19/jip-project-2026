@@ -12,6 +12,13 @@ export const activityScoringModeOptions = [
 
 export type ActivityScoringModeValue = typeof activityScoringModeOptions[number]["value"];
 
+export type ActivitySettingsTemplateSupport = {
+  retrySettings: boolean;
+  attemptLimit: boolean;
+  immediateFeedbackSetting: boolean;
+  masteryThresholdSetting: boolean;
+};
+
 export const activitySettingsInitialValues = {
   estimatedMinutes: "",
   hasTimeLimit: false,
@@ -129,7 +136,7 @@ export type ActivitySettingsValues = z.infer<typeof activitySettingsSchema>;
 
 export type UpdateDigitalActivitySettingsPayload = {
   estimatedMinutes: number;
-  attemptsAllowed: number;
+  attemptsAllowed: number | null;
   timeLimitSeconds: number | null;
   shuffleItems: boolean;
   showImmediateFeedback: boolean;
@@ -138,6 +145,34 @@ export type UpdateDigitalActivitySettingsPayload = {
   totalMarks: number | null;
   masteryThreshold: number | null;
 };
+
+type ActivitySettingsScoringSnapshot = {
+  scoringMode?: AdminActivityDetailRecord["scoringMode"] | null;
+  totalMarks?: number | null;
+  items: Array<{ id: string; marks?: number | null }>;
+};
+
+const defaultTemplateSupport: ActivitySettingsTemplateSupport = {
+  retrySettings: true,
+  attemptLimit: true,
+  immediateFeedbackSetting: true,
+  masteryThresholdSetting: true,
+};
+
+export function getActivitySettingsTemplateSupport(
+  activity?: Pick<AdminActivityDetailRecord, "template"> | null,
+): ActivitySettingsTemplateSupport {
+  if (activity?.template?.code === "ARRANGE_SYLLABLES" || activity?.template?.rendererKey === "arrange-syllables") {
+    return {
+      retrySettings: false,
+      attemptLimit: false,
+      immediateFeedbackSetting: false,
+      masteryThresholdSetting: false,
+    };
+  }
+
+  return defaultTemplateSupport;
+}
 
 export function getActivitySettingsCompletionState(activity?: Pick<AdminActivityDetailRecord, "settingsCompletedAt"> | null) {
   return {
@@ -158,13 +193,19 @@ export function getActivitySettingsFormValues(
     | "scoringMode"
     | "totalMarks"
     | "masteryThreshold"
+    | "template"
   > | null,
 ): ActivitySettingsValues {
+  const templateSupport = getActivitySettingsTemplateSupport(activity);
   const estimatedMinutes = activity?.estimatedMinutes ?? null;
   const attemptsAllowed = activity?.attemptsAllowed ?? null;
   const hasTimeLimit = typeof activity?.timeLimitSeconds === "number" && activity.timeLimitSeconds > 0;
   const timeLimitMinutes = hasTimeLimit ? String((activity?.timeLimitSeconds ?? 0) / 60) : "";
   const scoringMode = activity?.scoringMode ?? "TOTAL_SCORE";
+  const normalizedScoringMode =
+    !templateSupport.masteryThresholdSetting && scoringMode === "MASTERY_THRESHOLD"
+      ? "TOTAL_SCORE"
+      : scoringMode;
   const totalMarks =
     typeof activity?.totalMarks === "number"
       ? String(activity.totalMarks)
@@ -178,36 +219,80 @@ export function getActivitySettingsFormValues(
     estimatedMinutes: estimatedMinutes === null ? "" : String(estimatedMinutes),
     hasTimeLimit,
     timeLimitMinutes,
-    attemptsAllowed: attemptsAllowed === null ? "" : String(attemptsAllowed),
-    allowRetry: activity?.allowRetry ?? true,
+    attemptsAllowed:
+      templateSupport.attemptLimit
+        ? attemptsAllowed === null ? "" : String(attemptsAllowed)
+        : "1",
+    allowRetry: templateSupport.retrySettings ? (activity?.allowRetry ?? true) : true,
     shuffleItems: activity?.shuffleItems ?? true,
-    showImmediateFeedback: activity?.showImmediateFeedback ?? true,
+    showImmediateFeedback: templateSupport.immediateFeedbackSetting ? (activity?.showImmediateFeedback ?? true) : true,
     scoringMode:
-      scoringMode === "NONE"
-      || scoringMode === "TOTAL_SCORE"
-      || scoringMode === "PERCENTAGE"
-      || scoringMode === "MASTERY_THRESHOLD"
-        ? scoringMode
+      normalizedScoringMode === "NONE"
+      || normalizedScoringMode === "TOTAL_SCORE"
+      || normalizedScoringMode === "PERCENTAGE"
+      || normalizedScoringMode === "MASTERY_THRESHOLD"
+        ? normalizedScoringMode
         : "TOTAL_SCORE",
+    totalMarks,
+    masteryThreshold: templateSupport.masteryThresholdSetting ? masteryThreshold : "",
+  };
+}
+
+export function buildActivitySettingsUpdatePayload(
+  values: ActivitySettingsValues,
+  templateSupport: ActivitySettingsTemplateSupport = defaultTemplateSupport,
+): UpdateDigitalActivitySettingsPayload {
+  const scoringMode =
+    !templateSupport.masteryThresholdSetting && values.scoringMode === "MASTERY_THRESHOLD"
+      ? "TOTAL_SCORE"
+      : values.scoringMode;
+  const totalMarks = scoringMode === "NONE" ? null : Number(values.totalMarks);
+  const masteryThreshold =
+    templateSupport.masteryThresholdSetting && scoringMode === "MASTERY_THRESHOLD"
+      ? Number(values.masteryThreshold)
+      : null;
+
+  return {
+    estimatedMinutes: Number(values.estimatedMinutes),
+    attemptsAllowed: templateSupport.attemptLimit ? Number(values.attemptsAllowed) : null,
+    timeLimitSeconds: values.hasTimeLimit ? Math.round(Number(values.timeLimitMinutes) * 60) : null,
+    shuffleItems: values.shuffleItems,
+    showImmediateFeedback: templateSupport.immediateFeedbackSetting ? values.showImmediateFeedback : true,
+    allowRetry: templateSupport.retrySettings ? values.allowRetry : true,
+    scoringMode,
     totalMarks,
     masteryThreshold,
   };
 }
 
-export function buildActivitySettingsUpdatePayload(values: ActivitySettingsValues): UpdateDigitalActivitySettingsPayload {
-  const totalMarks = values.scoringMode === "NONE" ? null : Number(values.totalMarks);
-  const masteryThreshold = values.scoringMode === "MASTERY_THRESHOLD" ? Number(values.masteryThreshold) : null;
+export function getActivitySettingsScoringSyncState(
+  activity?: ActivitySettingsScoringSnapshot | null,
+): { requiresResync: boolean; allocatedMarks: number; expectedMarks: number | null } {
+  if (!activity || activity.scoringMode === "NONE" || !activity.items.length) {
+    return { requiresResync: false, allocatedMarks: 0, expectedMarks: activity?.totalMarks ?? null };
+  }
+
+  const expectedMarks =
+    typeof activity.totalMarks === "number" && activity.totalMarks > 0
+      ? activity.totalMarks
+      : null;
+
+  if (expectedMarks === null) {
+    return { requiresResync: false, allocatedMarks: 0, expectedMarks: null };
+  }
+
+  const allocatedMarks = activity.items.reduce(
+    (sum, item) => sum + (typeof item.marks === "number" ? item.marks : 0),
+    0,
+  );
+  const hasInvalidItemMarks = activity.items.some(
+    (item) => typeof item.marks !== "number" || item.marks < 1,
+  );
 
   return {
-    estimatedMinutes: Number(values.estimatedMinutes),
-    attemptsAllowed: Number(values.attemptsAllowed),
-    timeLimitSeconds: values.hasTimeLimit ? Math.round(Number(values.timeLimitMinutes) * 60) : null,
-    shuffleItems: values.shuffleItems,
-    showImmediateFeedback: values.showImmediateFeedback,
-    allowRetry: values.allowRetry,
-    scoringMode: values.scoringMode,
-    totalMarks,
-    masteryThreshold,
+    requiresResync: hasInvalidItemMarks || allocatedMarks !== expectedMarks,
+    allocatedMarks,
+    expectedMarks,
   };
 }
 

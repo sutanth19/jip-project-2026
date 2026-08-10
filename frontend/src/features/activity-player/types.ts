@@ -69,6 +69,7 @@ export type ActivityPreview = {
   difficulty: string
   scoringMode: string
   reviewMode: string
+  totalMarks?: number | null
   attemptsAllowed: number | null
   timeLimitSeconds: number | null
   shuffleItems: boolean

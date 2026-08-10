@@ -172,3 +172,32 @@ test("authenticate preserves the optional student PIN-change claim", () => {
     }
   }
 });
+
+test("authenticate rejects missing access tokens with the existing 401 contract", () => {
+  const req = {
+    headers: {},
+  } as AuthenticatedRequest;
+  let statusCode: number | undefined;
+  let payload: unknown;
+
+  const res = {
+    status(code: number) {
+      statusCode = code;
+      return this;
+    },
+    json(body: unknown) {
+      payload = body;
+      return this;
+    },
+  } as never;
+
+  authenticate(req, res, () => {
+    throw new Error("authenticate should not call next() when the token is missing");
+  });
+
+  assert.equal(statusCode, 401);
+  assert.deepEqual(payload, {
+    success: false,
+    message: "Access token is required.",
+  });
+});

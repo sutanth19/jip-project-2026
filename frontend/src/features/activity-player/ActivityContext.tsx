@@ -55,19 +55,24 @@ type ActivityProviderProps = {
 }
 
 function ActivityProviderState({ activity, children, previewMode = false }: ActivityProviderProps) {
-  const shouldShuffleItems = !previewMode && (activity.shuffleItems || getBooleanConfiguration(activity.configuration, ["randomizeQuestions", "randomizeQuestionOrder"]))
-  const [orderedItems] = useState(() => shouldShuffleItems ? stableShuffle(activity.items, `${activity.id}:questions`) : activity.items)
+  const shouldShuffleItems = activity.shuffleItems || getBooleanConfiguration(activity.configuration, ["randomizeQuestions", "randomizeQuestionOrder"])
+  const [previewSessionSeed, setPreviewSessionSeed] = useState(0)
+  const orderedItems = useMemo(
+    () => shouldShuffleItems ? stableShuffle(activity.items, `${activity.id}:questions:${previewSessionSeed}`) : activity.items,
+    [activity.id, activity.items, previewSessionSeed, shouldShuffleItems],
+  )
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<ActivityAnswerMap>({})
   const [temporaryState, setTemporaryStateValue] = useState<ActivityTemporaryState>({})
   const [completedItemIds, setCompletedItemIds] = useState<ReadonlySet<string>>(() => new Set())
   const [completionSummary, setCompletionSummary] = useState<ActivityCompletionSummary | null>(null)
   const [isFinished, setIsFinished] = useState(false)
-  const timerMode = previewMode ? "disabled" : getTimerMode(activity)
+  const timerMode = previewMode ? (activity.timeLimitSeconds ? "countdown" : "disabled") : getTimerMode(activity)
   const [timerSeconds, setTimerSeconds] = useState(() => activity.timeLimitSeconds ?? 0)
   const [isTimerPaused, setIsTimerPaused] = useState(false)
 
   useEffect(() => {
+    if (timerMode === "countdown" && timerSeconds === 0) return undefined
     if (timerMode === "disabled" || isTimerPaused || isFinished) return undefined
 
     const interval = window.setInterval(() => {
@@ -75,7 +80,7 @@ function ActivityProviderState({ activity, children, previewMode = false }: Acti
     }, 1_000)
 
     return () => window.clearInterval(interval)
-  }, [isFinished, isTimerPaused, timerMode])
+  }, [isFinished, isTimerPaused, timerMode, timerSeconds])
 
   const value = useMemo<ActivityPlayerContextValue>(() => {
     const items = orderedItems
@@ -142,6 +147,7 @@ function ActivityProviderState({ activity, children, previewMode = false }: Acti
         setIsFinished(false)
         setTimerSeconds(activity.timeLimitSeconds ?? 0)
         setIsTimerPaused(false)
+        setPreviewSessionSeed((value) => shouldShuffleItems ? value + 1 : value)
       },
       finishActivity: () => {
         markCurrentItemCompleted()
@@ -158,7 +164,7 @@ function ActivityProviderState({ activity, children, previewMode = false }: Acti
         setTemporaryStateValue((previous) => ({ ...previous, [key]: state }))
       },
     }
-  }, [activity, answers, completedItemIds, completionSummary, currentIndex, isFinished, isTimerPaused, orderedItems, previewMode, temporaryState, timerMode, timerSeconds])
+  }, [activity, answers, completedItemIds, completionSummary, currentIndex, isFinished, isTimerPaused, orderedItems, previewMode, shouldShuffleItems, temporaryState, timerMode, timerSeconds])
 
   return <ActivityPlayerContext.Provider value={value}>{children}</ActivityPlayerContext.Provider>
 }

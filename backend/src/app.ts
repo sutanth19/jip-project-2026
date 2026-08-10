@@ -38,12 +38,19 @@ import aiRoutes from "./routes/ai.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
+export function resolveTrustProxySetting(env: NodeJS.ProcessEnv = process.env): number | false {
+  return env.NODE_ENV === "production" ? 1 : false;
+}
+
 const app = express();
 const rawAllowedOrigins = [process.env.FRONTEND_URL, process.env.APP_URL]
   .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
   .map((value) => value.trim().replace(/\/$/, ""));
 const developmentOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
 const allowedOrigins = new Set([...developmentOrigins, ...rawAllowedOrigins]);
+const trustProxySetting = resolveTrustProxySetting();
+
+app.set("trust proxy", trustProxySetting);
 
 app.use(helmet());
 app.use(

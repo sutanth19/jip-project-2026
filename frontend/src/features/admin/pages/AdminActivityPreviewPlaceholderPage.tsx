@@ -1,26 +1,31 @@
-import { useQuery } from "@tanstack/react-query"
-import { Eye, FileCheck2, PlayCircle, ShieldCheck, TimerReset } from "lucide-react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { ErrorState, ManagementPageLayout } from "@/components/shared"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ActivityProvider } from "@/features/activity-player/ActivityContext"
 import { ActivityRenderer } from "@/features/activity-player/ActivityRenderer"
 import { useActivityPlayer } from "@/features/activity-player/useActivityPlayer"
-import { getAdminDigitalActivityPreview } from "@/features/admin/api/admin-activity.api"
+import { getAdminDigitalActivity, getAdminDigitalActivityPreview, updateAdminDigitalActivitySettings } from "@/features/admin/api/admin-activity.api"
 import { ActivityWizardStepper, SelectedTemplateSummary } from "@/features/admin/components/AdminActivityCreateWizard"
+import { AdminActivityWizardStepFooter } from "@/features/admin/components/AdminActivityWizardStepFooter"
+import { useActivityWizardStep } from "@/features/admin/hooks/use-activity-wizard-step"
 import { getActivityWizardProgress } from "@/features/admin/utils/admin-activity-create"
+import { buildActivitySettingsUpdatePayload, getActivitySettingsFormValues, getActivitySettingsTemplateSupport } from "@/features/admin/utils/admin-activity-settings"
+import { parseApiError } from "@/lib/api"
+import { useToast } from "@/providers/toast-context-value"
 
 const stepOnePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/maklumat`
 const stepTwoPath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/kurikulum`
 const stepThreePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/kandungan`
 const stepFourPath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/tetapan`
+const stepSixPath = (activityId: string) => `/admin/aktiviti/${activityId}/cipta/terbitkan`
+const galleryPath = "/admin/aktiviti/cipta/membaca"
 
 const previewQueryKeys = {
   activityPreview: (activityId: string) => ["admin", "activities", "preview", activityId] as const,
+  activityDetail: (activityId: string) => ["admin", "activities", "detail", activityId] as const,
 }
 
 function PreviewSkeleton() {
@@ -40,11 +45,7 @@ function PreviewMetaCard({ activityId }: { activityId: string }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-semibold">Mod Pratonton</Badge>
-            <Badge variant="outline" className="rounded-full border-secondary/20 bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary">Aktiviti draf</Badge>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{activity.title}. Cuba aktiviti seperti murid; percubaan, markah dan kemajuan tidak akan direkodkan.</p>
+          <h2 className="text-lg font-semibold text-foreground">{activity.title}</h2>
         </div>
         <Button asChild variant="outline" className="h-11 shrink-0 rounded-xl">
           <Link to={stepFourPath(activityId)}>Kembali ke Tetapan</Link>
@@ -57,67 +58,23 @@ function PreviewMetaCard({ activityId }: { activityId: string }) {
   )
 }
 
-function PreviewSummaryCard({
-  activity,
-  progress,
-}: {
-  activity: Awaited<ReturnType<typeof getAdminDigitalActivityPreview>>
-  progress: ReturnType<typeof getActivityWizardProgress>
-}) {
-  const rows = [
-    { label: "Status", value: activity.status, icon: ShieldCheck, tone: "primary" as const },
-    { label: "Program", value: activity.programme?.name ?? "Tidak tersedia", icon: FileCheck2, tone: "secondary" as const },
-    { label: "Versi Kurikulum", value: activity.programme?.version?.name ?? "Tidak tersedia", icon: FileCheck2, tone: "secondary" as const },
-    { label: "Item", value: String(activity.items.length), icon: PlayCircle, tone: "primary" as const },
-    { label: "Tetapan", value: progress.hasSettings ? "Lengkap" : "Belum lengkap", icon: TimerReset, tone: progress.hasSettings ? "success" as const : "warning" as const },
-  ]
+function getPreviewSaveErrorMessage(error: unknown): string {
+  const parsed = parseApiError(error)
 
-  return (
-    <Card className="rounded-2xl border-border bg-card py-0 shadow-sm">
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-secondary/20 bg-secondary/10 text-secondary">
-            <Eye className="size-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">Ringkasan Pratonton</h2>
-            <p className="text-sm leading-6 text-muted-foreground">Semak kandungan, tetapan dan susunan item sebelum diterbitkan.</p>
-          </div>
-        </div>
-
-        <dl className="space-y-3 text-sm">
-          {rows.map((row) => {
-            const Icon = row.icon
-            const toneClassName =
-              row.tone === "success"
-                ? "border-secondary/20 bg-secondary/10 text-secondary"
-                : row.tone === "warning"
-                  ? "border-warning/20 bg-warning/10 text-warning"
-                  : row.tone === "primary"
-                    ? "border-primary/20 bg-primary/10 text-primary"
-                    : "border-border bg-muted/30 text-foreground"
-
-            return (
-              <div key={row.label} className="flex items-center justify-between gap-4 rounded-xl border border-border bg-background/30 px-4 py-3">
-                <dt className="flex min-w-0 items-center gap-3">
-                  <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${toneClassName}`}>
-                    <Icon className="size-4" aria-hidden="true" />
-                  </span>
-                  <span className="font-medium text-muted-foreground">{row.label}</span>
-                </dt>
-                <dd className="text-right font-semibold text-foreground">{row.value}</dd>
-              </div>
-            )
-          })}
-        </dl>
-      </CardContent>
-    </Card>
-  )
+  switch (parsed.code) {
+    case "DIGITAL_ACTIVITY_CONFIGURATION_INVALID":
+    case "DIGITAL_ACTIVITY_REVIEW_INVALID":
+      return "Tetapan aktiviti tidak dapat disimpan. Sila semak semula konfigurasi semasa."
+    default:
+      return "Aktiviti tidak dapat disimpan. Sila cuba semula."
+  }
 }
 
 export function AdminActivityPreviewPlaceholderPage() {
   const activityId = useParams().activityId ?? ""
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const toast = useToast()
 
   const preview = useQuery({
     queryKey: previewQueryKeys.activityPreview(activityId),
@@ -125,11 +82,56 @@ export function AdminActivityPreviewPlaceholderPage() {
     enabled: Boolean(activityId),
     staleTime: 30_000,
   })
+  const activityDetail = useQuery({
+    queryKey: previewQueryKeys.activityDetail(activityId),
+    queryFn: () => getAdminDigitalActivity(activityId),
+    enabled: Boolean(activityId),
+    staleTime: 30_000,
+  })
+
+  const savePreviewStep = useMutation({
+    mutationFn: async () => {
+      if (!activityDetail.data) {
+        throw new Error("MISSING_ACTIVITY_DETAIL")
+      }
+
+      const values = getActivitySettingsFormValues(activityDetail.data)
+      const templateSupport = getActivitySettingsTemplateSupport(activityDetail.data)
+      return updateAdminDigitalActivitySettings(
+        activityId,
+        buildActivitySettingsUpdatePayload(values, templateSupport),
+      )
+    },
+    onSuccess: async (savedActivity) => {
+      queryClient.setQueryData(previewQueryKeys.activityDetail(savedActivity.id), savedActivity)
+      await queryClient.invalidateQueries({ queryKey: previewQueryKeys.activityPreview(savedActivity.id) })
+      toast.success("Berjaya", "Aktiviti berjaya disimpan.")
+    },
+    onError: (error) => {
+      toast.error("Ralat", getPreviewSaveErrorMessage(error))
+    },
+  })
 
   const progress = getActivityWizardProgress(preview.data)
   const showDraftError = preview.data && preview.data.status !== "DRAFT"
   const showUnavailableError = preview.data && preview.data.status === "DRAFT" && !progress.hasSettings
   const canPreview = preview.data && preview.data.status === "DRAFT" && progress.hasSettings
+  const stepController = useActivityWizardStep({
+    form: {
+      formState: { isDirty: false },
+      handleSubmit: (callback: () => Promise<void>) => () => callback(),
+    } as never,
+    navigate,
+    cancelDestination: galleryPath,
+    continueDestination: stepSixPath(activityId),
+    onSave: async () => {
+      await savePreviewStep.mutateAsync()
+    },
+    isSaving: savePreviewStep.isPending,
+    isSaved: Boolean(preview.data),
+    isReady: Boolean(activityDetail.data),
+    hasHydrated: !activityDetail.isLoading,
+  })
 
   return (
     <ManagementPageLayout
@@ -187,15 +189,24 @@ export function AdminActivityPreviewPlaceholderPage() {
               curriculum: stepTwoPath(activityId),
               content: stepThreePath(activityId),
               settings: stepFourPath(activityId),
+              publish: stepSixPath(activityId),
             }}
           />
 
           <ActivityProvider activity={preview.data} previewMode>
             <div className="space-y-6">
               <PreviewMetaCard activityId={activityId} />
-              <PreviewSummaryCard activity={preview.data} progress={progress} />
             </div>
           </ActivityProvider>
+
+          <AdminActivityWizardStepFooter
+            isSaving={savePreviewStep.isPending}
+            canSave={Boolean(activityDetail.data) && !savePreviewStep.isPending}
+            canContinue={stepController.canContinue}
+            onSave={stepController.save}
+            onContinue={stepController.continueToNextStep}
+            showCancel={false}
+          />
         </div>
       ) : null}
     </ManagementPageLayout>

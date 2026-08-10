@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 import { ActivityProvider } from "@/features/activity-player/ActivityContext"
 import { ArrangeSyllablesPlayer } from "@/features/activity-player/renderers/ArrangeSyllablesPlayer"
 import { useActivityPlayer } from "@/features/activity-player/useActivityPlayer"
-import { calculateActivityProgress, getNextActivityIndex, getPreviousActivityIndex } from "@/features/activity-player/activity-player.utils"
+import { calculateActivityProgress, getNextActivityIndex, getPreviousActivityIndex, stableShuffle } from "@/features/activity-player/activity-player.utils"
 import { EmptyActivity } from "@/features/activity-player/components/EmptyActivity"
 import { ActivityLoadingState } from "@/features/activity-player/components/LoadingState"
 import { CompletionScreen } from "@/features/activity-player/components/CompletionScreen"
@@ -19,6 +19,7 @@ const activity: ActivityPreview = {
   difficulty: "BASIC",
   scoringMode: "NONE",
   reviewMode: "TEACHER",
+  totalMarks: null,
   attemptsAllowed: null,
   timeLimitSeconds: null,
   shuffleItems: false,
@@ -62,9 +63,10 @@ const arrangeSyllablesPreviewActivity: ActivityPreview = {
   difficulty: "BASIC",
   scoringMode: "NONE",
   reviewMode: "TEACHER",
+  totalMarks: null,
   attemptsAllowed: null,
   timeLimitSeconds: 120,
-  shuffleItems: true,
+  shuffleItems: false,
   showImmediateFeedback: true,
   allowRetry: true,
   template: { code: "ARRANGE_SYLLABLES", version: 1, rendererKey: "arrange-syllables" },
@@ -209,7 +211,7 @@ describe("activity player states", () => {
   it("keeps preview mode read-only, preserves item order, and renders a playable missing-syllables preview", () => {
     function PreviewProbe() {
       const { isPreview, timer, items } = useActivityPlayer()
-      return <output>{`${isPreview}:${timer.mode}:${items.map((item) => item.id).join(",")}`}</output>
+      return <output>{`${isPreview}:${timer.mode}:${items.map((item) => item.id).join(",")}:${timer.seconds}`}</output>
     }
 
     const probeMarkup = renderToStaticMarkup(
@@ -223,7 +225,7 @@ describe("activity player states", () => {
       </ActivityProvider>,
     )
 
-    expect(probeMarkup).toContain("true:disabled:item-1,item-2")
+    expect(probeMarkup).toContain("true:countdown:item-1,item-2:120")
     expect(previewMarkup).toContain("Seret suku kata yang betul ke ruang kosong.")
     expect(previewMarkup).toContain("Seret Suku Kata")
     expect(previewMarkup).toContain("Soalan 1 daripada 2")
@@ -233,13 +235,51 @@ describe("activity player states", () => {
     expect(previewMarkup).toContain("Petunjuk")
     expect(previewMarkup).toContain("https://cdn.example.test/image-1.png")
     expect(previewMarkup).toContain("https://cdn.example.test/audio-1.mp3")
+    expect(previewMarkup).toContain("02:00")
     expect(previewMarkup).toContain("LA")
     expect(previewMarkup).toContain("RA")
     expect(previewMarkup).toContain("data-voxel-game-environment")
     expect(previewMarkup).not.toContain("Semak Jawapan")
-    expect(previewMarkup).toContain("Cuba Semula")
+    expect(previewMarkup).not.toContain("Cuba Semula")
     expect(previewMarkup).toContain("Seterusnya")
     expect(previewMarkup).not.toContain("Ruang jawapan")
     expect(previewMarkup).not.toContain("kontrak aktiviti sebenar")
+  })
+
+  it("shuffles preview question order once when the saved Step 4 setting enables shuffle", () => {
+    const shuffledPreviewActivity: ActivityPreview = {
+      ...arrangeSyllablesPreviewActivity,
+      shuffleItems: true,
+      items: [
+        ...arrangeSyllablesPreviewActivity.items,
+        {
+          ...arrangeSyllablesPreviewActivity.items[1],
+          id: "item-3",
+          sequence: 2,
+          questionBankItem: {
+            ...arrangeSyllablesPreviewActivity.items[1].questionBankItem,
+            id: "question-preview-3",
+            title: "Kuda",
+            content: "KUDA",
+          },
+        },
+      ],
+    }
+
+    function PreviewProbe() {
+      const { items } = useActivityPlayer()
+      return <output>{items.map((item) => item.id).join(",")}</output>
+    }
+
+    const expectedOrder = stableShuffle(shuffledPreviewActivity.items, `${shuffledPreviewActivity.id}:questions:0`)
+      .map((item) => item.id)
+      .join(",")
+    const probeMarkup = renderToStaticMarkup(
+      <ActivityProvider activity={shuffledPreviewActivity} previewMode>
+        <PreviewProbe />
+      </ActivityProvider>,
+    )
+
+    expect(probeMarkup).toContain(expectedOrder)
   })
 })

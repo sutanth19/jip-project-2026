@@ -4,8 +4,9 @@ import { Card, CardContent } from "@/components/ui/card"
 
 import { useActivityPlayer } from "../useActivityPlayer"
 import { playCorrectGameSound } from "../audio/gameSoundEffects"
-import { MissingSyllablesPreview } from "./arrange-syllables/MissingSyllablesPreview"
+import { MissingSyllablesCompletionScreen, MissingSyllablesPreview } from "./arrange-syllables/MissingSyllablesPreview"
 import { ArrangeSyllablesBoard } from "./arrange-syllables/ArrangeSyllablesBoard"
+import { buildPreviewScore } from "./arrange-syllables/arrange-syllables-preview-scoring"
 import type { ArrangeSyllablesLegacyQuestion, ArrangeSyllablesMissingQuestion, ArrangeSyllablesSessionState } from "./arrange-syllables/arrange-syllables.types"
 import {
   buildArrangeSyllablesCompletionSummary,
@@ -19,7 +20,6 @@ import {
   placeMissingSyllable,
   placeArrangeSyllable,
   reorderArrangeSyllable,
-  resetMissingSyllables,
   recordIncorrectMissingSyllableAttempt,
   resetArrangeSyllables,
   returnMissingSyllable,
@@ -50,13 +50,20 @@ export function ArrangeSyllablesPlayer() {
     markItemCompleted,
     previousItem,
     nextItem,
+    restartActivity,
     setCompletionSummary,
+    timer,
+    isFinished,
   } = useActivityPlayer()
   const mapped = useMemo(
     () => (currentItem ? mapArrangeSyllablesQuestion(currentItem) : { ok: false as const, message: "Item aktiviti tidak tersedia." }),
     [currentItem],
   )
   const session = asSession(temporaryState[SESSION_KEY])
+  const score = useMemo(
+    () => buildPreviewScore(items, session, activity.scoringMode, typeof activity.totalMarks === "number" ? activity.totalMarks : null),
+    [activity.scoringMode, items, session, activity.totalMarks],
+  )
   const legacyQuestion = mapped.ok && mapped.question.mode === "ORDERED_RECONSTRUCTION" ? mapped.question : null
   const missingQuestion = mapped.ok && mapped.question.mode === "MISSING_SYLLABLES" ? mapped.question : null
 
@@ -111,15 +118,14 @@ export function ArrangeSyllablesPlayer() {
         return
       }
 
-      const evaluated = submitMissingSyllables(nextState, question, { ...settings, allowRetry: true, showImmediateFeedback: true })
+      const evaluated = submitMissingSyllables(nextState, question, settings)
       persist(evaluated)
-      if (evaluated.isCorrect) {
-        playCorrectGameSound()
+      if (evaluated.completed) {
         markItemCompleted(question.itemId)
-        return
       }
-
-      persist(recordIncorrectMissingSyllableAttempt(state))
+      if (settings.showImmediateFeedback && evaluated.isCorrect) {
+        playCorrectGameSound()
+      }
     }
 
     const next = () => {
@@ -134,6 +140,18 @@ export function ArrangeSyllablesPlayer() {
       nextItem()
     }
 
+    if (isFinished) {
+      return (
+        <MissingSyllablesCompletionScreen
+          totalQuestions={items.length}
+          scoreValue={score.value}
+          scoreTotal={score.total}
+          onReplay={restartActivity}
+          onHome={() => undefined}
+        />
+      )
+    }
+
     return (
       <MissingSyllablesPreview
         key={question.itemId}
@@ -143,7 +161,6 @@ export function ArrangeSyllablesPlayer() {
         onPlace={(choiceId, blankId) => evaluatePlacement(placeMissingSyllable(state, choiceId, blankId))}
         onReject={() => persist(recordIncorrectMissingSyllableAttempt(state))}
         onReturn={(choiceId) => persist(returnMissingSyllable(state, choiceId))}
-        onReset={() => persist(resetMissingSyllables(state))}
         onRetry={() => persist(retryMissingSyllables(state, question))}
         onPrevious={previousItem}
         onNext={next}
@@ -152,6 +169,7 @@ export function ArrangeSyllablesPlayer() {
         currentIndex={currentIndex}
         itemIds={items.map((item) => item.id)}
         completedItemIds={completedItemIds}
+        timerSeconds={timer.mode === "countdown" ? timer.seconds : null}
       />
     )
   }

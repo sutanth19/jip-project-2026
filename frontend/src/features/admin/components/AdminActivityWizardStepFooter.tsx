@@ -6,9 +6,10 @@ type AdminActivityWizardStepFooterProps = {
   isSaving: boolean;
   canSave: boolean;
   canContinue: boolean;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSave: () => void | Promise<void>;
   onContinue: () => void;
+  showCancel?: boolean;
 };
 
 export function AdminActivityWizardStepFooter({
@@ -18,21 +19,24 @@ export function AdminActivityWizardStepFooter({
   onCancel,
   onSave,
   onContinue,
+  showCancel = true,
 }: AdminActivityWizardStepFooterProps) {
   return (
     <div className="flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
+      {showCancel ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full rounded-xl px-5 font-semibold sm:w-auto"
+          onClick={onCancel}
+          disabled={isSaving}
+        >
+          Batal
+        </Button>
+      ) : null}
       <Button
         type="button"
-        variant="outline"
-        className="h-11 w-full rounded-xl px-5 font-semibold sm:w-auto"
-        onClick={onCancel}
-        disabled={isSaving}
-      >
-        Batal
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
+        variant="success"
         className="h-11 w-full gap-2 rounded-xl px-5 font-semibold focus-visible:ring-primary/30 sm:w-auto"
         onClick={() => {
           void Promise.resolve(onSave()).catch(() => undefined);

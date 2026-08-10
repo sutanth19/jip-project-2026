@@ -169,7 +169,7 @@ export function getMissingSyllablesSettings(activity: { attemptsAllowed: number 
 
 export function createArrangeSyllablesState(question: ArrangeSyllablesLegacyQuestion, activityId: string): ArrangeSyllablesState {
   const ids = question.targetSyllables.map((syllable) => syllable.id)
-  return { bankOrder: question.shuffleSyllables ? stableShuffle(ids, `${activityId}:${question.itemId}:arrange-syllables`) : ids, arrangedSyllableIds: [], submitted: false, isCorrect: null, validationError: false, attemptCount: 0, completed: false, feedback: null }
+  return { bankOrder: question.shuffleSyllables ? stableShuffle(ids, `${activityId}:${question.itemId}:arrange-syllables`) : ids, arrangedSyllableIds: [], submitted: false, isCorrect: null, validationError: false, attemptCount: 0, markAwarded: null, completed: false, feedback: null }
 }
 
 export function missingSyllableBlanks(question: ArrangeSyllablesMissingQuestion): MissingSyllableBlank[] {
@@ -203,7 +203,7 @@ export function missingSyllableChoices(question: ArrangeSyllablesMissingQuestion
 
 export function createMissingSyllablesState(question: ArrangeSyllablesMissingQuestion, activityId: string): MissingSyllablesState {
   const choiceIds = missingSyllableChoices(question).map((choice) => choice.id)
-  return { bankOrder: stableShuffle(choiceIds, `${activityId}:${question.itemId}:missing-syllables`), assignments: {}, submitted: false, isCorrect: null, validationError: false, attemptCount: 0, completed: false, feedback: null }
+  return { bankOrder: stableShuffle(choiceIds, `${activityId}:${question.itemId}:missing-syllables`), assignments: {}, submitted: false, isCorrect: null, validationError: false, attemptCount: 0, markAwarded: null, completed: false, feedback: null }
 }
 
 function withoutChoice(assignments: Record<string, string>, choiceId: string): Record<string, string> {
@@ -280,7 +280,8 @@ export function submitMissingSyllables(state: MissingSyllablesState, question: A
   const blanks = missingSyllableBlanks(question)
   if (blanks.length === 0 || blanks.some((blank) => !state.assignments[blank.id])) return { ...state, validationError: true }
   const isCorrect = isMissingSyllablesCorrect(question, state)
-  const submitted = { ...state, submitted: true, isCorrect, validationError: false, attemptCount: state.attemptCount + 1 }
+  const markAwarded = state.markAwarded ?? isCorrect
+  const submitted = { ...state, submitted: true, isCorrect, validationError: false, attemptCount: state.attemptCount + 1, markAwarded }
   const retryAllowed = canRetryMissingSyllables(submitted, settings)
   const completed = !settings.showImmediateFeedback || isCorrect || !retryAllowed
   const feedback = settings.showImmediateFeedback ? isCorrect ? "Betul. Hebat!" : retryAllowed ? "Cuba lagi." : "Bagus kerana mencuba. Mari teruskan." : "Jawapan disemak dalam pratonton ini."
@@ -293,7 +294,7 @@ export function retryMissingSyllables(state: MissingSyllablesState, question: Ar
 
 export function recordIncorrectMissingSyllableAttempt(state: MissingSyllablesState): MissingSyllablesState {
   if (state.submitted) return state
-  return { ...state, attemptCount: state.attemptCount + 1, validationError: false }
+  return { ...state, attemptCount: state.attemptCount + 1, markAwarded: false, validationError: false }
 }
 
 export function placeArrangeSyllable(state: ArrangeSyllablesState, syllableId: string, position = state.arrangedSyllableIds.length): ArrangeSyllablesState {
@@ -328,7 +329,8 @@ export function submitArrangeSyllables(state: ArrangeSyllablesState, question: A
   if (state.submitted) return state
   if (state.arrangedSyllableIds.length !== question.targetSyllables.length) return { ...state, validationError: true }
   const isCorrect = isArrangeSyllablesCorrect(question, state.arrangedSyllableIds)
-  const submitted = { ...state, submitted: true, isCorrect, validationError: false, attemptCount: state.attemptCount + 1 }
+  const markAwarded = state.markAwarded ?? isCorrect
+  const submitted = { ...state, submitted: true, isCorrect, validationError: false, attemptCount: state.attemptCount + 1, markAwarded }
   const retryAllowed = canRetryArrangeSyllables(submitted, settings)
   const completed = !settings.showImmediateFeedback || isCorrect || !retryAllowed
   const feedback = settings.showImmediateFeedback ? isCorrect ? "Hebat! Susunan suku kata betul." : retryAllowed ? "Cuba susun semula." : "Bagus kerana mencuba. Mari teruskan ke perkataan seterusnya." : "Jawapan direkod untuk semakan sesi ini."

@@ -16,7 +16,27 @@ import { PASSWORD_RESET_GENERIC_MESSAGE } from "../services/auth.service.js";
 
 import { authenticate } from "../middleware/auth.middleware.js";
 
-const router = Router();
+interface AuthRouteHandlers {
+  changeFirstPinController: typeof changeFirstPinController;
+  changeFirstPasswordController: typeof changeFirstPasswordController;
+  forgotPasswordController: typeof forgotPasswordController;
+  loginController: typeof loginController;
+  meController: typeof meController;
+  resetPasswordController: typeof resetPasswordController;
+  setupPasswordController: typeof setupPasswordController;
+  studentLoginController: typeof studentLoginController;
+}
+
+const defaultHandlers: AuthRouteHandlers = {
+  changeFirstPinController,
+  changeFirstPasswordController,
+  forgotPasswordController,
+  loginController,
+  meController,
+  resetPasswordController,
+  setupPasswordController,
+  studentLoginController,
+};
 
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -84,29 +104,35 @@ const resetPasswordRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post("/login", loginRateLimiter, loginController);
-router.post("/student/login", studentLoginRateLimiter, studentLoginController);
-router.post("/setup-password", setupPasswordController);
-router.post(
-  "/forgot-password",
-  forgotPasswordIpRateLimiter,
-  forgotPasswordEmailRateLimiter,
-  forgotPasswordController
-);
-router.post("/reset-password", resetPasswordRateLimiter, resetPasswordController);
-router.post(
-  "/change-first-password",
-  changeFirstPasswordRateLimiter,
-  authenticate,
-  changeFirstPasswordController
-);
-router.post(
-  "/student/change-first-pin",
-  changeFirstPinRateLimiter,
-  authenticate,
-  changeFirstPinController
-);
+export function createAuthRouter(handlers: AuthRouteHandlers = defaultHandlers) {
+  const router = Router();
 
-router.get("/me", authenticate, meController);
+  router.post("/login", loginRateLimiter, handlers.loginController);
+  router.post("/student/login", studentLoginRateLimiter, handlers.studentLoginController);
+  router.post("/setup-password", handlers.setupPasswordController);
+  router.post(
+    "/forgot-password",
+    forgotPasswordIpRateLimiter,
+    forgotPasswordEmailRateLimiter,
+    handlers.forgotPasswordController
+  );
+  router.post("/reset-password", resetPasswordRateLimiter, handlers.resetPasswordController);
+  router.post(
+    "/change-first-password",
+    changeFirstPasswordRateLimiter,
+    authenticate,
+    handlers.changeFirstPasswordController
+  );
+  router.post(
+    "/student/change-first-pin",
+    changeFirstPinRateLimiter,
+    authenticate,
+    handlers.changeFirstPinController
+  );
 
-export default router;
+  router.get("/me", authenticate, handlers.meController);
+
+  return router;
+}
+
+export default createAuthRouter();

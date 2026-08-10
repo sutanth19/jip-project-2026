@@ -35,8 +35,8 @@ export function AdminActivityPage() {
   const { query, updateQuery } = useAdminActivityQueryState();
 
   const summaryQuery = useQuery({
-    queryKey: ["admin", "activities", "summary"],
-    queryFn: getAdminActivitySummary,
+    queryKey: ["admin", "activities", "summary", query.templateCategory],
+    queryFn: () => getAdminActivitySummary({ templateCategory: query.templateCategory }),
     staleTime: 30_000,
   });
 

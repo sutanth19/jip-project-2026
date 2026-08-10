@@ -65,6 +65,7 @@ export type ArrangeSyllablesState = {
   isCorrect: boolean | null
   validationError: boolean
   attemptCount: number
+  markAwarded: boolean | null
   completed: boolean
   feedback: string | null
 }
@@ -85,6 +86,7 @@ export type MissingSyllablesState = {
   isCorrect: boolean | null
   validationError: boolean
   attemptCount: number
+  markAwarded: boolean | null
   completed: boolean
   feedback: string | null
 }

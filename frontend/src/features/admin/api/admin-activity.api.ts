@@ -39,6 +39,7 @@ type ListActivitiesPayload = {
     template?: {
       id: string;
       name: string;
+      code?: string | null;
       category: string | null;
       rendererKey: string | null;
     } | null;
@@ -135,8 +136,21 @@ type ActivityPayload = {
     rewardConfiguration?: unknown;
     presentationSettings?: unknown;
     settingsCompletedAt?: string | null;
+    submittedForReviewAt?: string | null;
+    archivedAt?: string | null;
+    creator?: {
+      userId: string;
+      schoolId?: string | null;
+      schoolName?: string | null;
+      fullName?: string | null;
+    } | null;
     programme?: ProgrammeResolution | null;
     template?: ActivityTemplateResolution | null;
+    items: Array<{
+      id: string;
+      marks?: number | null;
+      configuration?: unknown;
+    }>;
   };
 };
 
@@ -167,8 +181,23 @@ type ActivityPreviewPayload = {
   };
 };
 
+type ActivityPublishReadinessPayload = {
+  readiness?: {
+    ready: boolean;
+    issues: string[];
+    checks: {
+      information: boolean;
+      curriculum: boolean;
+      content: boolean;
+      settings: boolean;
+      preview: boolean;
+    };
+  };
+};
+
 export type AdminActivityDetailRecord = NonNullable<ActivityPayload["activity"]>;
 export type AdminActivityPreviewRecord = NonNullable<ActivityPreviewPayload["activity"]>;
+export type AdminActivityPublishReadiness = NonNullable<ActivityPublishReadinessPayload["readiness"]>;
 
 function normalizeActivityRecord(record: NonNullable<ListActivitiesPayload["activities"]>[number]): AdminActivityRecord {
   return {
@@ -190,8 +219,28 @@ function normalizeAdminActivityCategory(category: string | null): AdminActivityC
   return category === "WRITING" ? "WRITING" : "READING";
 }
 
+function getBackendTemplateCategories(category: AdminActivityCategory | undefined): string[] | undefined {
+  if (category === "READING") return ["READING", "ARRANGEMENT"];
+  if (category === "WRITING") return ["WRITING"];
+  return undefined;
+}
+
+function toAdminActivityApiSearchParams(query: Partial<AdminActivityListQuery>) {
+  const params = new URLSearchParams(toAdminActivitySearchParams(query).replace(/^\?/, ""));
+  const categories = getBackendTemplateCategories(query.templateCategory);
+
+  params.delete("templateCategory");
+
+  if (categories?.length) {
+    params.set("templateCategories", categories.join(","));
+  }
+
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
 export async function listAdminActivities(query: AdminActivityListQuery): Promise<AdminActivityListResult> {
-  const payload = await apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivitySearchParams(query)}`);
+  const payload = await apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivityApiSearchParams(query)}`);
   const items = (payload.activities ?? []).map(normalizeActivityRecord);
   const pagination = payload.pagination ?? {
     page: query.page,
@@ -325,6 +374,61 @@ export async function updateAdminDigitalActivitySettings(
   return response.activity;
 }
 
+export async function deleteAdminDigitalActivity(activityId: string): Promise<void> {
+  await apiRequest(`/digital-activities/${activityId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function submitAdminDigitalActivityForReview(activityId: string): Promise<AdminActivityDetailRecord> {
+  const response = await apiRequest<ActivityPayload>(`/digital-activities/${activityId}/submit-review`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+  if (!response.activity?.id) {
+    throw new Error("Digital activity review submission response did not include an activity ID.");
+  }
+
+  return response.activity;
+}
+
+export async function publishAdminDigitalActivity(activityId: string): Promise<AdminActivityDetailRecord> {
+  const response = await apiRequest<ActivityPayload>(`/digital-activities/${activityId}/publish`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+  if (!response.activity?.id) {
+    throw new Error("Digital activity publish response did not include an activity ID.");
+  }
+
+  return response.activity;
+}
+
+export async function archiveAdminDigitalActivity(activityId: string): Promise<AdminActivityDetailRecord> {
+  const response = await apiRequest<ActivityPayload>(`/digital-activities/${activityId}/archive`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+  if (!response.activity?.id) {
+    throw new Error("Digital activity archive response did not include an activity ID.");
+  }
+
+  return response.activity;
+}
+
+export async function getAdminDigitalActivityPublishReadiness(activityId: string): Promise<AdminActivityPublishReadiness> {
+  const response = await apiRequest<ActivityPublishReadinessPayload>(`/digital-activities/${activityId}/publish-readiness`);
+
+  if (!response.readiness) {
+    throw new Error("Digital activity publish readiness response did not include readiness.");
+  }
+
+  return response.readiness;
+}
+
 export async function listAdminCurriculumYears(programmeId: string): Promise<AdminCurriculumYearOption[]> {
   const params = new URLSearchParams({
     page: "1",
@@ -419,12 +523,12 @@ export async function removeAdminActivityCurriculumLink(activityId: string, link
   });
 }
 
-export async function getAdminActivitySummary(): Promise<AdminActivitySummary> {
+export async function getAdminActivitySummary(query: Pick<AdminActivityListQuery, "templateCategory">): Promise<AdminActivitySummary> {
   const [all, published, draft, archived] = await Promise.all([
-    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivitySearchParams({ page: 1, limit: 1, sortBy: "updatedAt", sortOrder: "desc" })}`),
-    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivitySearchParams({ page: 1, limit: 1, status: "PUBLISHED", sortBy: "updatedAt", sortOrder: "desc" })}`),
-    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivitySearchParams({ page: 1, limit: 1, status: "DRAFT", sortBy: "updatedAt", sortOrder: "desc" })}`),
-    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivitySearchParams({ page: 1, limit: 1, status: "ARCHIVED", sortBy: "updatedAt", sortOrder: "desc" })}`),
+    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivityApiSearchParams({ page: 1, limit: 1, sortBy: "updatedAt", sortOrder: "desc", templateCategory: query.templateCategory })}`),
+    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivityApiSearchParams({ page: 1, limit: 1, status: "PUBLISHED", sortBy: "updatedAt", sortOrder: "desc", templateCategory: query.templateCategory })}`),
+    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivityApiSearchParams({ page: 1, limit: 1, status: "DRAFT", sortBy: "updatedAt", sortOrder: "desc", templateCategory: query.templateCategory })}`),
+    apiRequest<ListActivitiesPayload>(`/digital-activities${toAdminActivityApiSearchParams({ page: 1, limit: 1, status: "ARCHIVED", sortBy: "updatedAt", sortOrder: "desc", templateCategory: query.templateCategory })}`),
   ]);
 
   return {

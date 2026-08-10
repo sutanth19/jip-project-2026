@@ -1,8 +1,11 @@
-import { Clock3, FileText, Plus, Search, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import * as React from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Archive, Clock3, FileText, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { EmptyState, ErrorState, Pagination } from "@/components/shared";
+import { ConfirmDialog, EmptyState, ErrorState, Pagination } from "@/components/shared";
 import { AdminPageHeader } from "@/features/admin/components/AdminPageHeader";
+import { archiveAdminDigitalActivity, deleteAdminDigitalActivity, publishAdminDigitalActivity } from "@/features/admin/api/admin-activity.api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,10 +16,7 @@ import {
   adminActivitySortOptions,
   adminActivityStatusOptions,
   adminActivitySummaryCards,
-  getAdminActivityCategoryLabel,
   getAdminActivityClockText,
-  getAdminActivityDifficultyLabel,
-  getAdminActivityItemCountLabel,
   getAdminActivityMetaRows,
   getAdminActivityPlaceholderIcon,
   getAdminActivityResultRange,
@@ -25,6 +25,7 @@ import {
   getAdminActivityStatusLabel,
   getAdminActivitySummaryAriaLabel,
   getAdminActivitySummaryDisplayValue,
+  getAdminActivityTemplateThumbnail,
   getAdminActivityTemplateOptionLabel,
   getAdminActivityThumbnail,
   type AdminActivityCategory,
@@ -36,7 +37,9 @@ import {
   type AdminActivityTemplateOption,
 } from "@/features/admin/utils/admin-activity";
 import { useDebouncedSearchInput } from "@/features/admin/hooks/use-debounced-search-input";
+import { parseApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/providers/toast-context-value";
 
 function AdminActivityStatusBadge({ status }: { status: string }) {
   const label = getAdminActivityStatusLabel(status);
@@ -44,10 +47,10 @@ function AdminActivityStatusBadge({ status }: { status: string }) {
     status === "PUBLISHED"
       ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300"
       : status === "DRAFT"
-        ? "border-slate-300 bg-slate-200 text-slate-700 dark:border-slate-400/25 dark:bg-slate-400/10 dark:text-slate-300"
+        ? "border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-400/25 dark:bg-sky-400/10 dark:text-sky-300"
         : status === "IN_REVIEW"
           ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300"
-          : "border-orange-300 bg-orange-100 text-orange-800 dark:border-orange-400/25 dark:bg-orange-400/10 dark:text-orange-300";
+          : "border-slate-300 bg-slate-200 text-slate-700 dark:border-slate-400/25 dark:bg-slate-400/10 dark:text-slate-300";
 
   return (
     <span
@@ -136,6 +139,7 @@ export function AdminActivityFilters({
   templates: AdminActivityTemplateOption[];
   onChange: (patch: Partial<AdminActivityListQuery>) => void;
 }) {
+  const availableTemplates = templates.filter((template) => template.category === (query.templateCategory ?? "READING"));
   const { searchInput, handleSearchInputChange, resetSearchInput } = useDebouncedSearchInput({
     value: query.search,
     onChange: (patch) => onChange({ ...patch, page: 1 } as Partial<AdminActivityListQuery>),
@@ -203,7 +207,7 @@ export function AdminActivityFilters({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua templat</SelectItem>
-              {templates.map((template) => (
+              {availableTemplates.map((template) => (
                 <SelectItem key={template.id} value={template.id}>
                   {getAdminActivityTemplateOptionLabel(template)}
                 </SelectItem>
@@ -269,84 +273,270 @@ export function AdminActivityResultsHeader({
   );
 }
 
-export function AdminActivityCard({ activity }: { activity: AdminActivityRecord }) {
-  const thumbnail = getAdminActivityThumbnail(activity);
-  const category = getAdminActivityCategoryLabel(activity.template?.category);
+function getDeleteErrorMessage(error: unknown): string {
+  const parsed = parseApiError(error);
+
+  if (parsed.code === "DIGITAL_ACTIVITY_DELETE_BLOCKED") {
+    return "Aktiviti ini tidak boleh dipadam kerana sedang digunakan.";
+  }
+
+  if (parsed.code === "DIGITAL_ACTIVITY_NOT_EDITABLE" || parsed.code === "DIGITAL_ACTIVITY_STATUS_TRANSITION_INVALID") {
+    return "Aktiviti ini tidak boleh dipadam pada status semasa.";
+  }
+
+  return "Aktiviti tidak dapat dipadam.";
+}
+
+function getArchiveErrorMessage(error: unknown): string {
+  const parsed = parseApiError(error);
+
+  if (parsed.code === "DIGITAL_ACTIVITY_STATUS_TRANSITION_INVALID") {
+    return "Aktiviti ini tidak boleh diarkibkan pada status semasa.";
+  }
+
+  return "Aktiviti tidak dapat diarkibkan.";
+}
+
+function getPublishErrorMessage(error: unknown): string {
+  const parsed = parseApiError(error);
+
+  if (parsed.code === "DIGITAL_ACTIVITY_PUBLICATION_INVALID") {
+    return parsed.message || "Aktiviti ini belum memenuhi syarat untuk diaktifkan semula.";
+  }
+
+  if (parsed.code === "DIGITAL_ACTIVITY_STATUS_TRANSITION_INVALID") {
+    return "Aktiviti ini tidak boleh diaktifkan semula pada status semasa.";
+  }
+
+  return "Aktiviti tidak dapat diaktifkan semula.";
+}
+
+export function AdminActivityCard({
+  activity,
+  currentPage,
+  pageSize,
+  totalItems,
+  onPageChange,
+}: {
+  activity: AdminActivityRecord;
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+}) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [archiveOpen, setArchiveOpen] = React.useState(false);
+  const [reactivateOpen, setReactivateOpen] = React.useState(false);
+  const thumbnail = getAdminActivityThumbnail(activity) ?? getAdminActivityTemplateThumbnail(activity.template);
   const metaRows = getAdminActivityMetaRows(activity);
+  const isDraft = activity.status === "DRAFT";
+  const isPublished = activity.status === "PUBLISHED";
+  const isArchived = activity.status === "ARCHIVED";
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAdminDigitalActivity(activity.id),
+    onSuccess: async () => {
+      setDeleteOpen(false);
+      const nextTotal = Math.max(totalItems - 1, 0);
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotal / Math.max(pageSize, 1)));
+      if (currentPage > nextTotalPages) {
+        onPageChange(nextTotalPages);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "detail", activity.id] }),
+      ]);
+      toast.success("Aktiviti berjaya dipadam.");
+    },
+    onError: (error) => {
+      toast.error("Aktiviti tidak dapat dipadam", getDeleteErrorMessage(error));
+    },
+  });
+  const archiveMutation = useMutation({
+    mutationFn: () => archiveAdminDigitalActivity(activity.id),
+    onSuccess: async () => {
+      setArchiveOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "detail", activity.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "preview", activity.id] }),
+      ]);
+      toast.success("Aktiviti berjaya diarkibkan.");
+    },
+    onError: (error) => {
+      toast.error("Aktiviti tidak dapat diarkibkan", getArchiveErrorMessage(error));
+    },
+  });
+  const reactivateMutation = useMutation({
+    mutationFn: () => publishAdminDigitalActivity(activity.id),
+    onSuccess: async () => {
+      setReactivateOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "list"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "detail", activity.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "preview", activity.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "activities", "publish-readiness", activity.id] }),
+      ]);
+      toast.success("Aktiviti berjaya diaktifkan semula.");
+    },
+    onError: (error) => {
+      toast.error("Aktiviti tidak dapat diaktifkan semula", getPublishErrorMessage(error));
+    },
+  });
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-colors hover:border-primary/25 hover:bg-muted/15">
-      <div className="aspect-[16/9] border-b border-border bg-muted/50">
-        {thumbnail ? (
-          <img
-            src={thumbnail.src}
-            alt={thumbnail.alt}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted via-card to-muted/60 text-muted-foreground">
-            {getAdminActivityPlaceholderIcon(activity.template?.category)}
-          </div>
-        )}
-      </div>
-
-      <div className="flex h-full flex-col p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-8 items-center rounded-full border border-primary/15 bg-primary/5 px-3 text-sm font-medium text-primary">
-            {category}
-          </span>
-          <AdminActivityStatusBadge status={activity.status} />
-        </div>
-
-        <div className="mt-4">
-          <h2 className="line-clamp-2 text-lg font-semibold text-foreground">{activity.title}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{activity.template?.name ?? "Templat tidak tersedia"}</p>
-        </div>
-
-        <dl className="mt-4 grid gap-3 text-sm">
-          {metaRows.map((item) => (
-            <div key={item.label} className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <item.icon className="size-4" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <dt className="text-muted-foreground">{item.label}</dt>
-                <dd className="mt-1 break-words font-medium text-foreground">{item.value}</dd>
-              </div>
+    <>
+      <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-colors hover:border-primary/25 hover:bg-muted/15">
+        <div className="aspect-[16/9] border-b border-border bg-muted/50">
+          {thumbnail ? (
+            <img
+              src={thumbnail.src}
+              alt={thumbnail.alt}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted via-card to-muted/60 text-muted-foreground">
+              {getAdminActivityPlaceholderIcon(activity.template?.category)}
             </div>
-          ))}
-        </dl>
-
-        <div className="mt-4 flex flex-wrap gap-2 text-sm text-muted-foreground">
-          <span className="rounded-full bg-muted px-3 py-1">{getAdminActivityItemCountLabel(activity)}</span>
-          <span className="rounded-full bg-muted px-3 py-1">{getAdminActivityDifficultyLabel(activity.difficulty)}</span>
+          )}
         </div>
+        <div className="flex h-full flex-col p-5">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="line-clamp-2 min-w-0 text-lg font-semibold text-foreground">{activity.title}</h2>
+            <div className="shrink-0">
+              <AdminActivityStatusBadge status={activity.status} />
+            </div>
+          </div>
 
-        <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock3 className="size-4" aria-hidden="true" />
-          <span>{getAdminActivityClockText(activity.updatedAt)}</span>
-        </div>
+          <dl className="mt-4 grid gap-3 text-sm">
+            {metaRows.map((item) => (
+              <div key={item.label} className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <item.icon className="size-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-muted-foreground">{item.label}</dt>
+                  <dd className="mt-1 break-words font-medium text-foreground">{item.value}</dd>
+                </div>
+              </div>
+            ))}
+          </dl>
 
-        <div className="mt-auto flex flex-col gap-3 pt-5 sm:flex-row">
-          <Button asChild variant="outline" className="h-11 flex-1 rounded-xl px-4">
-            <Link to={`/digital-activities/${activity.id}/preview`}>Pratonton</Link>
-          </Button>
-          <Button asChild className="h-11 flex-1 rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:ring-primary/30">
-            <Link to={`/digital-activities/${activity.id}/edit`}>Edit</Link>
-          </Button>
+          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock3 className="size-4" aria-hidden="true" />
+            <span>{getAdminActivityClockText(activity.updatedAt)}</span>
+          </div>
+
+          <div className="mt-auto space-y-3 pt-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {isDraft ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-11 rounded-xl px-4 font-semibold"
+                  onClick={() => setDeleteOpen(true)}
+                  aria-label={`Padam aktiviti ${activity.title}`}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                  Padam
+                </Button>
+              ) : isPublished ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-xl border-amber-500 bg-amber-500 px-4 font-semibold text-white shadow-sm hover:border-amber-600 hover:bg-amber-600 hover:text-white focus-visible:border-amber-700 focus-visible:ring-amber-300 dark:border-amber-400 dark:bg-amber-400 dark:text-slate-950 dark:hover:border-amber-300 dark:hover:bg-amber-300 dark:hover:text-slate-950"
+                  onClick={() => setArchiveOpen(true)}
+                  aria-label={`Arkibkan aktiviti ${activity.title}`}
+                >
+                  <Archive className="size-4" aria-hidden="true" />
+                  Diarkibkan
+                </Button>
+              ) : isArchived ? (
+                <Button
+                  type="button"
+                  className="h-11 rounded-xl bg-secondary px-4 font-semibold text-secondary-foreground shadow-sm hover:bg-secondary/90"
+                  onClick={() => setReactivateOpen(true)}
+                  aria-label={`Aktifkan semula aktiviti ${activity.title}`}
+                >
+                  <RotateCcw className="size-4" aria-hidden="true" />
+                  Aktifkan Semula
+                </Button>
+              ) : null}
+              <Button asChild className="h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:ring-primary/30">
+                <Link to={`/admin/aktiviti/${activity.id}/cipta/maklumat`}>Edit</Link>
+              </Button>
+            </div>
+            <Button asChild variant="outline" className="h-11 w-full rounded-xl px-4">
+              <Link to={`/admin/aktiviti/${activity.id}/cipta/pratonton`}>Pratonton</Link>
+            </Button>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Padam aktiviti?"
+        description={`Anda akan memadam aktiviti ini secara kekal.\n\nAktiviti: ${activity.title}\n\nAktiviti yang dipadam tidak boleh dipulihkan. Tindakan ini tidak boleh dibatalkan.`}
+        confirmLabel="Padam Aktiviti"
+        cancelLabel="Batal"
+        variant="destructive"
+        isLoading={deleteMutation.isPending}
+        onConfirm={async () => {
+          await deleteMutation.mutateAsync();
+        }}
+      />
+      <ConfirmDialog
+        open={archiveOpen}
+        onOpenChange={(open) => {
+          if (!archiveMutation.isPending) {
+            setArchiveOpen(open);
+          }
+        }}
+        title="Arkibkan aktiviti?"
+        description={`Aktiviti ini akan dipindahkan ke status Diarkibkan dan tidak lagi tersedia sebagai aktiviti aktif. Anda boleh mengaktifkannya semula kemudian.\n\nAktiviti: ${activity.title}`}
+        confirmLabel="Arkibkan Aktiviti"
+        cancelLabel="Batal"
+        isLoading={archiveMutation.isPending}
+        onConfirm={async () => {
+          await archiveMutation.mutateAsync();
+        }}
+      />
+      <ConfirmDialog
+        open={reactivateOpen}
+        onOpenChange={(open) => {
+          if (!reactivateMutation.isPending) {
+            setReactivateOpen(open);
+          }
+        }}
+        title="Aktifkan semula aktiviti?"
+        description={`Aktiviti ini akan diaktifkan semula dan tersedia mengikut aliran penggunaan sistem.\n\nAktiviti: ${activity.title}`}
+        confirmLabel="Aktifkan Semula"
+        cancelLabel="Batal"
+        isLoading={reactivateMutation.isPending}
+        onConfirm={async () => {
+          await reactivateMutation.mutateAsync();
+        }}
+      />
+    </>
   );
 }
 
 export function AdminActivityList({
   activities,
   isLoading,
+  meta,
+  onPageChange,
 }: {
   activities: AdminActivityRecord[];
   isLoading: boolean;
+  meta: AdminActivityListResult["meta"] | undefined;
+  onPageChange: (page: number) => void;
 }) {
   if (isLoading) {
     return (
@@ -378,7 +568,14 @@ export function AdminActivityList({
   return (
     <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {activities.map((activity) => (
-        <AdminActivityCard key={activity.id} activity={activity} />
+        <AdminActivityCard
+          key={activity.id}
+          activity={activity}
+          currentPage={meta?.page ?? 1}
+          pageSize={meta?.limit ?? (activities.length || 1)}
+          totalItems={meta?.total ?? activities.length}
+          onPageChange={onPageChange}
+        />
       ))}
     </div>
   );
@@ -482,7 +679,7 @@ export function AdminActivityManagementView({
         ) : null}
 
         {!isError && (isLoading || (activities && total > 0)) ? (
-          <AdminActivityList activities={activities?.items ?? []} isLoading={isLoading} />
+          <AdminActivityList activities={activities?.items ?? []} isLoading={isLoading} meta={activities?.meta} onPageChange={(page) => onChange({ page })} />
         ) : null}
 
         {activities && total > 0 ? (

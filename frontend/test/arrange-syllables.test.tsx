@@ -1,9 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 
+import { MissingSyllablesCompletionScreen } from "@/features/activity-player/renderers/arrange-syllables/MissingSyllablesPreview"
 import { getActivityRenderer } from "@/features/activity-player/renderer-registry"
 import { MissingSyllablesPreview } from "@/features/activity-player/renderers/arrange-syllables/MissingSyllablesPreview"
 import { ArrangeSyllablesBoard } from "@/features/activity-player/renderers/arrange-syllables/ArrangeSyllablesBoard"
+import { buildPreviewScore, distributePreviewMarks } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables-preview-scoring"
 import type { ArrangeSyllablesMissingQuestion, ArrangeSyllablesQuestion } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables.types"
 import { buildArrangeSyllablesCompletionSummary, buildMissingSyllablesCompletionSummary, canRetryArrangeSyllables, createArrangeSyllablesState, createMissingSyllablesState, createMissingSyllableBlankSelectHandler, formedSyllableWord, getArrangeSyllablesSettings, getMissingSyllablesSettings, isArrangeSyllablesCorrect, isMissingSyllableChoiceCorrectForBlank, isMissingSyllablesCorrect, mapArrangeSyllablesQuestion, missingSyllableBlankIdFromDropTarget, missingSyllableBlanks, missingSyllableChoices, placeArrangeSyllable, placeMissingSyllable, placeMissingSyllableInFirstOpenBlank, recordIncorrectMissingSyllableAttempt, reorderArrangeSyllable, resetArrangeSyllables, resetMissingSyllables, returnArrangeSyllable, returnMissingSyllable, retryArrangeSyllables, retryMissingSyllables, submitArrangeSyllables, submitMissingSyllables } from "@/features/activity-player/renderers/arrange-syllables/arrange-syllables.utils"
 import type { ActivityQuestion } from "@/features/activity-player/types"
@@ -234,9 +236,9 @@ describe("Arrange Syllables player", () => {
     expect(quick.assignments[blanks[0]?.id ?? ""]).toBe("answer:sil-1")
     expect(isMissingSyllablesCorrect(mapped, complete)).toBe(true)
     expect(correct).toMatchObject({ isCorrect: true, completed: true, feedback: "Betul. Hebat!" })
-    expect(wrong).toMatchObject({ isCorrect: false, completed: false, feedback: "Cuba lagi." })
+    expect(wrong).toMatchObject({ isCorrect: false, completed: false, feedback: "Cuba lagi.", markAwarded: false })
     expect(retryMissingSyllables(wrong, mapped).assignments).toEqual({})
-    expect(recordIncorrectMissingSyllableAttempt(quick)).toMatchObject({ assignments: quick.assignments, submitted: false, completed: false, attemptCount: 1 })
+    expect(recordIncorrectMissingSyllableAttempt(quick)).toMatchObject({ assignments: quick.assignments, submitted: false, completed: false, attemptCount: 1, markAwarded: false })
     expect(returnMissingSyllable(complete, "answer:sil-1").assignments[blanks[0]?.id ?? ""]).toBeUndefined()
     expect(resetMissingSyllables(correct)).toMatchObject({ assignments: {}, completed: false, attemptCount: 1 })
     expect(delayed).toMatchObject({ completed: true, feedback: "Jawapan disemak dalam pratonton ini." })
@@ -253,7 +255,6 @@ describe("Arrange Syllables player", () => {
         onPlace={() => undefined}
         onReject={() => undefined}
         onReturn={() => undefined}
-        onReset={() => undefined}
         onRetry={() => undefined}
         onPrevious={() => undefined}
         onNext={() => undefined}
@@ -262,6 +263,7 @@ describe("Arrange Syllables player", () => {
         currentIndex={0}
         itemIds={[mapped.itemId, "next-item"]}
         completedItemIds={new Set()}
+        timerSeconds={120}
       />,
     )
     expect(markup).toContain("Seret suku kata yang betul ke ruang kosong.")
@@ -271,16 +273,161 @@ describe("Arrange Syllables player", () => {
     expect(markup).toContain("Petunjuk")
     expect(markup).toContain("https://cdn.example.test/pensil.png")
     expect(markup).toContain("https://cdn.example.test/pensil.mp3")
+    expect(markup).toContain("02:00")
     expect(markup).toContain("SIL")
     expect(markup).toContain("KO")
     expect(markup).toContain("PAN")
-    expect(markup).toContain("Cuba Semula")
+    expect(markup).not.toContain("Cuba Semula")
+    expect(markup).not.toContain("/ 100")
     expect(markup).toContain("data-voxel-game-environment")
     expect(markup).not.toContain("Semak Jawapan")
     expect(markup).not.toContain("dark:from-amber-950")
     expect(markup).not.toContain("Pratonton suku kata hilang")
     expect(markup).not.toContain("Ruang jawapan")
     expect(markup).not.toContain("kontrak aktiviti sebenar")
+  })
+
+  it("hides retry controls when Step 4 disables retry and keeps delayed feedback neutral", () => {
+    const mapped = missingQuestion()
+    const delayedState = submitMissingSyllables(
+      placeMissingSyllable(placeMissingSyllable(createMissingSyllablesState(mapped, "activity-1"), "answer:sil-1", "word-1:sil-1"), "answer:ko-1", "word-2:ko-1"),
+      mapped,
+      getMissingSyllablesSettings({ attemptsAllowed: 1, allowRetry: false, showImmediateFeedback: false, configuration: {} }, mapped),
+    )
+
+    const markup = renderToStaticMarkup(
+      <MissingSyllablesPreview
+        question={mapped}
+        state={delayedState}
+        settings={getMissingSyllablesSettings({ attemptsAllowed: 1, allowRetry: false, showImmediateFeedback: false, configuration: {} }, mapped)}
+        onPlace={() => undefined}
+        onReject={() => undefined}
+        onReturn={() => undefined}
+        onRetry={() => undefined}
+        onPrevious={() => undefined}
+        onNext={() => undefined}
+        isFirst
+        isLast={false}
+        currentIndex={0}
+        itemIds={[mapped.itemId]}
+        completedItemIds={new Set([mapped.itemId])}
+        timerSeconds={null}
+      />,
+    )
+
+    expect(markup).not.toContain("Cuba Semula")
+    expect(markup).not.toContain("Cuba Lagi")
+    expect(markup).toContain("Jawapan disemak dalam pratonton ini.")
+    expect(markup).not.toContain("00:00")
+  })
+
+  it("distributes total marks deterministically across 1, 2, 3, and 5 questions", () => {
+    expect(distributePreviewMarks(100, 1)).toEqual([100])
+    expect(distributePreviewMarks(100, 2)).toEqual([50, 50])
+    expect(distributePreviewMarks(100, 3)).toEqual([34, 33, 33])
+    expect(distributePreviewMarks(100, 5)).toEqual([20, 20, 20, 20, 20])
+    expect(distributePreviewMarks(100, 3).reduce((sum, value) => sum + value, 0)).toBe(100)
+    expect(distributePreviewMarks(100, 5).reduce((sum, value) => sum + value, 0)).toBe(100)
+  })
+
+  it("awards marks only when a question stays eligible on the first scoring opportunity", () => {
+    const items = [
+      { ...missingSyllablesItem, marks: 1 },
+      { ...missingSyllablesItem, id: "missing-item-2", marks: 1, questionBankItem: { ...missingSyllablesItem.questionBankItem, id: "question-2" } },
+    ]
+
+    expect(
+      buildPreviewScore(items, {
+        "missing-item-1": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+      }, "TOTAL_SCORE", 100),
+    ).toEqual({ value: 50, total: 100 })
+
+    expect(
+      buildPreviewScore(items, {
+        "missing-item-1": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+        "missing-item-2": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: false },
+      }, "TOTAL_SCORE", 100),
+    ).toEqual({ value: 50, total: 100 })
+
+    expect(
+      buildPreviewScore(items, {
+        "missing-item-1": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+        "missing-item-2": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+      }, "TOTAL_SCORE", 100),
+    ).toEqual({ value: 100, total: 100 })
+  })
+
+  it("uses configured totalMarks instead of item-count-like DTO marks on the final result", () => {
+    const items = [
+      { ...missingSyllablesItem, marks: 1 },
+      { ...missingSyllablesItem, id: "missing-item-2", marks: 1, questionBankItem: { ...missingSyllablesItem.questionBankItem, id: "question-2" } },
+    ]
+
+    expect(
+      buildPreviewScore(items, {
+        "missing-item-1": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+        "missing-item-2": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+      }, "TOTAL_SCORE", 100),
+    ).toEqual({ value: 100, total: 100 })
+
+    expect(
+      buildPreviewScore(items, {
+        "missing-item-1": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: true },
+        "missing-item-2": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: false },
+      }, "TOTAL_SCORE", 100),
+    ).toEqual({ value: 50, total: 100 })
+
+    expect(
+      buildPreviewScore(items, {
+        "missing-item-1": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: false },
+        "missing-item-2": { ...createMissingSyllablesState(missingQuestion(), "activity-1"), completed: true, isCorrect: true, markAwarded: false },
+      }, "TOTAL_SCORE", 100),
+    ).toEqual({ value: 0, total: 100 })
+  })
+
+  it("treats multiple blanks as one scoring unit and does not double-award marks", () => {
+    const mapped = missingQuestion()
+    const scored = buildPreviewScore(
+      [missingSyllablesItem],
+      {
+        [mapped.itemId]: {
+          ...createMissingSyllablesState(mapped, "activity-1"),
+          assignments: {
+            "word-1:sil-1": "answer:sil-1",
+            "word-2:ko-1": "answer:ko-1",
+          },
+          completed: true,
+          isCorrect: true,
+          markAwarded: true,
+        },
+      },
+      "TOTAL_SCORE",
+      100,
+    )
+
+    expect(scored).toEqual({ value: 100, total: 100 })
+  })
+
+  it("renders the final result screen only after completion with a preview-safe Utama button", () => {
+    const onHome = vi.fn()
+    const onReplay = vi.fn()
+    const markup = renderToStaticMarkup(
+      <MissingSyllablesCompletionScreen
+        totalQuestions={2}
+        scoreValue={50}
+        scoreTotal={100}
+        onReplay={onReplay}
+        onHome={onHome}
+      />,
+    )
+
+    expect(markup).toContain("Tahniah!")
+    expect(markup).toContain("Anda telah menyelesaikan aktiviti.")
+    expect(markup).toContain("50")
+    expect(markup).toContain("/ 100")
+    expect(markup).toContain("Cuba Lagi")
+    expect(markup).toContain("Utama")
+    expect(markup).toContain("2 daripada 2 soalan selesai")
   })
 
   it("suppresses blank placement for drag gestures while preserving tap and keyboard placement handlers", () => {

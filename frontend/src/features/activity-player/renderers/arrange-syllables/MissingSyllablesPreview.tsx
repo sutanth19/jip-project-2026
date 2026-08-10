@@ -1,5 +1,5 @@
 import { DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core"
-import { Check, ChevronLeft, ChevronRight, Gamepad2, Hand, ImageOff, Lightbulb, Pause, RotateCcw, Sparkles, Star, Volume2, X } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Clock3, Gamepad2, Hand, Home, ImageOff, Lightbulb, Pause, RotateCcw, Sparkles, Trophy, Volume2, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -22,7 +22,6 @@ type MissingSyllablesPreviewProps = {
   onPlace: (choiceId: string, blankId: string) => void
   onReject: () => void
   onReturn: (choiceId: string) => void
-  onReset: () => void
   onRetry: () => void
   onPrevious: () => void
   onNext: () => void
@@ -31,6 +30,15 @@ type MissingSyllablesPreviewProps = {
   currentIndex: number
   itemIds: readonly string[]
   completedItemIds: ReadonlySet<string>
+  timerSeconds: number | null
+}
+
+type MissingSyllablesCompletionProps = {
+  totalQuestions: number
+  scoreValue: number
+  scoreTotal: number | null
+  onReplay: () => void
+  onHome: () => void
 }
 
 function GameButton({ className, ...props }: React.ComponentProps<typeof Button>) {
@@ -91,7 +99,65 @@ function ReferenceMedia({ image, title }: { image?: ReturnType<typeof promptMedi
   </figure>
 }
 
-export function MissingSyllablesPreview({ question, state, settings, onPlace, onReject, onReturn, onReset, onRetry, onPrevious, onNext, isFirst, isLast, currentIndex, itemIds, completedItemIds }: MissingSyllablesPreviewProps) {
+function formatTimer(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+}
+
+export function MissingSyllablesCompletionScreen({ totalQuestions, scoreValue, scoreTotal, onReplay, onHome }: MissingSyllablesCompletionProps) {
+  return (
+    <VoxelGameEnvironment>
+      <section aria-label="Keputusan akhir Seret Suku Kata" className="relative overflow-hidden rounded-3xl border-4 border-amber-950 bg-gradient-to-b from-amber-50 via-yellow-100 to-amber-200 p-3 shadow-[0_9px_0_#3f2512,0_18px_32px_rgb(15_23_42_/_0.25)] sm:p-5">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_15%_25%,rgb(255_255_255_/_0.8)_0_9%,transparent_10%),radial-gradient(circle_at_88%_20%,rgb(255_255_255_/_0.7)_0_7%,transparent_8%)]" />
+        <header className="relative rounded-2xl border-4 border-amber-900 bg-gradient-to-b from-amber-900 to-stone-950 p-4 text-center text-white shadow-[0_5px_0_#1c1917]">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border-2 border-yellow-200 bg-yellow-400 text-amber-950 shadow-[0_3px_0_#a16207]">
+            <Trophy className="size-7" aria-hidden="true" />
+          </div>
+          <h2 className="mt-3 text-3xl font-black tracking-wide text-yellow-300">Tahniah!</h2>
+          <p className="mt-2 text-sm font-semibold text-amber-100">Anda telah menyelesaikan aktiviti.</p>
+        </header>
+
+        <div className="relative mt-6 grid gap-5 lg:grid-cols-[minmax(12rem,18rem)_minmax(18rem,1fr)]">
+          <ArrangeSyllablesMascot state="correct" message="Hebat! Semua soalan telah dilengkapkan." />
+          <Card className="rounded-3xl border-4 border-amber-300 bg-amber-50 py-0 shadow-[0_6px_0_#d97706]">
+            <CardContent className="space-y-3 p-6 text-center">
+              <p className="text-sm font-black tracking-[0.2em] text-amber-700">MARKAH</p>
+              <p className="text-4xl font-black text-amber-950 sm:text-5xl">
+                {scoreValue}
+                {typeof scoreTotal === "number" ? <span className="text-2xl sm:text-3xl"> / {scoreTotal}</span> : null}
+              </p>
+              <p className="text-sm font-semibold text-amber-800">{totalQuestions} daripada {totalQuestions} soalan selesai</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <footer className="relative mt-6 flex flex-col justify-center gap-3 border-t-2 border-amber-900/15 pt-5 sm:flex-row">
+          <GameButton
+            type="button"
+            onClick={onReplay}
+            className="border-orange-200 bg-gradient-to-b from-orange-400 to-orange-600 px-6 text-white shadow-orange-950 hover:bg-orange-600"
+            aria-label="Cuba lagi pratonton"
+          >
+            <RotateCcw />
+            Cuba Lagi
+          </GameButton>
+          <GameButton
+            type="button"
+            onClick={onHome}
+            className="border-green-200 bg-gradient-to-b from-green-500 to-green-700 px-6 text-white shadow-green-950 hover:bg-green-600"
+            aria-label="Utama pratonton"
+          >
+            <Home />
+            Utama
+          </GameButton>
+        </footer>
+      </section>
+    </VoxelGameEnvironment>
+  )
+}
+
+export function MissingSyllablesPreview({ question, state, settings, onPlace, onReject, onReturn, onRetry, onPrevious, onNext, isFirst, isLast, currentIndex, itemIds, completedItemIds, timerSeconds }: MissingSyllablesPreviewProps) {
   const [activeChoiceId, setActiveChoiceId] = useState<string | null>(null)
   const [isPlayingAudio, setIsPlayingAudio] = useState(false)
   const [rejectedDrop, setRejectedDrop] = useState<{ blankId: string; choiceId: string } | null>(null)
@@ -107,8 +173,9 @@ export function MissingSyllablesPreview({ question, state, settings, onPlace, on
   const activeChoice = activeChoiceId ? choicesById.get(activeChoiceId) : undefined
   const retryAllowed = canRetryMissingSyllables(state, settings)
   const { image, audio } = promptMedia(question)
-  const mascotState = state.submitted && state.isCorrect ? "correct" : rejectedDrop || state.submitted && state.isCorrect === false ? "wrong" : "neutral"
-  const mascotMessage = state.submitted && state.isCorrect ? "Hebat! Jawapan betul!" : rejectedDrop || state.submitted && state.isCorrect === false ? "Cuba lagi! Anda pasti boleh!" : activeChoice ? `Sekarang letakkan "${activeChoice.value}" di ruang kosong!` : "Mari lengkapkan perkataan!"
+  const revealsOutcome = settings.showImmediateFeedback && state.submitted
+  const mascotState = revealsOutcome && state.isCorrect ? "correct" : rejectedDrop || (revealsOutcome && state.isCorrect === false) ? "wrong" : "neutral"
+  const mascotMessage = revealsOutcome && state.isCorrect ? "Hebat! Jawapan betul!" : rejectedDrop || (revealsOutcome && state.isCorrect === false) ? "Cuba lagi! Anda pasti boleh!" : state.submitted && !settings.showImmediateFeedback ? "Jawapan disemak dalam pratonton ini." : activeChoice ? `Sekarang letakkan "${activeChoice.value}" di ruang kosong!` : "Mari lengkapkan perkataan!"
 
   const clearRejectedDrop = () => {
     if (rejectedDropTimeout.current !== null) window.clearTimeout(rejectedDropTimeout.current)
@@ -162,7 +229,7 @@ export function MissingSyllablesPreview({ question, state, settings, onPlace, on
     const blank = blanks.find((entry) => entry.id === blankId)
     if (!choice || !blank) return
     setActiveChoiceId(null)
-    if (!isMissingSyllableChoiceCorrectForBlank(question, choiceId, blankId)) {
+    if (settings.showImmediateFeedback && !isMissingSyllableChoiceCorrectForBlank(question, choiceId, blankId)) {
       rejectDrop(choiceId, blankId)
       return
     }
@@ -223,7 +290,8 @@ export function MissingSyllablesPreview({ question, state, settings, onPlace, on
               return <span key={itemId} aria-current={current ? "step" : undefined} className={`flex size-9 shrink-0 items-center justify-center rounded-lg border-2 text-sm font-black shadow-[0_3px_0] ${completed ? "border-green-100 bg-gradient-to-b from-green-400 to-green-700 text-white shadow-green-900" : current ? "scale-110 border-yellow-100 bg-gradient-to-b from-yellow-300 to-yellow-500 text-amber-950 shadow-amber-700" : "border-stone-500 bg-stone-700 text-stone-300 shadow-stone-950"}`}>{completed ? <Check className="size-4" aria-label={`Soalan ${index + 1} selesai`} /> : index + 1}</span>
             })}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {typeof timerSeconds === "number" ? <div className="inline-flex h-11 items-center gap-2 rounded-xl border-2 border-amber-200 bg-amber-100 px-4 font-black text-amber-950 shadow-[0_3px_0_#a16207]"><Clock3 className="size-4" aria-hidden="true" /><span>{formatTimer(timerSeconds)}</span></div> : null}
             {audio ? <GameButton type="button" onClick={() => void toggleAudio()} aria-label={isPlayingAudio ? "audio soalan" : "Dengar audio soalan"} className="border-blue-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-blue-950 hover:bg-blue-600">{isPlayingAudio ? <Pause /> : <Volume2 />}<span>{isPlayingAudio ? "Play Audio" : "Dengar Audio"}</span></GameButton> : null}
             {question.hint ? <AlertDialog><AlertDialogTrigger asChild><GameButton type="button" className="border-purple-200 bg-gradient-to-b from-purple-500 to-purple-700 text-white shadow-purple-950 hover:bg-purple-600"><Lightbulb />Petunjuk</GameButton></AlertDialogTrigger><AlertDialogContent className="border-4 border-purple-400 bg-amber-50"><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2 text-xl"><Lightbulb className="text-purple-600" />Petunjuk Soalan</AlertDialogTitle><AlertDialogDescription className="rounded-xl border border-purple-300 bg-purple-100 p-4 text-base font-medium text-purple-950">{question.hint}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogAction className="border-2 border-purple-200 bg-purple-600 text-white shadow-[0_3px_0_#581c87] hover:bg-purple-700">Tutup Petunjuk</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog> : null}
           </div>
@@ -247,8 +315,8 @@ export function MissingSyllablesPreview({ question, state, settings, onPlace, on
               const assignedChoice = choicesById.get(state.assignments[blankId] ?? "")
               const rejectedChoice = rejectedDrop?.blankId === blankId ? choicesById.get(rejectedDrop.choiceId) : undefined
               const isRejected = Boolean(rejectedChoice)
-              const isCorrect = state.submitted && assignedChoice?.value.normalize("NFC") === syllable.value.normalize("NFC")
-              const isWrong = state.submitted && Boolean(assignedChoice) && !isCorrect
+              const isCorrect = revealsOutcome && assignedChoice?.value.normalize("NFC") === syllable.value.normalize("NFC")
+              const isWrong = revealsOutcome && Boolean(assignedChoice) && !isCorrect
               return <DroppableLearningZone key={blankId} id={`missing-syllable-blank:${blankId}`} label={`Ruang kosong untuk suku kata ${syllable.sequence}${assignedChoice ? `, ${assignedChoice.value}` : ""}`} disabled={state.submitted || isRejected} onSelect={assignedChoice ? () => handleBlankSelect(assignedChoice.id, blankId) : activeChoice ? () => handleBlankSelect(undefined, blankId) : undefined} activeClassName="scale-105 border-blue-500 bg-yellow-100 shadow-[0_0_24px_rgb(59_130_246_/_0.65)]" className={`flex min-h-20 min-w-34 items-center justify-center rounded-2xl border-4 p-1 text-center shadow-inner sm:min-h-24 sm:min-w-44 ${isCorrect ? "voxel-game-pop border-green-100 bg-gradient-to-b from-green-400 to-green-700 text-white shadow-[0_7px_0_#14532d]" : isRejected || isWrong ? "voxel-game-shake border-red-400 bg-red-100 text-red-900" : "border-dashed border-amber-500 bg-amber-100 text-amber-800 hover:border-blue-500 hover:bg-yellow-100"}`}>
                 {isRejected && rejectedChoice ? <span role="status" aria-live="polite" className="flex flex-col items-center gap-1 px-3 text-sm font-black"><span className="flex items-center gap-2 text-2xl"><X className="size-6" aria-hidden="true" />{rejectedChoice.value}</span><span>Cuba lagi</span></span> : assignedChoice ? <button type="button" onClick={() => onReturn(assignedChoice.id)} className="flex min-h-16 min-w-28 items-center justify-center rounded-xl px-4 text-2xl font-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/50 sm:text-3xl" aria-label={`Kembalikan suku kata ${assignedChoice.value} ke pilihan`}>{assignedChoice.value}{isCorrect ? <Check className="ml-2 size-5" /> : null}{isWrong ? <X className="ml-2 size-5" /> : null}</button> : <span className="px-3 text-sm font-bold italic">Letak di sini</span>}
               </DroppableLearningZone>
@@ -257,7 +325,7 @@ export function MissingSyllablesPreview({ question, state, settings, onPlace, on
         </section>
 
         {state.validationError ? <p role="alert" className="relative mt-4 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-800">Sila lengkapkan semua ruang kosong.</p> : null}
-        {state.submitted && state.feedback ? <p role="status" aria-live="polite" className={`relative mt-4 rounded-xl border-2 px-4 py-3 text-center font-bold ${state.isCorrect ? "border-green-300 bg-green-100 text-green-900" : "border-red-300 bg-red-100 text-red-900"}`}>{state.isCorrect ? <Sparkles className="mr-2 inline size-5" /> : null}{state.feedback}</p> : null}
+        {state.submitted && state.feedback ? <p role="status" aria-live="polite" className={`relative mt-4 rounded-xl border-2 px-4 py-3 text-center font-bold ${!settings.showImmediateFeedback ? "border-amber-300 bg-amber-100 text-amber-950" : state.isCorrect ? "border-green-300 bg-green-100 text-green-900" : "border-red-300 bg-red-100 text-red-900"}`}>{settings.showImmediateFeedback && state.isCorrect ? <Sparkles className="mr-2 inline size-5" /> : null}{state.feedback}</p> : null}
 
         <DroppableLearningZone id="missing-syllable-bank" label="Pilihan suku kata. Seret pilihan kembali ke sini untuk mengosongkan jawapan." disabled={state.submitted} className="relative mt-5 rounded-2xl border-2 border-amber-900/20 bg-amber-50/70 p-4">
           <p className="text-center text-xs font-black tracking-widest text-amber-900/80">PILIHAN JAWAPAN</p>
@@ -266,7 +334,7 @@ export function MissingSyllablesPreview({ question, state, settings, onPlace, on
 
         <footer className="relative mt-5 flex flex-col gap-4 border-t-2 border-amber-900/15 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <GameButton type="button" variant="outline" disabled={isFirst} onClick={() => { clearRejectedDrop(); setActiveChoiceId(null); onPrevious() }} className="border-blue-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-blue-950 hover:bg-blue-600"><ChevronLeft />Sebelumnya</GameButton>
-          <div className="flex flex-wrap items-center justify-center gap-3"><span className="inline-flex h-11 items-center gap-1 rounded-xl border-2 border-yellow-400 bg-yellow-100 px-4 font-black text-yellow-900 shadow-inner"><Star className="size-5 fill-current" />{completedItemIds.size + (state.completed && !completedItemIds.has(question.itemId) ? 1 : 0)}</span>{!state.submitted ? <GameButton type="button" variant="outline" disabled={Object.keys(state.assignments).length === 0} onClick={() => { clearRejectedDrop(); setActiveChoiceId(null); onReset() }} className="border-orange-200 bg-gradient-to-b from-orange-400 to-orange-600 text-white shadow-orange-950 hover:bg-orange-600"><RotateCcw />Cuba Semula</GameButton> : null}{retryAllowed ? <GameButton type="button" onClick={() => { clearRejectedDrop(); setActiveChoiceId(null); onRetry() }} className="border-orange-200 bg-gradient-to-b from-orange-400 to-orange-600 text-white shadow-orange-950 hover:bg-orange-600"><RotateCcw />Cuba Lagi</GameButton> : null}</div>
+          <div className="flex flex-wrap items-center justify-center gap-3">{retryAllowed ? <GameButton type="button" onClick={() => { clearRejectedDrop(); setActiveChoiceId(null); onRetry() }} className="border-orange-200 bg-gradient-to-b from-orange-400 to-orange-600 text-white shadow-orange-950 hover:bg-orange-600"><RotateCcw />Cuba Lagi</GameButton> : null}</div>
           <GameButton type="button" disabled={!state.completed} onClick={() => { clearRejectedDrop(); setActiveChoiceId(null); onNext() }} className="border-green-200 bg-gradient-to-b from-green-500 to-green-700 text-white shadow-green-950 hover:bg-green-600">{isLast ? "Selesai" : "Seterusnya"}<ChevronRight /></GameButton>
         </footer>
       </section>

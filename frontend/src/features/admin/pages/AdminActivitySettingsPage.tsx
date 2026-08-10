@@ -35,6 +35,8 @@ import {
   getActivitySettingsCompletionState,
   getActivitySettingsFormValues,
   getActivitySettingsProgress,
+  getActivitySettingsScoringSyncState,
+  getActivitySettingsTemplateSupport,
   type ActivitySettingsValues,
 } from "@/features/admin/utils/admin-activity-settings";
 import { parseApiError } from "@/lib/api";
@@ -51,6 +53,9 @@ const stepFivePath = (activityId: string) => `/admin/aktiviti/${activityId}/cipt
 const settingsQueryKeys = {
   activityDetail: (activityId: string) => ["admin", "activities", "detail", activityId] as const,
   activityPreview: (activityId: string) => ["admin", "activities", "preview", activityId] as const,
+  publishReadiness: (activityId: string) => [...settingsQueryKeys.activityDetail(activityId), "publish-readiness"] as const,
+  activityList: ["admin", "activities", "list"] as const,
+  activitySummary: ["admin", "activities", "summary"] as const,
 };
 
 function getSettingsErrorMessage(error: unknown): string {
@@ -168,10 +173,13 @@ function StepFourForm({
   canContinue: boolean;
 }) {
   const errors = form.formState.errors;
-  const itemCount = activity.items.length;
   const scoringMode = form.watch("scoringMode");
   const hasTimeLimit = form.watch("hasTimeLimit");
   const allowRetry = form.watch("allowRetry");
+  const templateSupport = getActivitySettingsTemplateSupport(activity);
+  const scoringModeOptions = templateSupport.masteryThresholdSetting
+    ? activityScoringModeOptions
+    : activityScoringModeOptions.filter((option) => option.value !== "MASTERY_THRESHOLD");
 
   return (
     <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
@@ -237,42 +245,46 @@ function StepFourForm({
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title="Percubaan"
-        description="Tetapkan bilangan percubaan yang dibenarkan."
-        icon={Settings2}
-      >
-        <div className="space-y-6">
-          <ToggleSettingRow
-            id="allowRetry"
-            label="Benarkan Cuba Semula"
-            helper="Murid boleh mencuba semula selagi masih mempunyai baki percubaan."
-            checked={allowRetry}
-            onCheckedChange={(checked) => form.setValue("allowRetry", checked, { shouldDirty: true, shouldValidate: true })}
-          />
-
-          {allowRetry ? (
-            <div className="space-y-2">
-              <Label htmlFor="attemptsAllowed">Bilangan Percubaan</Label>
-              <Input
-                id="attemptsAllowed"
-                type="number"
-                min={1}
-                max={100}
-                inputMode="numeric"
-                {...form.register("attemptsAllowed")}
-                aria-describedby="attemptsAllowed-help attemptsAllowed-error"
-                aria-invalid={Boolean(errors.attemptsAllowed)}
-                className="h-12 rounded-xl bg-background/40"
+      {templateSupport.retrySettings || templateSupport.attemptLimit ? (
+        <SettingsSection
+          title="Percubaan"
+          description="Tetapkan bilangan percubaan yang dibenarkan."
+          icon={Settings2}
+        >
+          <div className="space-y-6">
+            {templateSupport.retrySettings ? (
+              <ToggleSettingRow
+                id="allowRetry"
+                label="Benarkan Cuba Semula"
+                helper="Murid boleh mencuba semula selagi masih mempunyai baki percubaan."
+                checked={allowRetry}
+                onCheckedChange={(checked) => form.setValue("allowRetry", checked, { shouldDirty: true, shouldValidate: true })}
               />
-              <p id="attemptsAllowed-help" className="text-sm leading-6 text-muted-foreground">
-                Tetapkan jumlah maksimum percubaan yang dibenarkan.
-              </p>
-              <FieldError id="attemptsAllowed-error" message={errors.attemptsAllowed?.message} />
-            </div>
-          ) : null}
-        </div>
-      </SettingsSection>
+            ) : null}
+
+            {templateSupport.attemptLimit && allowRetry ? (
+              <div className="space-y-2">
+                <Label htmlFor="attemptsAllowed">Bilangan Percubaan</Label>
+                <Input
+                  id="attemptsAllowed"
+                  type="number"
+                  min={1}
+                  max={100}
+                  inputMode="numeric"
+                  {...form.register("attemptsAllowed")}
+                  aria-describedby="attemptsAllowed-help attemptsAllowed-error"
+                  aria-invalid={Boolean(errors.attemptsAllowed)}
+                  className="h-12 rounded-xl bg-background/40"
+                />
+                <p id="attemptsAllowed-help" className="text-sm leading-6 text-muted-foreground">
+                  Tetapkan jumlah maksimum percubaan yang dibenarkan.
+                </p>
+                <FieldError id="attemptsAllowed-error" message={errors.attemptsAllowed?.message} />
+              </div>
+            ) : null}
+          </div>
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection
         title="Susunan"
@@ -288,19 +300,21 @@ function StepFourForm({
         />
       </SettingsSection>
 
-      <SettingsSection
-        title="Maklum Balas"
-        description="Tetapkan bila murid menerima maklum balas."
-        icon={MessageSquareMore}
-      >
-        <ToggleSettingRow
-          id="showImmediateFeedback"
-          label="Maklum Balas Serta-merta"
-          helper="Murid menerima maklum balas selepas menjawab soalan."
-          checked={form.watch("showImmediateFeedback")}
-          onCheckedChange={(checked) => form.setValue("showImmediateFeedback", checked, { shouldDirty: true, shouldValidate: true })}
-        />
-      </SettingsSection>
+      {templateSupport.immediateFeedbackSetting ? (
+        <SettingsSection
+          title="Maklum Balas"
+          description="Tetapkan bila murid menerima maklum balas."
+          icon={MessageSquareMore}
+        >
+          <ToggleSettingRow
+            id="showImmediateFeedback"
+            label="Maklum Balas Serta-merta"
+            helper="Murid menerima maklum balas selepas menjawab soalan."
+            checked={form.watch("showImmediateFeedback")}
+            onCheckedChange={(checked) => form.setValue("showImmediateFeedback", checked, { shouldDirty: true, shouldValidate: true })}
+          />
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection
         title="Pemarkahan"
@@ -323,7 +337,7 @@ function StepFourForm({
                 <SelectValue placeholder="Pilih mod pemarkahan" />
               </SelectTrigger>
               <SelectContent>
-                {activityScoringModeOptions.map((option) => (
+                {scoringModeOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -351,13 +365,13 @@ function StepFourForm({
                 className="h-12 rounded-xl bg-background/40"
               />
               <p id="totalMarks-help" className="text-sm leading-6 text-muted-foreground">
-                Untuk templat ini, nilai yang disokong secara selamat ialah jumlah soalan semasa: {itemCount}.
+                Tetapkan jumlah markah keseluruhan yang ingin digunakan untuk aktiviti ini.
               </p>
               <FieldError id="totalMarks-error" message={errors.totalMarks?.message} />
             </div>
           ) : null}
 
-          {scoringMode === "MASTERY_THRESHOLD" ? (
+          {templateSupport.masteryThresholdSetting && scoringMode === "MASTERY_THRESHOLD" ? (
             <div className="space-y-2">
               <Label htmlFor="masteryThreshold">Tahap Penguasaan (%)</Label>
               <Input
@@ -424,11 +438,26 @@ export function AdminActivitySettingsPage() {
     hasInitializedForm.current = true;
   }, [activity.data, form]);
 
+  const templateSupport = React.useMemo(
+    () => getActivitySettingsTemplateSupport(activity.data),
+    [activity.data],
+  );
+  const scoringSyncState = React.useMemo(
+    () => getActivitySettingsScoringSyncState(activity.data),
+    [activity.data],
+  );
+
   const saveSettings = useMutation({
-    mutationFn: async (values: ActivitySettingsValues) => updateAdminDigitalActivitySettings(activityId, buildActivitySettingsUpdatePayload(values)),
+    mutationFn: async (values: ActivitySettingsValues) => updateAdminDigitalActivitySettings(activityId, buildActivitySettingsUpdatePayload(values, templateSupport)),
     onSuccess: async (savedActivity) => {
       queryClient.setQueryData(settingsQueryKeys.activityDetail(savedActivity.id), savedActivity);
-      await queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityPreview(savedActivity.id) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityDetail(savedActivity.id) }),
+        queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityPreview(savedActivity.id) }),
+        queryClient.invalidateQueries({ queryKey: settingsQueryKeys.publishReadiness(savedActivity.id) }),
+        queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityList }),
+        queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activitySummary }),
+      ]);
       form.reset(getActivitySettingsFormValues(savedActivity));
       setServerError(null);
       toast.success("Berjaya", "Tetapan aktiviti berjaya disimpan.");
@@ -525,7 +554,7 @@ export function AdminActivitySettingsPage() {
             onCancel={stepController.requestCancel}
             onContinue={stepController.continueToNextStep}
             isSaving={stepController.isSaving}
-            canSave={stepController.canSave}
+            canSave={stepController.canSave || scoringSyncState.requiresResync}
             canContinue={stepController.canContinue}
           />
         </div>

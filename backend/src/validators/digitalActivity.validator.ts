@@ -6,6 +6,22 @@ const optionalNullable = <T extends z.ZodType>(schema: T) => schema.nullable().o
 const page = z.coerce.number().int().min(1).default(1);
 const limit = z.coerce.number().int().min(1).max(100).default(20);
 const queryBoolean = z.enum(["true", "false"]).transform((value) => value === "true");
+const templateCategories = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value, ctx) => value.split(",").map((entry) => entry.trim()).filter(Boolean))
+  .superRefine((values, ctx) => {
+    for (const value of values) {
+      if (!Object.values(ActivityTemplateCategory).includes(value as ActivityTemplateCategory)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Kategori templat aktiviti tidak sah.",
+        });
+      }
+    }
+  })
+  .transform((values) => values as ActivityTemplateCategory[]);
 const safeText = (min: number, max: number, label: string) => z.string().trim().min(min, `${label} diperlukan.`).max(max, `${label} terlalu panjang.`).refine((value) => !/<\s*\/?\s*[a-z][^>]*>/i.test(value), `${label} mesti teks biasa yang selamat.`);
 const optionalText = (max: number, label: string) => optionalNullable(safeText(1, max, label));
 const code = z.string().trim().min(3).max(100).regex(/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/, "Kod aktiviti hanya boleh mengandungi huruf, nombor dan sempang.").transform((value) => value.toUpperCase());
@@ -51,7 +67,7 @@ export const updateDigitalActivitySchema = z.object({
 
 export const listDigitalActivitiesQuerySchema = z.object({
   page, limit, search: z.string().trim().min(1).max(250).optional(), status: z.nativeEnum(DigitalActivityStatus).optional(), difficulty: z.nativeEnum(LearningDifficulty).optional(),
-  programmeId: uuid("ID program kurikulum tidak sah.").optional(), curriculumVersionId: uuid("ID versi kurikulum tidak sah.").optional(), activityTemplateId: uuid("ID templat aktiviti tidak sah.").optional(), templateCode: z.string().trim().min(1).max(100).optional(), templateCategory: z.nativeEnum(ActivityTemplateCategory).optional(),
+  programmeId: uuid("ID program kurikulum tidak sah.").optional(), curriculumVersionId: uuid("ID versi kurikulum tidak sah.").optional(), activityTemplateId: uuid("ID templat aktiviti tidak sah.").optional(), templateCode: z.string().trim().min(1).max(100).optional(), templateCategory: z.nativeEnum(ActivityTemplateCategory).optional(), templateCategories: templateCategories.optional(),
   remedialSkillId: uuid("ID kemahiran pemulihan tidak sah.").optional(), contentStandardId: uuid("ID standard kandungan tidak sah.").optional(), learningStandardId: uuid("ID standard pembelajaran tidak sah.").optional(), curriculumYearId: uuid("ID tahun kurikulum tidak sah.").optional(), createdByUserId: uuid("ID pengguna tidak sah.").optional(), reviewMode: z.nativeEnum(ActivityReviewMode).optional(), scoringMode: z.nativeEnum(ActivityScoringMode).optional(),
   hasImage: queryBoolean.optional(), hasAudio: queryBoolean.optional(), hasVideo: queryBoolean.optional(),
   sortBy: z.enum(["code", "title", "difficulty", "status", "createdAt", "updatedAt", "publishedAt"]).default("createdAt"), sortOrder: z.enum(["asc", "desc"]).default("desc"),

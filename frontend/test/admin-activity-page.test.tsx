@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -24,6 +25,7 @@ import {
   getAdminActivityResetQuery,
   getAdminActivityResultRange,
   getAdminActivityStatusLabel,
+  getAdminActivityTemplateLabel,
   getAdminActivityTemplateOptionLabel,
   getAdminActivityThumbnail,
   type AdminActivityListResult,
@@ -58,6 +60,8 @@ import {
   buildActivitySettingsUpdatePayload,
   getActivitySettingsFormValues,
   getActivitySettingsProgress,
+  getActivitySettingsScoringSyncState,
+  getActivitySettingsTemplateSupport,
 } from "@/features/admin/utils/admin-activity-settings";
 import {
   buildActivityCurriculumLinkPayload,
@@ -68,7 +72,33 @@ import {
   type AdminLearningStandardOption,
   type AdminSkillLearningStandardMapping,
 } from "@/features/admin/utils/admin-activity-curriculum";
+import { ToastContext, type ToastContextValue } from "@/providers/toast-context-value";
 import { PencilLine } from "lucide-react";
+
+const toastValue: ToastContextValue = {
+  notify: () => undefined,
+  success: () => undefined,
+  error: () => undefined,
+  warning: () => undefined,
+  info: () => undefined,
+};
+
+function renderWithProviders(node: React.ReactNode) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return renderToStaticMarkup(
+    <QueryClientProvider client={queryClient}>
+      <ToastContext.Provider value={toastValue}>
+        {node}
+      </ToastContext.Provider>
+    </QueryClientProvider>,
+  );
+}
 
 const sampleActivity: AdminActivityRecord = {
   id: "activity-1",
@@ -80,9 +110,9 @@ const sampleActivity: AdminActivityRecord = {
   difficulty: "BASIC",
   template: {
     id: "template-1",
-    name: "Bacaan Asas",
-    category: "READING",
-    rendererKey: "reading",
+    name: "Arrange Syllables",
+    category: "ARRANGEMENT",
+    rendererKey: "arrange-syllables",
   },
   curriculumLinks: [
     {
@@ -103,6 +133,19 @@ const sampleActivity: AdminActivityRecord = {
   ],
 };
 
+const sampleDraftActivity: AdminActivityRecord = {
+  ...sampleActivity,
+  id: "activity-draft",
+  status: "DRAFT",
+  publishedAt: null,
+};
+
+const sampleArchivedActivity: AdminActivityRecord = {
+  ...sampleActivity,
+  id: "activity-archived",
+  status: "ARCHIVED",
+};
+
 const sampleSummary: AdminActivitySummary = {
   total: 24,
   published: 12,
@@ -111,7 +154,7 @@ const sampleSummary: AdminActivitySummary = {
 };
 
 const sampleTemplates: AdminActivityTemplateOption[] = [
-  { id: "template-1", name: "Bacaan Asas", category: "READING", rendererKey: "reading" },
+  { id: "template-1", name: "Arrange Syllables", category: "READING", rendererKey: "arrange-syllables" },
   { id: "template-2", name: "Latihan Menulis", category: "WRITING", rendererKey: "copy-writing" },
 ];
 
@@ -141,6 +184,7 @@ describe("Admin activity management page", () => {
     expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/kandungan", element: <AdminActivityContentPage /> }');
     expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/tetapan", element: <AdminActivitySettingsPage /> }');
     expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/pratonton", element: <AdminActivityPreviewPlaceholderPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/cipta/terbitkan", element: <AdminActivityPublishPage /> }');
     expect(routes).toContain('{ path: "aktiviti/cipta/menulis", element: <AdminActivityGalleryPlaceholderPage category="WRITING" /> }');
     expect(routes).not.toContain('aktiviti/cipta/mengira');
     expect(routes).toContain('path: "digital-activities"');
@@ -182,6 +226,8 @@ describe("Admin activity management page", () => {
 
   it("maps central activity labels and template options safely", () => {
     expect(getAdminActivityStatusLabel("IN_REVIEW")).toBe("Dalam Semakan");
+    expect(getAdminActivityStatusLabel("PUBLISHED")).toBe("Aktif");
+    expect(getAdminActivityTemplateLabel(sampleActivity.template)).toBe("Seret Suku Kata");
     expect(getAdminActivityTemplateOptionLabel(sampleTemplates[1])).toContain("Menulis");
     expect(adminActivityCategoryTabs.map((tab) => tab.label)).toEqual(["Membaca", "Menulis"]);
     expect(adminActivityCategoryTabs).not.toContainEqual(expect.objectContaining({ label: "Semua Aktiviti" }));
@@ -193,7 +239,7 @@ describe("Admin activity management page", () => {
   });
 
   it("renders the management header, summary cards, and create action", () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithProviders(
       <MemoryRouter>
         <AdminActivityManagementView
           query={{ page: 1, limit: 12, sortBy: "updatedAt", sortOrder: "desc" }}
@@ -214,9 +260,62 @@ describe("Admin activity management page", () => {
     expect(markup).toContain("Pengurusan Aktiviti");
     expect(markup).toContain("Cipta Aktiviti");
     expect(markup).toContain("Jumlah Aktiviti");
+    expect(markup).toContain("Aktif");
     expect(markup).toContain("Diarkibkan");
     expect(markup).toContain('href="/admin/aktiviti/cipta"');
+    expect(markup).not.toContain("Diterbitkan");
     expect(markup).not.toContain("Semua Aktiviti");
+  });
+
+  it("renders real activity cards with the activity title, status header, and wizard actions", () => {
+    const markup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={sampleActivity} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("Baca dan Susun");
+    expect(markup).toContain("Aktif");
+    expect(markup).toContain('href="/admin/aktiviti/activity-1/cipta/pratonton"');
+    expect(markup).toContain('href="/admin/aktiviti/activity-1/cipta/maklumat"');
+    expect(markup).toContain("Kemahiran");
+    expect(markup).toContain("Tahun");
+    expect(markup).not.toContain("Seret Suku Kata");
+    expect(markup).not.toContain("Arrange Syllables");
+  });
+
+  it("renders status-based activity card actions for draft, published, and archived records", () => {
+    const draftMarkup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={sampleDraftActivity} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+    const publishedMarkup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={sampleActivity} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+    const archivedMarkup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={sampleArchivedActivity} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+
+    expect(draftMarkup).toContain("Padam");
+    expect(draftMarkup).toContain("Edit");
+    expect(draftMarkup).toContain("Pratonton");
+
+    expect(publishedMarkup).toContain("Diarkibkan");
+    expect(publishedMarkup).toContain("Edit");
+    expect(publishedMarkup).toContain("Pratonton");
+    expect(publishedMarkup).not.toContain("Padam");
+    expect(publishedMarkup).not.toContain("Aktifkan Semula");
+
+    expect(archivedMarkup).toContain("Aktifkan Semula");
+    expect(archivedMarkup).toContain("Edit");
+    expect(archivedMarkup).toContain("Pratonton");
+    expect(archivedMarkup).not.toContain("Padam");
+    expect(archivedMarkup).not.toContain("Arkibkan aktiviti");
   });
 
   it("renders the Admin activity type selection page with available and disabled categories", () => {
@@ -703,6 +802,7 @@ describe("Admin activity management page", () => {
         content: "/admin/aktiviti/activity-1/cipta/kandungan",
         settings: "/admin/aktiviti/activity-1/cipta/tetapan",
         preview: "/admin/aktiviti/activity-1/cipta/pratonton",
+        publish: "/admin/aktiviti/activity-1/cipta/terbitkan",
       },
     }).map((step) => ({
       key: step.key,
@@ -716,7 +816,7 @@ describe("Admin activity management page", () => {
       { key: "content", isCurrent: false, isCompleted: true, isAccessible: true, isLocked: false },
       { key: "settings", isCurrent: true, isCompleted: true, isAccessible: true, isLocked: false },
       { key: "preview", isCurrent: false, isCompleted: false, isAccessible: true, isLocked: false },
-      { key: "publish", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
+      { key: "publish", isCurrent: false, isCompleted: false, isAccessible: true, isLocked: false },
     ]);
 
     expect(getActivityWizardStepStates({
@@ -762,6 +862,57 @@ describe("Admin activity management page", () => {
       { key: "preview", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
       { key: "publish", isCurrent: false, isCompleted: false, isAccessible: false, isLocked: true },
     ]);
+  });
+
+  it("keeps Step 6 mapped to the real publish endpoint while removing the review workflow from the UI", () => {
+    const apiSource = readFileSync(new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url), "utf8");
+    const publishPageSource = readFileSync(new URL("../src/features/admin/pages/AdminActivityPublishPage.tsx", import.meta.url), "utf8");
+    const previewPageSource = readFileSync(new URL("../src/features/admin/pages/AdminActivityPreviewPlaceholderPage.tsx", import.meta.url), "utf8");
+
+    expect(apiSource).toContain("/digital-activities/${activityId}/submit-review");
+    expect(apiSource).toContain("/digital-activities/${activityId}/publish");
+    expect(apiSource).toContain("/digital-activities/${activityId}/publish-readiness");
+    expect(publishPageSource).toContain("publishAdminDigitalActivity");
+    expect(publishPageSource).toContain("getAdminDigitalActivityPublishReadiness");
+    expect(publishPageSource).not.toContain("submitAdminDigitalActivityForReview");
+    expect(publishPageSource).toContain("Status Aktiviti");
+    expect(publishPageSource).toContain("Simpan sebagai Draf");
+    expect(publishPageSource).toContain("Aktifkan Aktiviti");
+    expect(publishPageSource).toContain("Semakan");
+    expect(publishPageSource).toContain("getReadinessRows");
+    expect(publishPageSource).toContain("getPrimaryReadinessMessage");
+    expect(publishPageSource).toContain('queryKey: [...publishQueryKeys.activityDetail(activityId), "publish-readiness"] as const');
+    expect(publishPageSource).toContain("const canActivate = Boolean(action) && Boolean(readiness.data?.ready) && !readiness.isLoading");
+    expect(publishPageSource).toContain("Jumlah markah aktiviti belum sepadan dengan markah item yang disimpan.");
+    expect(publishPageSource).toContain("Status Semasa");
+    expect(publishPageSource).toContain("getAdminActivityTemplateLabel");
+    expect(publishPageSource).toContain("getScoringModeLabel");
+    expect(publishPageSource).toContain("Jumlah Markah");
+    expect(publishPageSource).toContain('className="grid gap-3"');
+    expect(publishPageSource).toContain('className="h-11 w-full rounded-xl px-5 font-semibold"');
+    expect(publishPageSource).toContain('variant="success"');
+    expect(publishPageSource).toContain("returnConfirmOpen");
+    expect(publishPageSource).toContain("Kembali ke Pengurusan Aktiviti?");
+    expect(publishPageSource).toContain("Perubahan yang belum disimpan akan hilang jika anda kembali ke Pengurusan Aktiviti. Adakah anda pasti mahu meneruskan?");
+    expect(publishPageSource).toContain("Anda akan kembali ke Pengurusan Aktiviti. Adakah anda pasti mahu meneruskan?");
+    expect(publishPageSource).toContain('variant="destructive"');
+    expect(publishPageSource).toContain('navigate("/admin/aktiviti")');
+    expect(publishPageSource).toContain('className="flex flex-col gap-3 border-t border-border pt-6 lg:flex-row lg:items-center lg:justify-between"');
+    expect(publishPageSource).toContain('className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-none"');
+    expect(publishPageSource).toContain('className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end"');
+    expect(publishPageSource).not.toContain('<Link to="/admin/aktiviti">Kembali ke Pengurusan Aktiviti</Link>');
+    expect(publishPageSource).not.toContain("Hantar untuk Semakan");
+    expect(publishPageSource).not.toContain("Status Penerbitan");
+    expect(publishPageSource).not.toContain("Semakan Kesediaan");
+    expect(publishPageSource).not.toContain("Maklum Balas Segera");
+    expect(publishPageSource).not.toContain("Benarkan Cuba Lagi");
+    expect(publishPageSource).toContain('activeStep="publish"');
+    expect(publishPageSource).toContain('publish: `/admin/aktiviti/${activityId}/cipta/terbitkan`');
+    expect(publishPageSource).toContain("ConfirmDialog");
+    expect(publishPageSource).toContain("lifecycleMutation.mutate()");
+    expect(publishPageSource).not.toContain("void lifecycleMutation.mutateAsync()");
+    expect(previewPageSource).toContain("const stepSixPath");
+    expect(previewPageSource).toContain("publish: stepSixPath(activityId)");
   });
 
   it("keeps all official BM Pemulihan skills available from the real seed source in sequence order", () => {
@@ -945,20 +1096,47 @@ describe("Admin activity management page", () => {
   });
 
   it("renders real activity data with preview and edit actions", () => {
-    const markup = renderToStaticMarkup(
+    const markup = renderWithProviders(
       <MemoryRouter>
-        <AdminActivityCard activity={sampleActivity} />
+        <AdminActivityCard activity={sampleActivity} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
       </MemoryRouter>,
     );
 
     expect(markup).toContain("Baca dan Susun");
-    expect(markup).toContain("Bacaan Asas");
     expect(markup).toContain("Mengecam suku kata");
     expect(markup).toContain("Tahun 2");
     expect(markup).toContain("Pratonton");
     expect(markup).toContain("Edit");
-    expect(markup).toContain('href="/digital-activities/activity-1/preview"');
-    expect(markup).toContain('href="/digital-activities/activity-1/edit"');
+    expect(markup).toContain('href="/admin/aktiviti/activity-1/cipta/pratonton"');
+    expect(markup).toContain('href="/admin/aktiviti/activity-1/cipta/maklumat"');
+    expect(markup).not.toContain("Seret Suku Kata");
+    expect(markup).not.toContain("Kategori");
+    expect(markup).not.toContain("item tersedia");
+    expect(markup).not.toContain("Tahap");
+    expect(markup).not.toContain("Asas");
+    expect(markup).not.toContain("Sederhana");
+  });
+
+  it("shows permanent delete only for draft activities", () => {
+    const draftMarkup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={{ ...sampleActivity, status: "DRAFT" }} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+    const activeMarkup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={sampleActivity} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+    const archivedMarkup = renderWithProviders(
+      <MemoryRouter>
+        <AdminActivityCard activity={{ ...sampleActivity, status: "ARCHIVED" }} currentPage={1} pageSize={12} totalItems={24} onPageChange={() => undefined} />
+      </MemoryRouter>,
+    );
+
+    expect(draftMarkup).toContain("Padam");
+    expect(activeMarkup).not.toContain("Padam");
+    expect(archivedMarkup).not.toContain("Padam");
   });
 
   it("renders summary cards without using paginated item counts as fake totals", () => {
@@ -1026,6 +1204,71 @@ describe("Admin activity management page", () => {
     });
   });
 
+  it("hides retry, attempt-limit, and immediate-feedback settings for Seret Suku Kata while normalizing persisted payload values", () => {
+    const templateSupport = getActivitySettingsTemplateSupport({
+      template: {
+        id: "template-arrange-syllables",
+        code: "ARRANGE_SYLLABLES",
+        name: "Seret Suku Kata",
+        version: 1,
+        rendererKey: "arrange-syllables",
+        status: "ACTIVE",
+        category: "READING",
+      },
+    } as never);
+
+    expect(templateSupport).toEqual({
+      retrySettings: false,
+      attemptLimit: false,
+      immediateFeedbackSetting: false,
+      masteryThresholdSetting: false,
+    });
+
+    expect(
+      buildActivitySettingsUpdatePayload({
+        estimatedMinutes: "10",
+        hasTimeLimit: false,
+        timeLimitMinutes: "",
+        attemptsAllowed: "1",
+        allowRetry: false,
+        shuffleItems: true,
+        showImmediateFeedback: false,
+        scoringMode: "TOTAL_SCORE",
+        totalMarks: "100",
+        masteryThreshold: "",
+      }, templateSupport),
+    ).toEqual({
+      estimatedMinutes: 10,
+      attemptsAllowed: null,
+      timeLimitSeconds: null,
+      shuffleItems: true,
+      showImmediateFeedback: true,
+      allowRetry: true,
+      scoringMode: "TOTAL_SCORE",
+      totalMarks: 100,
+      masteryThreshold: null,
+    });
+  });
+
+  it("keeps generic settings support available for non-Seret-Suku-Kata templates", () => {
+    expect(getActivitySettingsTemplateSupport({
+      template: {
+        id: "template-1",
+        code: "WORD_BUILDER",
+        name: "Bina Perkataan",
+        version: 1,
+        rendererKey: "word-builder",
+        status: "ACTIVE",
+        category: "READING",
+      },
+    } as never)).toEqual({
+      retrySettings: true,
+      attemptLimit: true,
+      immediateFeedbackSetting: true,
+      masteryThresholdSetting: true,
+    });
+  });
+
   it("hydrates Step 4 settings from the real activity DTO fields", () => {
     expect(
       getActivitySettingsFormValues({
@@ -1050,6 +1293,28 @@ describe("Admin activity management page", () => {
       scoringMode: "TOTAL_SCORE",
       totalMarks: "5",
       masteryThreshold: "",
+    });
+  });
+
+  it("detects legacy scoring mismatches so unchanged Step 4 settings can resync persisted item marks", () => {
+    expect(getActivitySettingsScoringSyncState({
+      scoringMode: "TOTAL_SCORE",
+      totalMarks: 100,
+      items: [{ id: "item-1", marks: 1 }, { id: "item-2", marks: 1 }],
+    } as never)).toEqual({
+      requiresResync: true,
+      allocatedMarks: 2,
+      expectedMarks: 100,
+    });
+
+    expect(getActivitySettingsScoringSyncState({
+      scoringMode: "TOTAL_SCORE",
+      totalMarks: 100,
+      items: [{ id: "item-1", marks: 50 }, { id: "item-2", marks: 50 }],
+    } as never)).toEqual({
+      requiresResync: false,
+      allocatedMarks: 100,
+      expectedMarks: 100,
     });
   });
 
@@ -1097,21 +1362,22 @@ describe("Admin activity management page", () => {
 
     expect(settingsPageSource).toContain("Tetapan Aktiviti");
     expect(settingsPageSource).toContain("Anggaran Masa");
-    expect(settingsPageSource).toContain("Bilangan Percubaan");
+    expect(settingsPageSource).toContain("templateSupport.attemptLimit");
     expect(settingsPageSource).toContain("Rawakkan Susunan Soalan");
-    expect(settingsPageSource).toContain("Maklum Balas Serta-merta");
+    expect(settingsPageSource).toContain("templateSupport.immediateFeedbackSetting");
+    expect(settingsPageSource).toContain("templateSupport.masteryThresholdSetting");
     expect(settingsPageSource).toContain("Mod Pemarkahan");
     expect(settingsPageSource).toContain("Tetapkan tempoh aktiviti untuk murid.");
     expect(settingsPageSource).toContain("Aktifkan untuk menetapkan tempoh maksimum murid menyelesaikan aktiviti.");
-    expect(settingsPageSource).toContain("Murid boleh mencuba semula selagi masih mempunyai baki percubaan.");
-    expect(settingsPageSource).toContain("Tetapkan jumlah maksimum percubaan yang dibenarkan.");
+    expect(settingsPageSource).toContain("getActivitySettingsTemplateSupport");
+    expect(settingsPageSource).toContain("templateSupport.retrySettings");
     expect(settingsPageSource).toContain("Susunan soalan akan dirawakkan semasa aktiviti dijalankan.");
-    expect(settingsPageSource).toContain("Murid menerima maklum balas selepas menjawab soalan.");
+    expect(settingsPageSource).toContain("Tetapkan bila murid menerima maklum balas.");
     expect(settingsPageSource).toContain("useActivityWizardStep");
     expect(settingsPageSource).toContain("MinimalToggle");
     expect(settingsPageSource).toContain("space-y-6");
     expect(settingsPageSource).not.toContain("xl:grid-cols-2");
-    expect(settingsPageSource).toContain("{allowRetry ? (");
+    expect(settingsPageSource).not.toContain("{allowRetry ? (");
     expect(settingsPageSource).not.toContain("Semakan");
     expect(settingsPageSource).not.toContain("backend");
     expect(settingsPageSource).toContain("AdminActivityWizardStepFooter");
@@ -1119,7 +1385,11 @@ describe("Admin activity management page", () => {
     expect(settingsPageSource).toContain("cancelDestination: galleryPath");
     expect(settingsPageSource).toContain("Perubahan yang belum disimpan akan hilang jika anda meninggalkan langkah ini.");
     expect(settingsPageSource).toContain("queryClient.setQueryData");
-    expect(settingsPageSource).toContain('await queryClient.invalidateQueries({ queryKey: settingsQueryKeys.activityPreview(savedActivity.id) });');
+    expect(settingsPageSource).toContain("getActivitySettingsScoringSyncState(activity.data)");
+    expect(settingsPageSource).toContain("stepController.canSave || scoringSyncState.requiresResync");
+    expect(settingsPageSource).toContain("settingsQueryKeys.publishReadiness(savedActivity.id)");
+    expect(settingsPageSource).toContain("settingsQueryKeys.activityList");
+    expect(settingsPageSource).toContain("settingsQueryKeys.activitySummary");
     expect(settingsPageSource).not.toContain("Tarikh Mula");
     expect(settingsPageSource).not.toContain("Tarikh Tamat");
     expect(settingsPageSource).not.toContain("Keutamaan Tugasan");
@@ -1128,12 +1398,34 @@ describe("Admin activity management page", () => {
     expect(settingsApiSource).toContain('apiRequest<ActivityPayload>(`/digital-activities/${activityId}`, {');
     expect(settingsApiSource).toContain('method: "PATCH"');
     expect(previewPageSource).toContain("getAdminDigitalActivityPreview");
+    expect(previewPageSource).toContain("getAdminDigitalActivity");
+    expect(previewPageSource).toContain("updateAdminDigitalActivitySettings");
     expect(previewPageSource).toContain("previewMode");
-    expect(previewPageSource).toContain("Mod Pratonton");
-    expect(previewPageSource).toContain("Ringkasan Pratonton");
-    expect(previewPageSource).toContain("Cuba aktiviti seperti murid tanpa merekod percubaan, markah atau kemajuan.");
+    expect(previewPageSource).toContain("Kembali ke Tetapan");
+    expect(previewPageSource).toContain("AdminActivityWizardStepFooter");
+    expect(previewPageSource).toContain('showCancel={false}');
+    expect(previewPageSource).toContain("continueDestination: stepSixPath(activityId)");
+    expect(previewPageSource).toContain("buildActivitySettingsUpdatePayload");
+    expect(previewPageSource).not.toContain("Mod Pratonton");
+    expect(previewPageSource).not.toContain('<Badge variant="outline"');
+    expect(previewPageSource).not.toContain("Cuba aktiviti seperti murid; percubaan, markah dan kemajuan tidak akan direkodkan.");
+    expect(previewPageSource).not.toContain("Ringkasan Pratonton");
+    expect(previewPageSource).not.toContain('label: "Status"');
+    expect(previewPageSource).not.toContain('label: "Program"');
+    expect(previewPageSource).not.toContain('label: "Versi Kurikulum"');
+    expect(previewPageSource).not.toContain('label: "Item"');
+    expect(previewPageSource).not.toContain('value: progress.hasSettings ? "Lengkap" : "Belum lengkap"');
     expect(previewPageSource).not.toContain("konfigurasi backend");
     expect(previewPageSource).not.toContain("placeholder selamat");
     expect(previewPageSource).not.toContain("Pratonton aktiviti akan disediakan dalam langkah seterusnya.");
+  });
+
+  it("uses an actionable Step 6 scoring blocker message instead of a stale raw mismatch warning", () => {
+    const publishPageSource = readFileSync(
+      new URL("../src/features/admin/pages/AdminActivityPublishPage.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(publishPageSource).toContain("Markah item belum sepadan dengan jumlah markah. Kembali ke Tetapan dan simpan semula tetapan pemarkahan.");
   });
 });

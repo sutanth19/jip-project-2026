@@ -8,6 +8,7 @@ import {
   NotebookPen,
   type LucideIcon,
 } from "lucide-react";
+import seretSukuKataThumbnail from "@/assets/images/img_.seret.png";
 
 export type AdminActivityStatus =
   | "DRAFT"
@@ -48,6 +49,7 @@ export type AdminActivityRecord = {
   template: {
     id: string;
     name: string;
+    code?: string | null;
     category: string | null;
     rendererKey: string | null;
   } | null;
@@ -118,7 +120,7 @@ export const adminActivityStatusOptions: Array<{ label: string; value: "all" | A
   { label: "Semua status", value: "all" },
   { label: "Draf", value: "DRAFT" },
   { label: "Dalam Semakan", value: "IN_REVIEW" },
-  { label: "Diterbitkan", value: "PUBLISHED" },
+  { label: "Aktif", value: "PUBLISHED" },
   { label: "Diarkibkan", value: "ARCHIVED" },
 ] as const;
 
@@ -130,7 +132,7 @@ export const adminActivitySummaryCards: Array<{
   iconClassName: string;
 }> = [
   { key: "total", title: "Jumlah Aktiviti", description: "Semua aktiviti dalam sistem", icon: FileText, iconClassName: "border-primary/15 bg-primary/10 text-primary" },
-  { key: "published", title: "Diterbitkan", description: "Aktiviti tersedia untuk guru", icon: BookOpenCheck, iconClassName: "border-secondary/20 bg-secondary/10 text-secondary" },
+  { key: "published", title: "Aktif", description: "Aktiviti tersedia untuk guru", icon: BookOpenCheck, iconClassName: "border-secondary/20 bg-secondary/10 text-secondary" },
   { key: "draft", title: "Draf", description: "Aktiviti belum diterbitkan", icon: NotebookPen, iconClassName: "border-accent/20 bg-accent/10 text-accent" },
   { key: "archived", title: "Diarkibkan", description: "Aktiviti yang diarkibkan", icon: Archive, iconClassName: "border-border bg-muted text-muted-foreground" },
 ] as const;
@@ -192,13 +194,29 @@ export function getAdminActivitySortValue(query: Pick<AdminActivityListQuery, "s
 export function getAdminActivityStatusLabel(status: string): string {
   if (status === "DRAFT") return "Draf";
   if (status === "IN_REVIEW") return "Dalam Semakan";
-  if (status === "PUBLISHED") return "Diterbitkan";
+  if (status === "PUBLISHED") return "Aktif";
   if (status === "ARCHIVED") return "Diarkibkan";
   return status;
 }
 
+export function getAdminActivityTemplateLabel(template?: {
+  name?: string | null;
+  code?: string | null;
+  rendererKey?: string | null;
+} | null): string {
+  if (template?.name?.trim() === "Seret Suku Kata") {
+    return "Seret Suku Kata";
+  }
+
+  if (template?.code === "ARRANGE_SYLLABLES" || template?.rendererKey === "arrange-syllables" || template?.name?.trim() === "Arrange Syllables") {
+    return "Seret Suku Kata";
+  }
+
+  return template?.name?.trim() || "Tidak tersedia";
+}
+
 export function getAdminActivityCategoryLabel(category: string | null | undefined): string {
-  if (category === "READING") return "Membaca";
+  if (category === "READING" || category === "ARRANGEMENT") return "Membaca";
   if (category === "WRITING") return "Menulis";
   return "Tidak tersedia";
 }
@@ -241,8 +259,28 @@ export function getAdminActivityThumbnail(activity: AdminActivityRecord): { src:
   };
 }
 
+export function getAdminActivityTemplateThumbnail(template?: {
+  name?: string | null;
+  code?: string | null;
+  rendererKey?: string | null;
+} | null): { src: string; alt: string } | null {
+  if (
+    template?.name?.trim() === "Seret Suku Kata"
+    || template?.name?.trim() === "Arrange Syllables"
+    || template?.code === "ARRANGE_SYLLABLES"
+    || template?.rendererKey === "arrange-syllables"
+  ) {
+    return {
+      src: seretSukuKataThumbnail,
+      alt: "Templat Seret Suku Kata",
+    };
+  }
+
+  return null;
+}
+
 export function getAdminActivityTemplateOptionLabel(option: AdminActivityTemplateOption): string {
-  return `${option.name} (${getAdminActivityCategoryLabel(option.category)})`;
+  return `${getAdminActivityTemplateLabel(option)} (${getAdminActivityCategoryLabel(option.category)})`;
 }
 
 export function getAdminActivityResultRange(meta: AdminActivityListResult["meta"]): string {
@@ -279,8 +317,6 @@ export function getAdminActivityClockText(value: string): string {
 
 export function getAdminActivityMetaRows(activity: AdminActivityRecord): Array<{ label: string; value: string; icon: LucideIcon }> {
   return [
-    { label: "Kategori", value: getAdminActivityCategoryLabel(activity.template?.category), icon: BookOpenText },
-    { label: "Templat", value: activity.template?.name ?? "Tidak tersedia", icon: FileText },
     { label: "Kemahiran", value: getAdminActivitySkillLabel(activity), icon: NotebookPen },
     { label: "Tahun", value: getAdminActivityYearLabel(activity), icon: Clock3 },
   ];

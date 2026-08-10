@@ -242,7 +242,7 @@ export function getActivityWizardStepStates({
   progress: ActivityWizardProgress;
   stepLinks?: Partial<Record<ActivityWizardStepId, string>>;
 }): ActivityWizardStepState[] {
-  const highestAccessibleStep = progress.hasSettings ? 5 : progress.hasContent ? 4 : progress.hasCurriculumLink ? 3 : progress.hasDraft ? 2 : 1;
+  const highestAccessibleStep = progress.hasSettings ? 6 : progress.hasContent ? 4 : progress.hasCurriculumLink ? 3 : progress.hasDraft ? 2 : 1;
 
   return activityWizardSteps.map((step, index) => {
     const stepNumber = index + 1;
