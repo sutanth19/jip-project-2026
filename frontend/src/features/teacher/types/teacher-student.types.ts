@@ -9,7 +9,12 @@ export type TeacherStudentListItem = {
   fullName: string;
   avatar: string | null;
   accountStatus: TeacherStudentStatus;
-  remedialLevel: null;
+  remedialSkill: {
+    id: string;
+    code: string;
+    name: string;
+    sequence: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   class: {
@@ -45,6 +50,7 @@ export type TeacherStudentListResponse = {
 
 export type TeacherStudentCreatePayload = {
   classId: string;
+  remedialSkillId: string;
   fullName: string;
   yearLevel: number;
   gender: "MALE" | "FEMALE";
@@ -89,6 +95,12 @@ export type TeacherStudentDetail = {
   birthDate: string | null;
   avatar: string | null;
   accountStatus: TeacherStudentStatus;
+  remedialSkill: {
+    id: string;
+    code: string;
+    name: string;
+    sequence: number;
+  } | null;
   isPinChanged: boolean;
   createdAt: string;
   updatedAt: string;
@@ -116,6 +128,7 @@ export type TeacherStudentUpdatePayload = {
   fullName: string;
   yearLevel: number;
   classId: string;
+  remedialSkillId: string;
   gender: "MALE" | "FEMALE";
 };
 

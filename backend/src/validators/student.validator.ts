@@ -46,6 +46,7 @@ export const studentParentParamsSchema = studentProfileIdParamsSchema.extend({
 export const createStudentSchema = z.object({
   schoolId: z.string().uuid("ID sekolah tidak sah."),
   classId: z.string().uuid("ID kelas tidak sah."),
+  remedialSkillId: z.string().uuid("ID kemahiran pemulihan tidak sah.").optional(),
   studentId: studentIdSchema,
   fullName: fullNameSchema,
   gender: z.nativeEnum(Gender),
@@ -55,6 +56,7 @@ export const createStudentSchema = z.object({
 
 export const createTeacherStudentSchema = z.object({
   classId: z.string().uuid("ID kelas tidak sah."),
+  remedialSkillId: z.string().uuid("ID kemahiran pemulihan tidak sah."),
   fullName: fullNameSchema,
   yearLevel: z.coerce.number().int().min(1, "Tahun tidak sah.").max(6, "Tahun tidak sah."),
   gender: z.nativeEnum(Gender),
@@ -64,6 +66,7 @@ export const updateStudentSchema = z.object({
   studentId: studentIdSchema.optional(),
   fullName: fullNameSchema.optional(),
   classId: z.string().uuid("ID kelas tidak sah.").optional(),
+  remedialSkillId: z.string().uuid("ID kemahiran pemulihan tidak sah.").nullable().optional(),
   yearLevel: z.coerce.number().int().min(1, "Tahun tidak sah.").max(6, "Tahun tidak sah.").optional(),
   gender: z.nativeEnum(Gender).optional(),
   birthDate: birthDateSchema.nullable().optional(),

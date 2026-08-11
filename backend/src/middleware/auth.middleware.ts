@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
+import { performance } from "node:perf_hooks";
 import { AppError } from "../errors/app-error.js";
 import { verifyAccessToken } from "../utils/jwt.js";
 import { TeacherPermission, UserRole } from "@prisma/client";
+import { markRequestPerformance } from "../utils/request-performance.js";
 
 export interface AuthenticatedSession {
   userId: string;
@@ -33,6 +35,7 @@ export function authenticate(
   res: Response,
   next: NextFunction
 ) {
+  const startedAt = performance.now();
   try {
     const authHeader = req.headers.authorization;
 
@@ -65,9 +68,11 @@ export function authenticate(
 
     req.user = auth;
     req.auth = auth;
+    markRequestPerformance(req, "authMs", performance.now() - startedAt);
 
     next();
   } catch {
+    markRequestPerformance(req, "authMs", performance.now() - startedAt);
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token.",
@@ -80,9 +85,11 @@ export function requirePasswordChanged(
   _res: Response,
   next: NextFunction
 ) {
+  const startedAt = performance.now();
   const auth = req.auth ?? req.user;
 
   if (!auth) {
+    markRequestPerformance(req, "passwordGateMs", performance.now() - startedAt);
     next(
       new AppError(
         "AUTH_INVALID_TOKEN",
@@ -94,6 +101,7 @@ export function requirePasswordChanged(
   }
 
   if (auth.isFirstLogin) {
+    markRequestPerformance(req, "passwordGateMs", performance.now() - startedAt);
     next(
       new AppError(
         "AUTH_PASSWORD_CHANGE_REQUIRED",
@@ -104,6 +112,7 @@ export function requirePasswordChanged(
     return;
   }
 
+  markRequestPerformance(req, "passwordGateMs", performance.now() - startedAt);
   next();
 }
 

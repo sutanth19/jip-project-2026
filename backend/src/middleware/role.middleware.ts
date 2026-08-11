@@ -1,4 +1,5 @@
 import type { NextFunction, Response } from "express";
+import { performance } from "node:perf_hooks";
 import { TeacherPermission, UserRole } from "@prisma/client";
 
 import { prisma } from "../config/prisma.js";
@@ -8,6 +9,7 @@ import type {
   AuthenticatedSession,
   PermissionGrantContext,
 } from "./auth.middleware.js";
+import { markRequestPerformance } from "../utils/request-performance.js";
 
 /**
  * Secure route composition examples:
@@ -242,6 +244,7 @@ export function requireRole(...allowedRoles: UserRole[]) {
     _res: Response,
     next: NextFunction,
   ): void => {
+    const startedAt = performance.now();
     try {
       const auth = getAuth(req);
 
@@ -249,8 +252,10 @@ export function requireRole(...allowedRoles: UserRole[]) {
         throw roleForbidden();
       }
 
+      markRequestPerformance(req, "roleMs", performance.now() - startedAt);
       next();
     } catch (error) {
+      markRequestPerformance(req, "roleMs", performance.now() - startedAt);
       next(error);
     }
   };

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, BadgeCheck, Copy, GraduationCap, Hash, KeyRound, LoaderCircle, ShieldCheck, UserPlus } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -15,9 +16,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { RemedialSkillSelect } from "@/features/curriculum/components/RemedialSkillSelect";
+import { getDefaultRemedialProgrammeId, listRemedialSkillsByProgramme } from "@/features/curriculum/api/remedial-skill.api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { remedialSkillOptionLabel } from "@/features/curriculum/utils/remedial-skill";
 import type { TeacherClassListItem } from "@/features/teacher/types/teacher-class.types";
 import type { TeacherStudentCreatePayload, TeacherStudentCreateResult } from "@/features/teacher/types/teacher-student.types";
 import { teacherClassDisplayLabel, teacherYearLevelOptions } from "@/features/teacher/utils/teacher-class";
@@ -82,10 +86,20 @@ export function TeacherStudentCreateForm({
   });
   const selectedYearLevel = useWatch({ control: form.control, name: "yearLevel" });
   const selectedClassId = useWatch({ control: form.control, name: "classId" });
+  const selectedRemedialSkillId = useWatch({ control: form.control, name: "remedialSkillId" });
   const filteredClasses = React.useMemo(
     () => filterActiveTeacherClassesByYear(classes, selectedYearLevel),
     [classes, selectedYearLevel],
   );
+  const remedialProgramme = useQuery({
+    queryKey: ["teacher", "students", "remedial-programme"],
+    queryFn: getDefaultRemedialProgrammeId,
+  });
+  const remedialSkills = useQuery({
+    queryKey: ["teacher", "students", "remedial-skills", remedialProgramme.data],
+    queryFn: () => listRemedialSkillsByProgramme(remedialProgramme.data as string),
+    enabled: Boolean(remedialProgramme.data),
+  });
 
   React.useEffect(() => {
     if (!selectedClassId) return;
@@ -300,6 +314,39 @@ export function TeacherStudentCreateForm({
                 </p>
               </div>
 
+              <div className="w-full space-y-2">
+                <Label htmlFor="teacher-student-remedial-skill-id" className="text-sm font-semibold text-foreground">
+                  Kemahiran Pemulihan <RequiredMark />
+                </Label>
+                <Controller
+                  control={form.control}
+                  name="remedialSkillId"
+                  render={({ field, fieldState }) => (
+                    <>
+                      <RemedialSkillSelect
+                        value={field.value}
+                        id="teacher-student-remedial-skill-id"
+                        describedBy={fieldState.error ? "teacher-student-remedial-skill-id-error" : "teacher-student-remedial-skill-id-helper"}
+                        onChange={field.onChange}
+                        error={fieldState.error?.message}
+                        disabled={submitting || remedialProgramme.isLoading || remedialProgramme.isError || remedialSkills.isLoading || remedialSkills.isError || (remedialSkills.data?.length ?? 0) === 0}
+                        skills={remedialSkills.data ?? []}
+                        isLoading={remedialProgramme.isLoading || remedialSkills.isLoading}
+                        isError={remedialProgramme.isError || remedialSkills.isError}
+                        onRetry={() => {
+                          void remedialProgramme.refetch();
+                          void remedialSkills.refetch();
+                        }}
+                      />
+                      <FieldError id="teacher-student-remedial-skill-id-error" message={fieldState.error?.message} />
+                    </>
+                  )}
+                />
+                <p id="teacher-student-remedial-skill-id-helper" className="text-sm leading-6 text-muted-foreground">
+                  Pilih kemahiran pemulihan semasa murid menggunakan turutan rasmi KP-PRA hingga KP32.
+                </p>
+              </div>
+
               {classesError ? (
                 <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
                   <p className="font-semibold">Senarai kelas tidak dapat dimuatkan.</p>
@@ -383,6 +430,7 @@ export function TeacherStudentCreateForm({
           <dl className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
             <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Nama Penuh</dt><dd className="text-sm text-muted-foreground">{pendingPayload?.fullName ?? "-"}</dd></div>
             <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Tahun</dt><dd className="text-sm text-muted-foreground">{pendingPayload ? `Tahun ${pendingPayload.yearLevel}` : "-"}</dd></div>
+            <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Kemahiran Pemulihan</dt><dd className="text-sm text-muted-foreground">{selectedRemedialSkillId ? remedialSkillOptionLabel(remedialSkills.data?.find((item) => item.id === selectedRemedialSkillId) ?? { code: "-", name: "-" }) : "-"}</dd></div>
           </dl>
 
           {confirmError ? (

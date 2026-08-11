@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -54,27 +55,35 @@ describe("Guru Tambah Murid", () => {
 
   it("renders the shared create layout with supported real student fields only", () => {
     const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <ToastContext.Provider value={toastValue}>
-          <TeacherStudentCreateForm
-            classes={[activeYearTwoClass]}
-            classesLoading={false}
-            classesError={false}
-            onRetryClasses={() => undefined}
-            onSubmit={async () => ({
-              student: {
-                id: "student-1",
-                studentId: "MURID-ABC12345",
-                fullName: "Kumar Raj",
-                accountStatus: "ACTIVE",
-                class: activeYearTwoClass,
-              },
-              credentials: { studentId: "MURID-ABC12345", temporaryPin: "0274" },
-            })}
-            submitting={false}
-          />
-        </ToastContext.Provider>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ToastContext.Provider value={toastValue}>
+            <TeacherStudentCreateForm
+              classes={[activeYearTwoClass]}
+              classesLoading={false}
+              classesError={false}
+              onRetryClasses={() => undefined}
+              onSubmit={async () => ({
+                student: {
+                  id: "student-1",
+                  studentId: "MURID-ABC12345",
+                  fullName: "Kumar Raj",
+                  accountStatus: "ACTIVE",
+                  remedialSkill: {
+                    id: "skill-1",
+                    code: "KP04",
+                    name: "Suku kata KV",
+                    sequence: 4,
+                  },
+                  class: activeYearTwoClass,
+                },
+                credentials: { studentId: "MURID-ABC12345", temporaryPin: "0274" },
+              })}
+              submitting={false}
+            />
+          </ToastContext.Provider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(markup).toContain("w-full overflow-hidden rounded-2xl border border-border bg-card shadow-sm");
@@ -87,6 +96,7 @@ describe("Guru Tambah Murid", () => {
     expect(markup).toContain("Tahun");
     expect(markup).toContain("Kelas Asal");
     expect(markup).toContain("Jantina");
+    expect(markup).toContain("Kemahiran Pemulihan");
     expect(markup).toContain("grid gap-6 md:grid-cols-2");
     expect(markup).toContain("Pilih tahun terlebih dahulu. Senarai kelas aktif akan dipaparkan mengikut tahun tersebut.");
     expect(markup).toContain("Maklumat log masuk dijana oleh sistem");
@@ -97,7 +107,6 @@ describe("Guru Tambah Murid", () => {
     expect(markup).not.toContain("teacher-student-id");
     expect(markup).not.toContain("Tarikh Lahir");
     expect(markup).not.toContain("PIN Murid *");
-    expect(markup).not.toContain("Tahap Pemulihan");
     expect(markup).not.toContain("schoolId");
     expect(markup).not.toContain("Pilih sekolah");
   });
@@ -107,23 +116,27 @@ describe("Guru Tambah Murid", () => {
       fullName: "",
       yearLevel: "",
       classId: "",
+      remedialSkillId: "",
       gender: "",
     });
     expect(buildTeacherStudentCreatePayload({
       fullName: "  Kumar Raj  ",
       yearLevel: "2",
       classId: activeYearTwoClass.id,
+      remedialSkillId: "33333333-3333-4333-8333-333333333333",
       gender: "MALE",
     })).toEqual({
       fullName: "Kumar Raj",
       yearLevel: 2,
       classId: activeYearTwoClass.id,
+      remedialSkillId: "33333333-3333-4333-8333-333333333333",
       gender: "MALE",
     });
     expect(JSON.stringify(buildTeacherStudentCreatePayload({
       fullName: "Kumar Raj",
       yearLevel: "2",
       classId: activeYearTwoClass.id,
+      remedialSkillId: "33333333-3333-4333-8333-333333333333",
       gender: "MALE",
     }))).not.toMatch(/studentId|pin|birthDate|schoolId/);
     expect(mapTeacherStudentCreateSubmissionError(new ApiError("inactive", 400, "SCHOOL_CLASS_INACTIVE"))).toEqual({
@@ -132,6 +145,10 @@ describe("Guru Tambah Murid", () => {
     });
     expect(mapTeacherStudentCreateSubmissionError(new ApiError("generation", 500, "STUDENT_ID_GENERATION_FAILED"))).toEqual({
       message: "ID murid tidak dapat dijana. Sila cuba lagi.",
+    });
+    expect(mapTeacherStudentCreateSubmissionError(new ApiError("skill", 400, "REMEDIAL_SKILL_UNAVAILABLE"))).toEqual({
+      field: "remedialSkillId",
+      message: "Kemahiran pemulihan yang dipilih tidak sah.",
     });
   });
 

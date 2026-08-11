@@ -71,6 +71,14 @@ export function normalizeTeacherStudentDetailResponse(payload: unknown): Teacher
       birthDate: asString(record.birthDate),
       avatar: asString(record.avatar),
       accountStatus: record.accountStatus === "PENDING" || record.accountStatus === "SUSPENDED" || record.accountStatus === "ARCHIVED" || record.accountStatus === "LOCKED" ? record.accountStatus : "ACTIVE",
+      remedialSkill: isRecord(record.remedialSkill)
+        ? {
+            id: asString(record.remedialSkill.id) ?? "",
+            code: asString(record.remedialSkill.code) ?? "",
+            name: asString(record.remedialSkill.name) ?? "",
+            sequence: asNumber(record.remedialSkill.sequence, 0),
+          }
+        : null,
       isPinChanged: record.isPinChanged === true,
       createdAt: asString(record.createdAt) ?? "",
       updatedAt: asString(record.updatedAt) ?? "",
@@ -86,12 +94,14 @@ export function buildTeacherStudentUpdatePayload(values: {
   fullName: string;
   yearLevel: string;
   classId: string;
+  remedialSkillId: string;
   gender: "MALE" | "FEMALE";
 }): TeacherStudentUpdatePayload {
   return {
     fullName: values.fullName.trim(),
     yearLevel: Number(values.yearLevel),
     classId: values.classId,
+    remedialSkillId: values.remedialSkillId,
     gender: values.gender,
   };
 }

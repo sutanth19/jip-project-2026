@@ -8,6 +8,7 @@ export const teacherStudentCreateFormSchema = z.object({
   fullName: z.string().trim().min(3, "Nama penuh diperlukan.").max(150, "Nama penuh terlalu panjang."),
   yearLevel: z.string().regex(/^[1-6]$/, "Sila pilih tahun."),
   classId: z.string().uuid("Sila pilih kelas asal."),
+  remedialSkillId: z.string().uuid("Sila pilih kemahiran pemulihan."),
   gender: z.string().refine((value) => value === "MALE" || value === "FEMALE", "Sila pilih jantina."),
 });
 
@@ -23,6 +24,7 @@ export const teacherStudentCreateDefaultValues: TeacherStudentCreateFormInput = 
   fullName: "",
   yearLevel: "",
   classId: "",
+  remedialSkillId: "",
   gender: "",
 };
 
@@ -31,6 +33,7 @@ export function buildTeacherStudentCreatePayload(values: TeacherStudentCreateVal
     fullName: values.fullName.trim(),
     yearLevel: Number(values.yearLevel),
     classId: values.classId,
+    remedialSkillId: values.remedialSkillId,
     gender: values.gender,
   };
 
@@ -64,6 +67,10 @@ export function mapTeacherStudentCreateSubmissionError(error: unknown): TeacherS
 
   if (parsed.code === "AUTH_SCHOOL_CONTEXT_REQUIRED") {
     return { message: "Guru ini belum dipautkan kepada sekolah. Hubungi pentadbir untuk menetapkan sekolah." };
+  }
+
+  if (parsed.code === "REMEDIAL_SKILL_NOT_FOUND" || parsed.code === "REMEDIAL_SKILL_UNAVAILABLE") {
+    return { field: "remedialSkillId", message: "Kemahiran pemulihan yang dipilih tidak sah." };
   }
 
   if (parsed.code === "AUTH_ROLE_FORBIDDEN" || parsed.code === "AUTH_PERMISSION_DENIED") {

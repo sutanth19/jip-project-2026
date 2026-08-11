@@ -1,4 +1,6 @@
 import { AccountStatus, Prisma, UserRole } from "@prisma/client";
+import { performance } from "node:perf_hooks";
+import type { Request } from "express";
 
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
@@ -13,6 +15,7 @@ import type {
   ListSchoolsQuery,
   UpdateSchoolRequest,
 } from "../validators/school.validator.js";
+import { markRequestPerformance } from "../utils/request-performance.js";
 
 export interface SchoolRecord {
   id: string;
@@ -78,6 +81,7 @@ export interface SchoolServiceDependencies {
   repository?: SchoolRepository;
   auditDispatcher?: AuditEventDispatcher;
   now?: () => Date;
+  request?: Request;
 }
 
 const schoolSelect = {
@@ -473,6 +477,7 @@ export async function listSchools(
     hasPreviousPage: boolean;
   };
 }> {
+  const serviceStartedAt = performance.now();
   const repository = deps.repository ?? prismaSchoolRepository;
   const page = query.page;
   const limit = query.limit;
@@ -486,10 +491,27 @@ export async function listSchools(
   };
 
   const [schools, total] = await Promise.all([
-    repository.findMany(filters),
-    repository.count(filters),
+    (async () => {
+      const startedAt = performance.now();
+      const result = await repository.findMany(filters);
+      if (deps.request) {
+        markRequestPerformance(deps.request, "prismaFindManyMs", performance.now() - startedAt);
+      }
+      return result;
+    })(),
+    (async () => {
+      const startedAt = performance.now();
+      const result = await repository.count(filters);
+      if (deps.request) {
+        markRequestPerformance(deps.request, "prismaCountMs", performance.now() - startedAt);
+      }
+      return result;
+    })(),
   ]);
   const totalPages = Math.ceil(total / limit);
+  if (deps.request) {
+    markRequestPerformance(deps.request, "serviceMs", performance.now() - serviceStartedAt);
+  }
 
   return {
     schools,

@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import type { AdminActivityDetailRecord } from "@/features/admin/api/admin-activity.api";
-import type { ActivityWizardProgress } from "@/features/admin/utils/admin-activity-create";
+import {
+  hasPersistedActivitySettings,
+  type ActivityWizardProgress,
+} from "@/features/admin/utils/admin-activity-create";
 
 export const activityScoringModeOptions = [
   { value: "NONE", label: "Tanpa Pemarkahan" },
@@ -174,10 +177,27 @@ export function getActivitySettingsTemplateSupport(
   return defaultTemplateSupport;
 }
 
-export function getActivitySettingsCompletionState(activity?: Pick<AdminActivityDetailRecord, "settingsCompletedAt"> | null) {
+export function getActivitySettingsCompletionState(
+  activity?: Pick<
+    AdminActivityDetailRecord,
+    | "settingsCompletedAt"
+    | "estimatedMinutes"
+    | "shuffleItems"
+    | "showImmediateFeedback"
+    | "allowRetry"
+    | "scoringMode"
+    | "totalMarks"
+  > | null,
+) {
+  const hasPersistedCompletion = hasPersistedActivitySettings(activity);
+
   return {
-    hasPersistedCompletion: Boolean(activity?.settingsCompletedAt),
-    reason: activity?.settingsCompletedAt ? "PERSISTED_SETTINGS_SIGNAL_PRESENT" as const : "MISSING_PERSISTED_SETTINGS_SIGNAL" as const,
+    hasPersistedCompletion,
+    reason: activity?.settingsCompletedAt
+      ? "PERSISTED_SETTINGS_SIGNAL_PRESENT" as const
+      : hasPersistedCompletion
+        ? "DERIVED_SETTINGS_SIGNAL_PRESENT" as const
+        : "MISSING_PERSISTED_SETTINGS_SIGNAL" as const,
   };
 }
 

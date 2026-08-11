@@ -23,8 +23,24 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function isAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
 export function normalizeMediaPreviewUrl(value: string): string {
-  return new URL(value, API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`).toString();
+  const trimmed = value.trim();
+
+  if (isAbsoluteUrl(trimmed)) {
+    return trimmed;
+  }
+
+  const apiUrl = new URL(API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`);
+
+  if (trimmed.startsWith("/")) {
+    return new URL(trimmed, apiUrl.origin).toString();
+  }
+
+  return new URL(`media/files/${trimmed}`, apiUrl).toString();
 }
 
 export function normalizeMediaUploadResponse(payload: unknown, purpose: MediaUploadPurpose): UploadedMediaFile {

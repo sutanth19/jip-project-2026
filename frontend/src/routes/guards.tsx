@@ -48,7 +48,12 @@ export function RequireAuth({ children }: GuardProps) {
 }
 
 export function RequireRole({ roles, children }: RoleGuardProps) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const role = useAuthStore((state) => state.role);
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (!role || !roles.includes(role)) {
     return <Navigate to="/403" replace />;

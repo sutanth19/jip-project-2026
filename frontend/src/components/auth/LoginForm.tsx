@@ -327,9 +327,9 @@ export default function LoginForm({ className, activeUserType, onActiveUserTypeC
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 sm:gap-6">
       <div className="flex items-center justify-end">
         <img
-          src={logoIpkda}
-          alt="Logo Institut Pendidikan Guru Kampus Darul Aman"
-          className="block h-24 w-auto shrink-0 object-contain sm:h-28"
+          src={logoIpgm}
+          alt="Logo Institut Pendidikan Guru Malaysia"
+          className="block h-24 w-auto shrink-0 translate-y-1 object-contain sm:h-40"
         />
       </div>
 
@@ -340,9 +340,9 @@ export default function LoginForm({ className, activeUserType, onActiveUserTypeC
 
       <div className="flex items-center justify-start">
         <img
-          src={logoIpgm}
-          alt="Logo Institut Pendidikan Guru Malaysia"
-          className="block h-24 w-auto shrink-0 translate-y-1 object-contain sm:h-40"
+          src={logoIpkda}
+          alt="Logo Institut Pendidikan Guru Kampus Darul Aman"
+          className="block h-24 w-auto shrink-0 object-contain sm:h-28"
         />
       </div>
     </div>

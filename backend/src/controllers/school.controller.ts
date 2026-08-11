@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { performance } from "node:perf_hooks";
 
 import { AppError } from "../errors/app-error.js";
 import { successResponse } from "../helpers/response.helper.js";
@@ -18,6 +19,10 @@ import {
   updateSchoolSchema,
   updateSchoolStatusSchema,
 } from "../validators/school.validator.js";
+import {
+  logRequestPerformance,
+  markRequestPerformance,
+} from "../utils/request-performance.js";
 
 function getAuditContext(req: AuthenticatedRequest): SchoolAuditContext {
   if (!req.auth) {
@@ -58,12 +63,19 @@ export async function listSchoolsController(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  const startedAt = performance.now();
   try {
     const query = listSchoolsQuerySchema.parse(req.query);
-    const result = await listSchools(query);
+    const result = await listSchools(query, { request: req });
+    markRequestPerformance(req, "controllerMs", performance.now() - startedAt);
+    logRequestPerformance(req, {
+      payloadBytes: Buffer.byteLength(JSON.stringify(result)),
+      itemCount: result.schools.length,
+    });
 
     successResponse(res, 200, "Senarai sekolah berjaya diperoleh.", result);
   } catch (error) {
+    markRequestPerformance(req, "controllerMs", performance.now() - startedAt);
     next(error);
   }
 }

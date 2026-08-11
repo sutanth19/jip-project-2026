@@ -27,16 +27,18 @@ test("student validators normalize IDs, enforce safe fields, and supply list def
 });
 
 test("teacher student validator accepts only teacher-entered fields", () => {
-  const student = createTeacherStudentSchema.parse({ classId, fullName: "  Kumar Raj  ", yearLevel: 2, gender: "MALE" });
+  const remedialSkillId = "33333333-3333-4333-8333-333333333333";
+  const student = createTeacherStudentSchema.parse({ classId, remedialSkillId, fullName: "  Kumar Raj  ", yearLevel: 2, gender: "MALE" });
   assert.equal(student.fullName, "Kumar Raj");
   assert.equal(student.yearLevel, 2);
+  assert.equal(student.remedialSkillId, remedialSkillId);
   assert.equal("schoolId" in student, false);
   assert.equal("studentId" in student, false);
-  assert.throws(() => createTeacherStudentSchema.parse({ classId, schoolId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
-  assert.throws(() => createTeacherStudentSchema.parse({ classId, studentId: "M7", fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
-  assert.throws(() => createTeacherStudentSchema.parse({ classId, pin: "0274", fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
-  assert.throws(() => createTeacherStudentSchema.parse({ classId, birthDate: "2017-04-12", fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
-  assert.throws(() => createTeacherStudentSchema.parse({ classId, fullName: "Kumar Raj", yearLevel: 7, gender: "MALE" }));
+  assert.throws(() => createTeacherStudentSchema.parse({ classId, schoolId, remedialSkillId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
+  assert.throws(() => createTeacherStudentSchema.parse({ classId, studentId: "M7", remedialSkillId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
+  assert.throws(() => createTeacherStudentSchema.parse({ classId, pin: "0274", remedialSkillId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
+  assert.throws(() => createTeacherStudentSchema.parse({ classId, birthDate: "2017-04-12", remedialSkillId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }));
+  assert.throws(() => createTeacherStudentSchema.parse({ classId, fullName: "Kumar Raj", yearLevel: 7, remedialSkillId, gender: "MALE" }));
 });
 
 test("teacher student updates can change the supported classroom and identity fields only", () => {
@@ -46,6 +48,7 @@ test("teacher student updates can change the supported classroom and identity fi
   assert.equal(update.yearLevel, 2);
   assert.equal(update.classId, classId);
   assert.equal(update.gender, "MALE");
+  assert.equal(updateStudentSchema.parse({ remedialSkillId: "33333333-3333-4333-8333-333333333333" }).remedialSkillId, "33333333-3333-4333-8333-333333333333");
   assert.throws(() => updateStudentSchema.parse({ schoolId }));
   assert.equal(updateStudentSchema.parse({ studentId: "M1" }).studentId, "M1");
   assert.equal(updateStudentSchema.parse({ birthDate: "2016-01-01" }).birthDate, "2016-01-01");
@@ -133,6 +136,7 @@ test("teacher without a school receives a safe empty student list", async () => 
 
 test("teacher creates a student with generated ID and one-time raw PIN response", async () => {
   const originalTeacherFindUnique = prisma.teacher.findUnique;
+  const originalRemedialSkillFindUnique = prisma.remedialSkill.findUnique;
   const originalClassFindUnique = prisma.schoolClass.findUnique;
   const originalTransaction = prisma.$transaction;
   const teacherContext = { actor: { userId: "teacher-user", profileId: "teacher-profile", role: UserRole.TEACHER, schoolId, isFirstLogin: false } };
@@ -140,6 +144,7 @@ test("teacher creates a student with generated ID and one-time raw PIN response"
   let auditAfter: unknown;
 
   prisma.teacher.findUnique = (async () => ({ id: "teacher-profile", schoolId, user: { accountStatus: AccountStatus.ACTIVE } })) as typeof prisma.teacher.findUnique;
+  prisma.remedialSkill.findUnique = (async () => ({ id: "skill-1", status: "ACTIVE", programme: { curriculumVersion: { status: "PUBLISHED" } } })) as typeof prisma.remedialSkill.findUnique;
   prisma.schoolClass.findUnique = (async () => ({ id: classId, schoolId, yearLevel: 2, accountStatus: AccountStatus.ACTIVE })) as typeof prisma.schoolClass.findUnique;
   prisma.$transaction = (async (callback: (tx: { user: { create: (args: unknown) => Promise<{ id: string }> }; student: { create: (args: { data: Record<string, unknown> }) => Promise<unknown> } }) => Promise<unknown>) => callback({
     user: { create: async () => ({ id: "student-user" }) },
@@ -150,6 +155,7 @@ test("teacher creates a student with generated ID and one-time raw PIN response"
           id: "student-profile", userId: "student-user", schoolId, classId, studentId: args.data.studentId, fullName: "Kumar Raj",
           gender: "MALE", birthDate: null, avatar: null, isPinChanged: false, pinUpdatedAt: null,
           createdAt: new Date("2026-08-04T00:00:00.000Z"), updatedAt: new Date("2026-08-04T00:00:00.000Z"),
+          remedialSkill: { id: "33333333-3333-4333-8333-333333333333", code: "KP04", name: "Suku kata KV", sequence: 4 },
           user: { id: "student-user", accountStatus: AccountStatus.ACTIVE, lastLogin: null },
           school: { id: schoolId, schoolCode: "ABC1234", schoolName: "SJKT Taman Harmoni" },
           class: { id: classId, schoolId, teacherId: "teacher-profile", className: "C", yearLevel: 2, academicYear: 2026 },
@@ -161,7 +167,7 @@ test("teacher creates a student with generated ID and one-time raw PIN response"
 
   try {
     const result = await createTeacherStudent(
-      createTeacherStudentSchema.parse({ classId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }),
+      createTeacherStudentSchema.parse({ classId, remedialSkillId: "33333333-3333-4333-8333-333333333333", fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" }),
       teacherContext,
       {
         pinGenerator: () => "0274",
@@ -173,8 +179,10 @@ test("teacher creates a student with generated ID and one-time raw PIN response"
     assert.equal(result.student.schoolId, schoolId);
     assert.equal(result.student.studentId, "MURID-ABC12345");
     assert.equal(result.student.accountStatus, AccountStatus.ACTIVE);
+    assert.equal(result.student.remedialSkill?.id, "33333333-3333-4333-8333-333333333333");
     assert.deepEqual(result.credentials, { studentId: "MURID-ABC12345", temporaryPin: "0274" });
     assert.equal(createdStudentData?.schoolId, schoolId);
+    assert.equal(createdStudentData?.remedialSkillId, "33333333-3333-4333-8333-333333333333");
     assert.equal(createdStudentData?.studentId, "MURID-ABC12345");
     assert.equal(createdStudentData?.birthDate, null);
     assert.equal(createdStudentData?.pinHash === "0274", false);
@@ -183,6 +191,7 @@ test("teacher creates a student with generated ID and one-time raw PIN response"
     assert.equal(JSON.stringify(auditAfter).includes(String(createdStudentData?.pinHash)), false);
   } finally {
     prisma.teacher.findUnique = originalTeacherFindUnique;
+    prisma.remedialSkill.findUnique = originalRemedialSkillFindUnique;
     prisma.schoolClass.findUnique = originalClassFindUnique;
     prisma.$transaction = originalTransaction;
   }
@@ -190,11 +199,13 @@ test("teacher creates a student with generated ID and one-time raw PIN response"
 
 test("teacher cannot create students without school context, with cross-school class, inactive class, or mismatched year", async () => {
   const originalTeacherFindUnique = prisma.teacher.findUnique;
+  const originalRemedialSkillFindUnique = prisma.remedialSkill.findUnique;
   const originalClassFindUnique = prisma.schoolClass.findUnique;
   const context = { actor: { userId: "teacher-user", profileId: "teacher-profile", role: UserRole.TEACHER, schoolId, isFirstLogin: false } };
-  const request = createTeacherStudentSchema.parse({ classId, fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" });
+  const request = createTeacherStudentSchema.parse({ classId, remedialSkillId: "33333333-3333-4333-8333-333333333333", fullName: "Kumar Raj", yearLevel: 2, gender: "MALE" });
 
   prisma.teacher.findUnique = (async () => ({ id: "teacher-profile", schoolId, user: { accountStatus: AccountStatus.ACTIVE } })) as typeof prisma.teacher.findUnique;
+  prisma.remedialSkill.findUnique = (async () => ({ id: "33333333-3333-4333-8333-333333333333", status: "ACTIVE", programme: { curriculumVersion: { status: "PUBLISHED" } } })) as typeof prisma.remedialSkill.findUnique;
 
   try {
     await assert.rejects(() => createTeacherStudent(request, { actor: { ...context.actor, schoolId: null } }), (caught: unknown) => caught instanceof AppError && caught.code === "AUTH_SCHOOL_CONTEXT_REQUIRED");
@@ -206,6 +217,7 @@ test("teacher cannot create students without school context, with cross-school c
     await assert.rejects(() => createTeacherStudent(request, context), (caught: unknown) => caught instanceof AppError && caught.code === "STUDENT_CLASS_TRANSFER_INVALID");
   } finally {
     prisma.teacher.findUnique = originalTeacherFindUnique;
+    prisma.remedialSkill.findUnique = originalRemedialSkillFindUnique;
     prisma.schoolClass.findUnique = originalClassFindUnique;
   }
 });

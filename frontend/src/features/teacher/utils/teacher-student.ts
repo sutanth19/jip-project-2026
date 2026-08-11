@@ -4,6 +4,7 @@ import type {
   TeacherStudentListResponse,
   TeacherStudentStatus,
 } from "@/features/teacher/types/teacher-student.types";
+import { remedialSkillOptionLabel } from "@/features/curriculum/utils/remedial-skill";
 
 export const teacherStudentPageSizeOptions = [10, 20, 50] as const;
 
@@ -70,7 +71,14 @@ export function normalizeTeacherStudentListItem(value: unknown): TeacherStudentL
     studentId: optionalString(record.studentId) ?? "",
     avatar: optionalString(record.avatar) ?? null,
     accountStatus: (record.accountStatus as TeacherStudentStatus | undefined) ?? "ACTIVE",
-    remedialLevel: null,
+    remedialSkill: typeof record.remedialSkill === "object" && record.remedialSkill !== null && !Array.isArray(record.remedialSkill)
+      ? {
+          id: optionalString((record.remedialSkill as Record<string, unknown>).id) ?? "",
+          code: optionalString((record.remedialSkill as Record<string, unknown>).code) ?? "",
+          name: optionalString((record.remedialSkill as Record<string, unknown>).name) ?? "",
+          sequence: fallbackNumber((record.remedialSkill as Record<string, unknown>).sequence, 0),
+        }
+      : null,
     createdAt: optionalString(record.createdAt) ?? "",
     updatedAt: optionalString(record.updatedAt) ?? "",
     class: normalizeClass(record.class),
@@ -123,4 +131,9 @@ export function teacherStudentInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   const initials = words.slice(0, 2).map((word) => word[0]).join("");
   return initials.toUpperCase() || "M";
+}
+
+export function teacherStudentRemedialSkillLabel(skill: TeacherStudentListItem["remedialSkill"]): string {
+  if (!skill?.id || !skill.code || !skill.name) return "Belum ditetapkan";
+  return remedialSkillOptionLabel(skill);
 }

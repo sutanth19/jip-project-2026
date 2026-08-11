@@ -33,7 +33,7 @@ import { Link } from "react-router-dom";
 import { AdminAccountStatusBadge } from "@/features/admin/components/AdminAccountStatusBadge";
 import type { TeacherStudentDetail, TeacherStudentPinResetResult, TeacherStudentStatus } from "@/features/teacher/types/teacher-student.types";
 import { teacherClassDisplayLabel, teacherClassYearLabel } from "@/features/teacher/utils/teacher-class";
-import { teacherStudentInitials } from "@/features/teacher/utils/teacher-student";
+import { teacherStudentInitials, teacherStudentRemedialSkillLabel } from "@/features/teacher/utils/teacher-student";
 import { formatDateTime } from "@/utils/date";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -457,6 +457,7 @@ function StudentInformationCard({ detail, className }: { detail: TeacherStudentD
         <DetailRow icon={<UsersRound className="size-4" aria-hidden="true" />} label="Nama Penuh" value={detail.fullName} />
         <DetailRow icon={<School className="size-4" aria-hidden="true" />} label="ID Murid" value={detail.studentId} />
         <DetailRow icon={<CalendarDays className="size-4" aria-hidden="true" />} label="Jantina" value={genderLabel(detail.gender)} />
+        <DetailRow icon={<Check className="size-4" aria-hidden="true" />} label="Tahap Pemulihan" value={teacherStudentRemedialSkillLabel(detail.remedialSkill)} />
         <DetailRow icon={<CalendarDays className="size-4" aria-hidden="true" />} label="Tarikh Dicipta" value={formatStudentDateTime(detail.createdAt)} />
         <DetailRow icon={<CalendarDays className="size-4" aria-hidden="true" />} label="Terakhir Dikemas Kini" value={formatStudentDateTime(detail.updatedAt)} />
       </div>

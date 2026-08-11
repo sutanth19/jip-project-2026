@@ -1,4 +1,6 @@
 import * as React from "react";
+import { flushSync } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { getCurrentSession } from "@/services/auth.service";
@@ -9,6 +11,7 @@ import { AuthContext, type AuthContextValue } from "./auth-context-value";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const refreshInFlightRef = React.useRef<Promise<void> | null>(null);
   const {
     accessToken,
@@ -23,9 +26,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } = useAuthStore();
 
   const logout = React.useCallback(() => {
+    refreshInFlightRef.current = null;
+    flushSync(() => {
+      navigate("/", { replace: true });
+    });
+    queryClient.clear();
     clearSession();
-    navigate("/login", { replace: true });
-  }, [clearSession, navigate]);
+  }, [clearSession, navigate, queryClient]);
 
   const refreshSession = React.useCallback(async () => {
     if (refreshInFlightRef.current) {

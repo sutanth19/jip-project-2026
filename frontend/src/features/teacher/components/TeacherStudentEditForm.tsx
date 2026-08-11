@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, GraduationCap, Hash, KeyRound, LoaderCircle, ShieldCheck, UserPen } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -15,15 +16,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { RemedialSkillSelect } from "@/features/curriculum/components/RemedialSkillSelect";
+import { getDefaultRemedialProgrammeId, listRemedialSkillsByProgramme } from "@/features/curriculum/api/remedial-skill.api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { remedialSkillOptionLabel } from "@/features/curriculum/utils/remedial-skill";
 import type { TeacherClassListItem } from "@/features/teacher/types/teacher-class.types";
 import type { TeacherStudentDetail } from "@/features/teacher/types/teacher-student.types";
 import {
   buildTeacherStudentEditPayload,
   filterActiveTeacherClassesByYear,
   includeCurrentTeacherStudentClass,
+  mapTeacherStudentEditSubmissionError,
   teacherStudentEditClassLabel,
   teacherStudentEditDefaultValues,
   teacherStudentEditFormSchema,
@@ -80,6 +85,7 @@ export function TeacherStudentEditForm({
   });
   const selectedYearLevel = useWatch({ control: form.control, name: "yearLevel" });
   const selectedClassId = useWatch({ control: form.control, name: "classId" });
+  const selectedRemedialSkillId = useWatch({ control: form.control, name: "remedialSkillId" });
   const initialClassId = React.useRef(detail.classId);
   const initialYearLevel = React.useRef(String(detail.class.yearLevel));
 
@@ -91,6 +97,15 @@ export function TeacherStudentEditForm({
 
     return includeCurrentTeacherStudentClass(yearFiltered, detail);
   }, [classes, detail, selectedYearLevel]);
+  const remedialProgramme = useQuery({
+    queryKey: ["teacher", "students", "remedial-programme"],
+    queryFn: getDefaultRemedialProgrammeId,
+  });
+  const remedialSkills = useQuery({
+    queryKey: ["teacher", "students", "remedial-skills", remedialProgramme.data],
+    queryFn: () => listRemedialSkillsByProgramme(remedialProgramme.data as string),
+    enabled: Boolean(remedialProgramme.data),
+  });
 
   React.useEffect(() => {
     form.reset(defaults);
@@ -138,7 +153,13 @@ export function TeacherStudentEditForm({
       await onSubmit(pendingPayload);
       setConfirmOpen(false);
     } catch (error) {
-      setConfirmError((error as Error).message || "Maklumat murid tidak dapat dikemas kini.");
+      const mapped = mapTeacherStudentEditSubmissionError(error);
+      if (mapped.field) {
+        form.setError(mapped.field, { type: "server", message: mapped.message });
+        setConfirmOpen(false);
+        return;
+      }
+      setConfirmError(mapped.message);
     }
   };
 
@@ -272,6 +293,35 @@ export function TeacherStudentEditForm({
                 <p id="teacher-student-edit-class-id-helper" className="text-sm leading-6 text-muted-foreground">Senarai kelas aktif dipaparkan mengikut tahun yang dipilih.</p>
               </div>
 
+              <div className="w-full space-y-2">
+                <Label htmlFor="teacher-student-edit-remedial-skill-id" className="text-sm font-semibold text-foreground">Kemahiran Pemulihan <RequiredMark /></Label>
+                <Controller
+                  control={form.control}
+                  name="remedialSkillId"
+                  render={({ field, fieldState }) => (
+                    <>
+                      <RemedialSkillSelect
+                        value={field.value}
+                        id="teacher-student-edit-remedial-skill-id"
+                        describedBy={fieldState.error ? "teacher-student-edit-remedial-skill-id-error" : "teacher-student-edit-remedial-skill-id-helper"}
+                        onChange={field.onChange}
+                        error={fieldState.error?.message}
+                        disabled={submitting || remedialProgramme.isLoading || remedialProgramme.isError || remedialSkills.isLoading || remedialSkills.isError || (remedialSkills.data?.length ?? 0) === 0}
+                        skills={remedialSkills.data ?? []}
+                        isLoading={remedialProgramme.isLoading || remedialSkills.isLoading}
+                        isError={remedialProgramme.isError || remedialSkills.isError}
+                        onRetry={() => {
+                          void remedialProgramme.refetch();
+                          void remedialSkills.refetch();
+                        }}
+                      />
+                      <FieldError id="teacher-student-edit-remedial-skill-id-error" message={fieldState.error?.message} />
+                    </>
+                  )}
+                />
+                <p id="teacher-student-edit-remedial-skill-id-helper" className="text-sm leading-6 text-muted-foreground">Pilih kemahiran pemulihan semasa murid menggunakan senarai rasmi KP-PRA hingga KP32.</p>
+              </div>
+
               {classesError ? (
                 <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
                   <p className="font-semibold">Senarai kelas tidak dapat dimuatkan.</p>
@@ -328,6 +378,7 @@ export function TeacherStudentEditForm({
           <dl className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
             <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Nama Penuh</dt><dd className="text-sm text-muted-foreground">{pendingPayload?.fullName ?? "-"}</dd></div>
             <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Tahun</dt><dd className="text-sm text-muted-foreground">{pendingPayload ? `Tahun ${pendingPayload.yearLevel}` : "-"}</dd></div>
+            <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Kemahiran Pemulihan</dt><dd className="text-sm text-muted-foreground">{selectedRemedialSkillId ? remedialSkillOptionLabel(remedialSkills.data?.find((item) => item.id === selectedRemedialSkillId) ?? { code: "-", name: "-" }) : "-"}</dd></div>
             <div className="space-y-1"><dt className="text-sm font-semibold text-foreground">Jantina</dt><dd className="text-sm text-muted-foreground">{pendingPayload?.gender === "FEMALE" ? "Perempuan" : pendingPayload?.gender === "MALE" ? "Lelaki" : "-"}</dd></div>
           </dl>
 

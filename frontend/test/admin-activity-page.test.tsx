@@ -48,6 +48,7 @@ import {
   buildSeretSukuKataUpdatePayload,
   getActivityWizardProgress,
   getActivityWizardStepStates,
+  hasPersistedActivitySettings,
   findPemulihanProgramme,
   findSeretSukuKataTemplate,
   getActivityBasicInfoFormValues,
@@ -58,6 +59,7 @@ import {
 import {
   activityScoringModeOptions,
   buildActivitySettingsUpdatePayload,
+  getActivitySettingsCompletionState,
   getActivitySettingsFormValues,
   getActivitySettingsProgress,
   getActivitySettingsScoringSyncState,
@@ -864,6 +866,33 @@ describe("Admin activity management page", () => {
     ]);
   });
 
+  it("treats legacy persisted Step 4 values as complete even without settingsCompletedAt", () => {
+    const legacySettingsActivity = {
+      id: "activity-legacy",
+      curriculumLinks: [{ id: "link-1", isPrimary: true }],
+      items: [{ id: "item-1" }],
+      settingsCompletedAt: null,
+      estimatedMinutes: 10,
+      shuffleItems: true,
+      showImmediateFeedback: true,
+      allowRetry: true,
+      scoringMode: "TOTAL_SCORE" as const,
+      totalMarks: 100,
+    };
+
+    expect(hasPersistedActivitySettings(legacySettingsActivity)).toBe(true);
+    expect(getActivityWizardProgress(legacySettingsActivity)).toMatchObject({
+      hasDraft: true,
+      hasCurriculumLink: true,
+      hasContent: true,
+      hasSettings: true,
+    });
+    expect(getActivitySettingsCompletionState(legacySettingsActivity)).toMatchObject({
+      hasPersistedCompletion: true,
+      reason: "DERIVED_SETTINGS_SIGNAL_PRESENT",
+    });
+  });
+
   it("keeps Step 6 mapped to the real publish endpoint while removing the review workflow from the UI", () => {
     const apiSource = readFileSync(new URL("../src/features/admin/api/admin-activity.api.ts", import.meta.url), "utf8");
     const publishPageSource = readFileSync(new URL("../src/features/admin/pages/AdminActivityPublishPage.tsx", import.meta.url), "utf8");
@@ -1402,6 +1431,9 @@ describe("Admin activity management page", () => {
     expect(previewPageSource).toContain("updateAdminDigitalActivitySettings");
     expect(previewPageSource).toContain("previewMode");
     expect(previewPageSource).toContain("Kembali ke Tetapan");
+    expect(previewPageSource).toContain('const isDraftActivity = preview.data?.status === "DRAFT"');
+    expect(previewPageSource).toContain('const canPreview = Boolean(preview.data) && progress.hasSettings');
+    expect(previewPageSource).not.toContain("Aktiviti draf diperlukan");
     expect(previewPageSource).toContain("AdminActivityWizardStepFooter");
     expect(previewPageSource).toContain('showCancel={false}');
     expect(previewPageSource).toContain("continueDestination: stepSixPath(activityId)");

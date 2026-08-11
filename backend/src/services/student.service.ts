@@ -8,17 +8,18 @@ import { hashPin } from "../utils/bcrypt.js";
 import { dispatchAuditEvent, type AuditEvent, type AuditEventDispatcher } from "./audit.service.js";
 import type { CreateStudentRequest, CreateTeacherStudentRequest, ListStudentsQuery, UpdateStudentRequest } from "../validators/student.validator.js";
 
-const studentSelect = {
+const studentSelect = Prisma.validator<Prisma.StudentSelect>()({
   id: true, userId: true, schoolId: true, classId: true, studentId: true, fullName: true,
   gender: true, birthDate: true, avatar: true, isPinChanged: true, pinUpdatedAt: true,
   createdAt: true, updatedAt: true,
+  remedialSkill: { select: { id: true, code: true, name: true, sequence: true } },
   user: { select: { id: true, accountStatus: true, lastLogin: true } },
   school: { select: { id: true, schoolCode: true, schoolName: true } },
   class: { select: { id: true, schoolId: true, teacherId: true, className: true, yearLevel: true, academicYear: true, accountStatus: true } },
   _count: { select: { parents: true } },
-} satisfies Prisma.StudentSelect;
+});
 
-const studentDetailSelect = {
+const studentDetailSelect = Prisma.validator<Prisma.StudentSelect>()({
   ...studentSelect,
   parents: {
     select: {
@@ -27,7 +28,7 @@ const studentDetailSelect = {
     },
     orderBy: { parent: { fullName: "asc" } },
   },
-} satisfies Prisma.StudentSelect;
+});
 
 type StudentRecord = Prisma.StudentGetPayload<{ select: typeof studentSelect }>;
 type StudentDetailRecord = Prisma.StudentGetPayload<{ select: typeof studentDetailSelect }>;
@@ -53,6 +54,7 @@ export interface StudentResponse {
   id: string; userId: string; schoolId: string; classId: string; studentId: string; fullName: string;
   gender: StudentRecord["gender"]; birthDate: Date | null; avatar: string | null; accountStatus: AccountStatus;
   isPinChanged: boolean; createdAt: Date; updatedAt: Date;
+  remedialSkill: { id: string; code: string; name: string; sequence: number } | null;
   school: { id: string; schoolCode: string; schoolName: string };
   class: { id: string; className: string; yearLevel: number; academicYear: number; accountStatus: AccountStatus };
 }
@@ -75,6 +77,8 @@ const schoolContextRequired = () => appError("AUTH_SCHOOL_CONTEXT_REQUIRED", 403
 const teacherContextInvalid = () => appError("TEACHER_CONTEXT_INVALID", 403, "Akaun guru ini tidak sah untuk mendaftarkan murid.");
 const classInactive = () => appError("SCHOOL_CLASS_INACTIVE", 400, "Kelas yang dipilih tidak aktif.");
 const studentIdGenerationFailed = () => appError("STUDENT_ID_GENERATION_FAILED", 500, "ID murid tidak dapat dijana. Sila cuba lagi.");
+const remedialSkillNotFound = () => appError("REMEDIAL_SKILL_NOT_FOUND", 404, "Kemahiran pemulihan tidak ditemui.");
+const remedialSkillUnavailable = () => appError("REMEDIAL_SKILL_UNAVAILABLE", 400, "Kemahiran pemulihan ini tidak boleh digunakan.");
 const statusInvalid = () => appError("STUDENT_STATUS_TRANSITION_INVALID", 403, "Perubahan status murid tidak dibenarkan.");
 const transferInvalid = () => appError("STUDENT_CLASS_TRANSFER_INVALID", 400, "Pertukaran kelas murid tidak dibenarkan.");
 const parentLinkExists = () => appError("STUDENT_PARENT_LINK_EXISTS", 409, "Ibu bapa telah dipautkan kepada murid ini.");
@@ -116,12 +120,13 @@ function safe(record: StudentRecord): StudentResponse {
     studentId: record.studentId, fullName: record.fullName, gender: record.gender, birthDate: record.birthDate,
     avatar: record.avatar, accountStatus: record.user.accountStatus, isPinChanged: record.isPinChanged,
     createdAt: record.createdAt, updatedAt: record.updatedAt,
+    remedialSkill: record.remedialSkill ? { id: record.remedialSkill.id, code: record.remedialSkill.code, name: record.remedialSkill.name, sequence: record.remedialSkill.sequence } : null,
     school: record.school,
     class: { id: record.class.id, className: record.class.className, yearLevel: record.class.yearLevel, academicYear: record.class.academicYear, accountStatus: record.class.accountStatus },
   };
 }
 function safeAudit(record: StudentResponse): Record<string, unknown> {
-  return { id: record.id, schoolId: record.schoolId, classId: record.classId, studentId: record.studentId, fullName: record.fullName, gender: record.gender, birthDate: record.birthDate, avatar: record.avatar, accountStatus: record.accountStatus, isPinChanged: record.isPinChanged };
+  return { id: record.id, schoolId: record.schoolId, classId: record.classId, studentId: record.studentId, fullName: record.fullName, gender: record.gender, birthDate: record.birthDate, avatar: record.avatar, accountStatus: record.accountStatus, isPinChanged: record.isPinChanged, remedialSkillId: record.remedialSkill?.id ?? null };
 }
 function audit(context: StudentAuditContext, action: Extract<AuditEvent["action"], "STUDENT_CREATED" | "STUDENT_UPDATED" | "STUDENT_STATUS_CHANGED" | "STUDENT_PIN_RESET" | "STUDENT_CLASS_CHANGED" | "STUDENT_PARENT_LINKED" | "STUDENT_PARENT_UNLINKED" | "CLASS_STUDENT_ASSIGNED">, resourceType: "STUDENT" | "STUDENT_PARENT", resourceId: string, schoolId: string, before: unknown, after: unknown, deps: StudentServiceDependencies): Promise<void> {
   return dispatchAuditEvent({ actorUserId: actor(context).userId, actorProfileId: actor(context).profileId, actorRole: actor(context).role, actorName: context.actor.name ?? null, action, resourceType, resourceId, schoolId, before, after, timestamp: deps.now?.() ?? new Date(), requestIp: context.requestIp ?? null, userAgent: context.userAgent ?? null }, deps.auditDispatcher);
@@ -147,6 +152,21 @@ export function generateStudentLoginId(): string {
 /** No provider is configured yet. A future printable student credential slip can consume this abstraction. */
 export function deliverStudentPin(_delivery: StudentPinDelivery): StudentPinDeliveryStatus { return "DEVELOPMENT_PREVIEW"; }
 
+async function ensureReadableRemedialSkill(
+  remedialSkillId: string,
+  context: StudentAuditContext,
+): Promise<void> {
+  const skill = await prisma.remedialSkill.findUnique({
+    where: { id: remedialSkillId },
+    select: { id: true, status: true, programme: { select: { curriculumVersion: { select: { status: true } } } } },
+  });
+  if (!skill) throw remedialSkillNotFound();
+  if (skill.status !== "ACTIVE") throw remedialSkillUnavailable();
+  if (actor(context).role === UserRole.TEACHER && skill.programme.curriculumVersion.status !== "PUBLISHED") {
+    throw remedialSkillUnavailable();
+  }
+}
+
 async function requireTeacherAccess(studentProfileId: string, context: StudentAuditContext): Promise<void> {
   if (actor(context).role !== UserRole.TEACHER) return;
   const student = await prisma.student.findUnique({ where: { id: studentProfileId }, select: { schoolId: true, class: { select: { schoolId: true, teacherId: true } } } });
@@ -161,6 +181,7 @@ export function canStudentTransitionStatus(current: AccountStatus, next: Account
 
 export async function createStudent(data: CreateStudentRequest, context: StudentAuditContext, deps: StudentServiceDependencies = {}): Promise<{ student: StudentResponse; pinDelivery: { status: StudentPinDeliveryStatus } }> {
   management(context);
+  if (data.remedialSkillId) await ensureReadableRemedialSkill(data.remedialSkillId, context);
   const [school, assignedClass, existing] = await Promise.all([
     prisma.school.findUnique({ where: { id: data.schoolId }, select: { id: true } }),
     prisma.schoolClass.findUnique({ where: { id: data.classId }, select: { id: true, schoolId: true } }),
@@ -177,7 +198,7 @@ export async function createStudent(data: CreateStudentRequest, context: Student
   try {
     record = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { role: UserRole.STUDENT, email: null, passwordHash: null, accountStatus: AccountStatus.ACTIVE, isFirstLogin: false, setupToken: null, setupTokenExpiry: null, passwordResetToken: null, passwordResetExpiry: null } });
-      return tx.student.create({ data: { userId: user.id, schoolId: data.schoolId, classId: data.classId, studentId: data.studentId, fullName: data.fullName.trim(), gender: data.gender, birthDate: birthDate(data.birthDate) ?? null, avatar: normalizeOptional(data.avatar) ?? null, pinHash, isPinChanged: false, pinUpdatedAt: null }, select: studentSelect });
+      return tx.student.create({ data: { userId: user.id, schoolId: data.schoolId, classId: data.classId, remedialSkillId: data.remedialSkillId ?? null, studentId: data.studentId, fullName: data.fullName.trim(), gender: data.gender, birthDate: birthDate(data.birthDate) ?? null, avatar: normalizeOptional(data.avatar) ?? null, pinHash, isPinChanged: false, pinUpdatedAt: null }, select: studentSelect });
     });
   } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   const student = safe(record);
@@ -200,6 +221,7 @@ async function resolveTeacherCreateContext(context: StudentAuditContext): Promis
 export async function createTeacherStudent(data: CreateTeacherStudentRequest, context: StudentAuditContext, deps: StudentServiceDependencies = {}): Promise<TeacherStudentCreateResponse> {
   teacherOnly(context);
   const teacherContext = await resolveTeacherCreateContext(context);
+  await ensureReadableRemedialSkill(data.remedialSkillId, context);
   const assignedClass = await prisma.schoolClass.findUnique({ where: { id: data.classId }, select: { id: true, schoolId: true, yearLevel: true, accountStatus: true } });
   if (!assignedClass) throw classNotFound();
   if (assignedClass.schoolId !== teacherContext.schoolId) throw transferInvalid();
@@ -215,7 +237,7 @@ export async function createTeacherStudent(data: CreateTeacherStudentRequest, co
     try {
       record = await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({ data: { role: UserRole.STUDENT, email: null, passwordHash: null, accountStatus: AccountStatus.ACTIVE, isFirstLogin: false, setupToken: null, setupTokenExpiry: null, passwordResetToken: null, passwordResetExpiry: null } });
-        return tx.student.create({ data: { userId: user.id, schoolId: teacherContext.schoolId, classId: data.classId, studentId: generatedStudentId, fullName: data.fullName.trim(), gender: data.gender, birthDate: null, avatar: null, pinHash, isPinChanged: false, pinUpdatedAt: null }, select: studentSelect });
+        return tx.student.create({ data: { userId: user.id, schoolId: teacherContext.schoolId, classId: data.classId, remedialSkillId: data.remedialSkillId, studentId: generatedStudentId, fullName: data.fullName.trim(), gender: data.gender, birthDate: null, avatar: null, pinHash, isPinChanged: false, pinUpdatedAt: null }, select: studentSelect });
       });
       const student = safe(record);
       await audit(context, "STUDENT_CREATED", "STUDENT", record.id, record.schoolId, null, safeAudit(student), deps);
@@ -279,6 +301,7 @@ export async function updateStudent(studentProfileId: string, data: UpdateStuden
   }
   const beforeRecord = await prisma.student.findUnique({ where: { id: studentProfileId }, select: studentSelect });
   if (!beforeRecord) throw studentNotFound();
+  if (data.remedialSkillId) await ensureReadableRemedialSkill(data.remedialSkillId, context);
   if (data.studentId && data.studentId !== beforeRecord.studentId) {
     const conflict = await prisma.student.findUnique({ where: { schoolId_studentId: { schoolId: beforeRecord.schoolId, studentId: data.studentId } }, select: { id: true } });
     if (conflict) throw studentIdExists();
@@ -290,7 +313,7 @@ export async function updateStudent(studentProfileId: string, data: UpdateStuden
   }
   let record: StudentRecord;
   try {
-    record = await prisma.student.update({ where: { id: studentProfileId }, data: { ...(data.studentId !== undefined ? { studentId: data.studentId } : {}), ...(data.fullName !== undefined ? { fullName: data.fullName.trim() } : {}), ...(data.gender !== undefined ? { gender: data.gender } : {}), ...(data.birthDate !== undefined ? { birthDate: birthDate(data.birthDate) } : {}), ...(data.avatar !== undefined ? { avatar: normalizeOptional(data.avatar) } : {}), ...(role === UserRole.TEACHER && data.classId && data.classId !== beforeRecord.classId ? { classId: data.classId } : {}), ...(role === UserRole.TEACHER && data.classId && data.classId === beforeRecord.classId ? { classId: data.classId } : {}) }, select: studentSelect });
+    record = await prisma.student.update({ where: { id: studentProfileId }, data: { ...(data.studentId !== undefined ? { studentId: data.studentId } : {}), ...(data.fullName !== undefined ? { fullName: data.fullName.trim() } : {}), ...(data.gender !== undefined ? { gender: data.gender } : {}), ...(data.birthDate !== undefined ? { birthDate: birthDate(data.birthDate) } : {}), ...(data.avatar !== undefined ? { avatar: normalizeOptional(data.avatar) } : {}), ...(data.remedialSkillId !== undefined ? { remedialSkillId: data.remedialSkillId } : {}), ...(role === UserRole.TEACHER && data.classId && data.classId !== beforeRecord.classId ? { classId: data.classId } : {}), ...(role === UserRole.TEACHER && data.classId && data.classId === beforeRecord.classId ? { classId: data.classId } : {}) }, select: studentSelect });
   } catch (caught) { const mapped = mapUniqueError(caught); if (mapped) throw mapped; throw caught; }
   const result = safe(record);
   await audit(context, "STUDENT_UPDATED", "STUDENT", record.id, record.schoolId, safeAudit(safe(beforeRecord)), safeAudit(result), deps);

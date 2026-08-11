@@ -27,7 +27,12 @@ const student: TeacherStudentListItem = {
   fullName: "Kumar Raj",
   avatar: null,
   accountStatus: "ACTIVE",
-  remedialLevel: null,
+  remedialSkill: {
+    id: "skill-1",
+    code: "KP04",
+    name: "Suku kata KV",
+    sequence: 4,
+  },
   createdAt: "2026-08-01T00:00:00.000Z",
   updatedAt: "2026-08-01T00:00:00.000Z",
   class: {
@@ -75,7 +80,7 @@ describe("Guru Murid list", () => {
     expect(tableMarkup).toContain("MURID-001");
     expect(tableMarkup).toContain("Tahun 2");
     expect(tableMarkup).toContain("2 C");
-    expect(tableMarkup).toContain("Belum ditetapkan");
+    expect(tableMarkup).toContain("KP04 · Suku kata KV");
     expect(tableMarkup).toContain("/guru/murid/33333333-3333-4333-8333-333333333333");
     expect(mobileMarkup).toContain("Kumar Raj");
     expect(mobileMarkup).toContain("Kelas Asal");
@@ -124,7 +129,7 @@ describe("Guru Murid list", () => {
     });
 
     expect(normalized.students).toHaveLength(1);
-    expect(normalized.students[0]?.remedialLevel).toBeNull();
+    expect(normalized.students[0]?.remedialSkill?.code).toBe("KP04");
     expect(teacherStudentInitials("Kumar Raj")).toBe("KR");
     expect(teacherStudentYearLabel(2)).toBe("Tahun 2");
     expect(teacherStudentYearLabel(undefined)).toBe("Belum ditetapkan");

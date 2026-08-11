@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -20,6 +21,12 @@ const detailFixture = {
     birthDate: "2016-03-12",
     avatar: null,
     accountStatus: "ACTIVE",
+    remedialSkill: {
+      id: "skill-1",
+      code: "KP04",
+      name: "Suku kata KV",
+      sequence: 4,
+    },
     isPinChanged: true,
     createdAt: "2026-07-10T08:00:00.000Z",
     updatedAt: "2026-07-20T08:00:00.000Z",
@@ -51,14 +58,16 @@ function renderDetail() {
   if (!detail) throw new Error("Invalid student detail fixture");
 
   return renderToStaticMarkup(
-    <MemoryRouter>
-      <TeacherStudentDetailView
-        detail={detail}
-        onStatusChange={async () => undefined}
-        onResetPin={async () => ({ credentials: { studentId: "MURID-0001", temporaryPin: "0274" } })}
-        onCopyLoginInfo={async () => undefined}
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <TeacherStudentDetailView
+          detail={detail}
+          onStatusChange={async () => undefined}
+          onResetPin={async () => ({ credentials: { studentId: "MURID-0001", temporaryPin: "0274" } })}
+          onCopyLoginInfo={async () => undefined}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -98,7 +107,8 @@ describe("Butiran Murid detail and edit pages", () => {
     expect(markup).toContain("Pn. Siti");
     expect(markup).toContain("MOTHER");
     expect(markup).toContain("Status Akaun");
-    expect(markup).not.toContain("Tahap Pemulihan");
+    expect(markup).toContain("Tahap Pemulihan");
+    expect(markup).toContain("KP04 · Suku kata KV");
     expect(markup).not.toContain("Tarikh Lahir");
     expect(markup).not.toContain("setupToken");
     expect(source).toContain("function StudentLoginCard");
@@ -159,9 +169,11 @@ describe("Butiran Murid detail and edit pages", () => {
     }];
 
     const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <TeacherStudentEditForm detail={detail} classes={classes} classesLoading={false} classesError={false} onRetryClasses={() => undefined} submitting={false} onSubmit={async () => undefined} />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <TeacherStudentEditForm detail={detail} classes={classes} classesLoading={false} classesError={false} onRetryClasses={() => undefined} submitting={false} onSubmit={async () => undefined} />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(markup).toContain("Maklumat Murid");
@@ -169,6 +181,7 @@ describe("Butiran Murid detail and edit pages", () => {
     expect(markup).toContain("Tahun");
     expect(markup).toContain("Jantina");
     expect(markup).toContain("Kelas Asal");
+    expect(markup).toContain("Kemahiran Pemulihan");
     expect(markup).toContain("Simpan Perubahan");
     expect(markup).toContain("Batal");
     expect(source).toContain('teacherStudentEditFormSchema');

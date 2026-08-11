@@ -90,7 +90,7 @@ function toStudentListItems(detail: TeacherParentDetail | null): TeacherStudentL
     fullName: entry.student.fullName,
     avatar: entry.student.avatar,
     accountStatus: "ACTIVE",
-    remedialLevel: null,
+    remedialSkill: null,
     createdAt: detail.createdAt,
     updatedAt: detail.updatedAt,
     class: entry.student.class,

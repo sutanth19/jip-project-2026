@@ -222,14 +222,47 @@ type ActivityWizardProgressSource = {
   curriculumLinks?: Array<{ id?: string; isPrimary: boolean }> | null;
   items?: Array<{ id?: string; configuration?: unknown }> | null;
   settingsCompletedAt?: string | null;
+  estimatedMinutes?: number | null;
+  attemptsAllowed?: number | null;
+  timeLimitSeconds?: number | null;
+  shuffleItems?: boolean;
+  showImmediateFeedback?: boolean;
+  allowRetry?: boolean;
+  scoringMode?: string | null;
+  totalMarks?: number | null;
+  masteryThreshold?: number | null;
 };
+
+export function hasPersistedActivitySettings(activity?: ActivityWizardProgressSource | null): boolean {
+  if (activity?.settingsCompletedAt) {
+    return true;
+  }
+
+  if (!activity) {
+    return false;
+  }
+
+  const hasEstimatedMinutes =
+    typeof activity.estimatedMinutes === "number" && Number.isInteger(activity.estimatedMinutes) && activity.estimatedMinutes > 0;
+  const hasScoringMode = Boolean(activity.scoringMode);
+  const hasBooleanSettings =
+    typeof activity.shuffleItems === "boolean"
+    && typeof activity.showImmediateFeedback === "boolean"
+    && typeof activity.allowRetry === "boolean";
+  const hasRequiredMarks =
+    activity.scoringMode === "NONE"
+      ? true
+      : typeof activity.totalMarks === "number" && Number.isInteger(activity.totalMarks) && activity.totalMarks > 0;
+
+  return hasEstimatedMinutes && hasScoringMode && hasBooleanSettings && hasRequiredMarks;
+}
 
 export function getActivityWizardProgress(activity?: ActivityWizardProgressSource | null): ActivityWizardProgress {
   return {
     hasDraft: Boolean(activity?.id),
     hasCurriculumLink: Boolean(activity?.curriculumLinks?.some((link) => link.isPrimary && Boolean(link.id))),
     hasContent: Boolean(activity?.items?.length),
-    hasSettings: Boolean(activity?.settingsCompletedAt),
+    hasSettings: hasPersistedActivitySettings(activity),
   };
 }
 

@@ -38,8 +38,16 @@ function PreviewSkeleton() {
   )
 }
 
-function PreviewMetaCard({ activityId }: { activityId: string }) {
+function PreviewMetaCard({
+  activityId,
+  isDraftActivity,
+}: {
+  activityId: string;
+  isDraftActivity: boolean;
+}) {
   const { activity } = useActivityPlayer()
+  const returnPath = isDraftActivity ? stepFourPath(activityId) : "/admin/aktiviti"
+  const returnLabel = isDraftActivity ? "Kembali ke Tetapan" : "Kembali ke Pengurusan Aktiviti"
 
   return (
     <div className="space-y-4">
@@ -48,7 +56,7 @@ function PreviewMetaCard({ activityId }: { activityId: string }) {
           <h2 className="text-lg font-semibold text-foreground">{activity.title}</h2>
         </div>
         <Button asChild variant="outline" className="h-11 shrink-0 rounded-xl">
-          <Link to={stepFourPath(activityId)}>Kembali ke Tetapan</Link>
+          <Link to={returnPath}>{returnLabel}</Link>
         </Button>
       </div>
       <section aria-label="Kandungan aktiviti" className="min-h-0">
@@ -113,9 +121,10 @@ export function AdminActivityPreviewPlaceholderPage() {
   })
 
   const progress = getActivityWizardProgress(preview.data)
-  const showDraftError = preview.data && preview.data.status !== "DRAFT"
-  const showUnavailableError = preview.data && preview.data.status === "DRAFT" && !progress.hasSettings
-  const canPreview = preview.data && preview.data.status === "DRAFT" && progress.hasSettings
+  const isDraftActivity = preview.data?.status === "DRAFT"
+  const showUnavailableError = preview.data && !progress.hasSettings
+  const canPreview = Boolean(preview.data) && progress.hasSettings
+  const previewActivity = canPreview && preview.data ? preview.data : null
   const stepController = useActivityWizardStep({
     form: {
       formState: { isDirty: false },
@@ -160,15 +169,6 @@ export function AdminActivityPreviewPlaceholderPage() {
         />
       ) : null}
 
-      {showDraftError ? (
-        <ErrorState
-          title="Aktiviti draf diperlukan"
-          description="Langkah pratonton hanya boleh dibuka untuk aktiviti berstatus draf."
-          actionLabel="Kembali ke Pengurusan Aktiviti"
-          onAction={() => navigate("/admin/aktiviti")}
-        />
-      ) : null}
-
       {showUnavailableError ? (
         <ErrorState
           title="Pratonton belum tersedia"
@@ -178,7 +178,7 @@ export function AdminActivityPreviewPlaceholderPage() {
         />
       ) : null}
 
-      {canPreview ? (
+      {previewActivity ? (
         <div className="space-y-6">
           <SelectedTemplateSummary />
           <ActivityWizardStepper
@@ -193,20 +193,22 @@ export function AdminActivityPreviewPlaceholderPage() {
             }}
           />
 
-          <ActivityProvider activity={preview.data} previewMode>
+          <ActivityProvider activity={previewActivity} previewMode>
             <div className="space-y-6">
-              <PreviewMetaCard activityId={activityId} />
+              <PreviewMetaCard activityId={activityId} isDraftActivity={Boolean(isDraftActivity)} />
             </div>
           </ActivityProvider>
 
-          <AdminActivityWizardStepFooter
-            isSaving={savePreviewStep.isPending}
-            canSave={Boolean(activityDetail.data) && !savePreviewStep.isPending}
-            canContinue={stepController.canContinue}
-            onSave={stepController.save}
-            onContinue={stepController.continueToNextStep}
-            showCancel={false}
-          />
+          {isDraftActivity ? (
+            <AdminActivityWizardStepFooter
+              isSaving={savePreviewStep.isPending}
+              canSave={Boolean(activityDetail.data) && !savePreviewStep.isPending}
+              canContinue={stepController.canContinue}
+              onSave={stepController.save}
+              onContinue={stepController.continueToNextStep}
+              showCancel={false}
+            />
+          ) : null}
         </div>
       ) : null}
     </ManagementPageLayout>

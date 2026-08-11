@@ -16,6 +16,7 @@ import {
   teacherStudentClassLabel,
   teacherStudentInitials,
   teacherStudentPageSizeOptions,
+  teacherStudentRemedialSkillLabel,
   teacherStudentResetQuery,
   teacherStudentStatusOptions,
   teacherStudentYearLabel,
@@ -72,10 +73,10 @@ export function AddStudentButton({ fullWidth = false }: { fullWidth?: boolean })
   );
 }
 
-function RemedialLevelBadge() {
+function RemedialLevelBadge({ label }: { label: string }) {
   return (
     <span className="inline-flex h-8 min-w-[128px] items-center justify-center rounded-full border border-border bg-muted/40 px-3 text-sm font-semibold text-muted-foreground shadow-sm">
-      Belum ditetapkan
+      {label}
     </span>
   );
 }
@@ -211,7 +212,7 @@ export function TeacherStudentListTable({ rows }: { rows: TeacherStudentListItem
               <td className="px-4 py-3"><StudentIdentity item={item} /></td>
               <td className="px-4 py-3 text-foreground">{teacherStudentYearLabel(item.class?.yearLevel)}</td>
               <td className="px-4 py-3 text-foreground">{teacherStudentClassLabel(item)}</td>
-              <td className="px-4 py-3"><RemedialLevelBadge /></td>
+              <td className="px-4 py-3"><RemedialLevelBadge label={teacherStudentRemedialSkillLabel(item.remedialSkill)} /></td>
               <td className="px-4 py-3"><AdminAccountStatusBadge status={item.accountStatus} /></td>
               <td className="px-4 py-3 text-right"><ViewButton studentId={item.id} fullName={item.fullName} /></td>
             </tr>
@@ -239,7 +240,7 @@ export function TeacherStudentMobileCards({ rows }: { rows: TeacherStudentListIt
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Tahap Pemulihan</dt>
-              <dd><RemedialLevelBadge /></dd>
+              <dd><RemedialLevelBadge label={teacherStudentRemedialSkillLabel(item.remedialSkill)} /></dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Status</dt>
