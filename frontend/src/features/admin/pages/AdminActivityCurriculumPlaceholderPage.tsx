@@ -7,6 +7,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { ConfirmDialog, ErrorState, ManagementPageLayout } from "@/components/shared";
 import { AdminActivityWizardStepFooter } from "@/features/admin/components/AdminActivityWizardStepFooter";
+import { ActivitySummaryCard } from "@/features/admin/components/ActivitySummaryCard";
 import { ActivityWizardStepper, SelectedTemplateSummary } from "@/features/admin/components/AdminActivityCreateWizard";
 import { useActivityWizardStep } from "@/features/admin/hooks/use-activity-wizard-step";
 import { Button } from "@/components/ui/button";
@@ -351,28 +352,13 @@ function SummaryCard({
   ];
 
   return (
-    <Card className="rounded-2xl border-border bg-card py-0 shadow-sm">
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-secondary/20 bg-secondary/10 text-secondary">
-            <BookMarked className="size-5" aria-hidden="true" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground">Ringkasan Aktiviti</h2>
-            <p className="text-sm text-muted-foreground">Semakan semasa sebelum meneruskan ke langkah seterusnya.</p>
-          </div>
-        </div>
-
-        <dl className="space-y-3 text-sm">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex items-start justify-between gap-4 rounded-xl bg-muted/30 px-3 py-2">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="text-right font-medium text-foreground">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+    <ActivitySummaryCard
+      icon={BookMarked}
+      title="Ringkasan Aktiviti"
+      description="Semakan semasa sebelum meneruskan ke langkah seterusnya."
+      rows={rows.map(([label, value]) => ({ label, value }))}
+      compact
+    />
   );
 }
 

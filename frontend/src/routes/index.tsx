@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom"
+import { createBrowserRouter, Navigate } from "react-router-dom"
 
 import { DashboardPage } from "@/components/dashboard/DashboardPage"
 import { ActivityPlayerPage } from "@/features/activity-player/ActivityPlayerPage"
@@ -44,6 +44,7 @@ import { CurriculumHomePage } from "@/features/builder/pages/CurriculumHomePage"
 import { CurriculumNestedPage } from "@/features/builder/pages/CurriculumNestedPage"
 import { DigitalActivityPreviewPage } from "@/features/builder/pages/DigitalActivityPreviewPage"
 import { TeacherAssignmentFormPage, TeacherDashboardPage, TeacherDetailPage, TeacherListPage, TeacherPbdPage, TeacherProfilePage, TeacherReportsPage } from "@/features/teacher/pages/TeacherPages"
+import { TeacherActivityAssignmentPage, TeacherActivityCategoryPage, TeacherActivityLibraryPage, TeacherActivityPreviewPage } from "@/features/teacher/pages/TeacherActivityPages"
 import { TeacherClassListPage } from "@/features/teacher/pages/TeacherClassPages"
 import { TeacherClassCreatePage } from "@/features/teacher/pages/TeacherClassCreatePage"
 import { TeacherClassDetailPage } from "@/features/teacher/pages/TeacherClassDetailPage"
@@ -305,9 +306,11 @@ const router = createBrowserRouter([
           { path: "murid/tambah", element: <TeacherStudentCreatePage /> },
           { path: "murid/:studentId", element: <TeacherStudentDetailPage /> },
           { path: "murid/:studentId/edit", element: <TeacherStudentEditPage /> },
-          { path: "aktiviti", element: <TeacherListPage resource="activities" /> },
-          { path: "aktiviti/:activityId", element: <TeacherDetailPage resource="activities" /> },
-          { path: "aktiviti/:activityId/preview", element: <DigitalActivityPreviewPage /> },
+          { path: "aktiviti", element: <TeacherActivityLibraryPage /> },
+          { path: "aktiviti/:category", element: <TeacherActivityCategoryPage /> },
+          { path: "aktiviti/:activityId/tugaskan", element: <TeacherActivityAssignmentPage /> },
+          { path: "aktiviti/:activityId/pratonton", element: <TeacherActivityPreviewPage /> },
+          { path: "aktiviti/:activityId/preview", element: <Navigate to="../pratonton" replace /> },
           { path: "tugasan", element: <TeacherListPage resource="assignments" /> },
           { path: "tugasan/tambah", element: <TeacherAssignmentFormPage /> },
           { path: "tugasan/:assignmentId", element: <TeacherDetailPage resource="assignments" /> },

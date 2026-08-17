@@ -192,7 +192,9 @@ describe("Admin activity management page", () => {
     expect(routes).toContain('path: "digital-activities"');
     expect(routes).toContain('{ path: "create", element: <RequireRole roles={["SUPER_ADMIN", "ADMIN"]}><BuilderFormPage entityKey="digitalActivities" mode="create" /></RequireRole> }');
     expect(routes).toContain('path: "activity-templates"');
-    expect(routes).toContain('{ path: "aktiviti", element: <TeacherListPage resource="activities" /> }');
+    expect(routes).toContain('{ path: "aktiviti", element: <TeacherActivityLibraryPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:category", element: <TeacherActivityCategoryPage /> }');
+    expect(routes).toContain('{ path: "aktiviti/:activityId/pratonton", element: <TeacherActivityPreviewPage /> }');
     expect(routes).toContain('<RequireAdmin>');
     expect(guards).toContain('return <RequireRole roles={["SUPER_ADMIN", "ADMIN"]}>{renderGuardChild(props.children)}</RequireRole>;');
     expect(guards).toContain('return <RequireRole roles={["TEACHER"]}>{renderGuardChild(props.children)}</RequireRole>;');
@@ -200,14 +202,14 @@ describe("Admin activity management page", () => {
     expect(guards).toContain('return <RequireRole roles={["PARENT"]}>{renderGuardChild(props.children)}</RequireRole>;');
   });
 
-  it("keeps the admin sidebar activity entry while leaving teacher activity navigation unchanged", () => {
+  it("keeps the admin sidebar activity entry while exposing the teacher activity library route", () => {
     const sidebar = readFileSync(new URL("../src/components/dashboard/Sidebar.tsx", import.meta.url), "utf8");
 
     expect(sidebar).toContain('title: "Aktiviti"');
-    expect(sidebar).toContain('url: "/admin/aktiviti"');
-    expect(sidebar).toContain('roles: ["SUPER_ADMIN", "ADMIN"]');
+    expect(sidebar).toContain('url: "/guru/aktiviti"');
+    expect(sidebar).toContain('roles: ["TEACHER"]');
     expect(sidebar).toContain('url: "/guru/ibu-bapa"');
-    expect(sidebar).toContain('url: "/digital-activities"');
+    expect(sidebar).toContain('url: "/admin/aktiviti"');
   });
 
   it("parses URL query state and keeps category filters in search params", () => {

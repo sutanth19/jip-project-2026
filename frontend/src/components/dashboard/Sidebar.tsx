@@ -194,9 +194,9 @@ const navMain: NavItem[] = [
     },
     {
       title: "Aktiviti",
-      url: "/digital-activities",
+      url: "/guru/aktiviti",
       icon: <LibraryBig />,
-      roles: ["TEACHER", "STUDENT"],
+      roles: ["TEACHER"],
     },
     {
       title: "Jenis Aktiviti",
@@ -291,7 +291,6 @@ const temporarilyHiddenTeacherNavTitles = new Set([
   "Draf AI",
   "Profil",
   "Kurikulum Pemulihan",
-  "Aktiviti",
   "Jenis Aktiviti",
   "Bank Soalan",
   "Analitik & Laporan",

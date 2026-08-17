@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ActivitySummaryCard } from "@/features/admin/components/ActivitySummaryCard";
 import {
   getAdminDigitalActivity,
   getAdminDigitalActivityPublishReadiness,
@@ -190,28 +191,12 @@ function SummaryCard({ activity }: { activity: AdminActivityDetailRecord }) {
   ];
 
   return (
-    <Card className="rounded-2xl border-border bg-card py-0 shadow-sm">
-      <CardContent className="space-y-5 p-5 sm:p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-            <ClipboardList className="size-5" aria-hidden="true" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">Ringkasan Aktiviti</h2>
-            <p className="text-sm leading-6 text-muted-foreground">Semak maklumat utama aktiviti sebelum menyimpan sebagai draf atau mengaktifkannya.</p>
-          </div>
-        </div>
-
-        <dl className="space-y-3 text-sm">
-          {rows.map((row) => (
-            <div key={row.label} className="flex items-start justify-between gap-4 rounded-xl border border-border bg-background/30 px-4 py-3">
-              <dt className="text-muted-foreground">{row.label}</dt>
-              <dd className="max-w-[55%] text-right font-semibold text-foreground">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+    <ActivitySummaryCard
+      icon={ClipboardList}
+      title="Ringkasan Aktiviti"
+      description="Semak maklumat utama aktiviti sebelum menyimpan sebagai draf atau mengaktifkannya."
+      rows={rows}
+    />
   );
 }
 

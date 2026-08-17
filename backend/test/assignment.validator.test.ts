@@ -22,3 +22,43 @@ test("Assignment migration is additive", async () => {
   assert.match(sql, /CREATE TABLE "assignment_student_targets"/);
   assert.doesNotMatch(sql, /\bDROP\b/i);
 });
+
+test("Assignment service keeps teacher assignment creation scoped to active published activity targets", async () => {
+  const source = await readFile(new URL("../src/services/assignment.service.ts", import.meta.url), "utf8");
+
+  assert.match(source, /if \(!activity \|\| activity\.status !== "PUBLISHED"\)/);
+  assert.match(source, /if \(!school \|\| school\.accountStatus !== AccountStatus\.ACTIVE\)/);
+  assert.match(source, /if \(!teacher \|\| teacher\.user\.accountStatus !== AccountStatus\.ACTIVE\)/);
+  assert.match(source, /if \(context\.actor\.role === UserRole\.TEACHER\)/);
+  assert.match(source, /if \(!teacher\.schoolId \|\| !context\.actor\.schoolId\) throw schoolContextRequired\(\)/);
+  assert.match(source, /if \(school\.id !== teacher\.schoolId\) throw denied\(\)/);
+  assert.match(source, /for \(const schoolClass of classes\)/);
+  assert.match(source, /for \(const student of students\)/);
+  assert.match(source, /schoolClass\.teacherId !== teacher\.id\) throw denied\(\)/);
+  assert.match(source, /student\.class\.teacherId !== teacher\.id\) throw denied\(\)/);
+  assert.match(source, /if \(student\.user\.accountStatus !== AccountStatus\.ACTIVE\) throw invalidTarget\("Hanya murid aktif boleh ditugaskan\."\)/);
+  assert.match(source, /if \(student\.class\.accountStatus !== AccountStatus\.ACTIVE\) throw invalidTarget\("Murid dalam kelas tidak aktif tidak boleh ditugaskan\."\)/);
+});
+
+test("Assignment service derives real status, persists targets, and scopes teacher reads", async () => {
+  const source = await readFile(new URL("../src/services/assignment.service.ts", import.meta.url), "utf8");
+
+  assert.match(source, /const status = input\.startAt && input\.startAt > now \? AssignmentStatus\.SCHEDULED : AssignmentStatus\.ACTIVE;/);
+  assert.match(source, /publishedAt: now,/);
+  assert.match(source, /if \(classIds\.length\) await tx\.assignmentClassTarget\.createMany/);
+  assert.match(source, /if \(studentIds\.length\) await tx\.assignmentStudentTarget\.createMany/);
+  assert.match(source, /where\.schoolId = context\.actor\.schoolId \?\? undefined;/);
+  assert.match(source, /where\.assignedByTeacherId = context\.actor\.profileId;/);
+  assert.match(source, /function ensureTeacherOwnsAssignment/);
+  assert.match(source, /record\.assignedByTeacher\.id !== context\.actor\.profileId \|\| record\.school\.id !== context\.actor\.schoolId/);
+  assert.match(source, /record\.status !== AssignmentStatus\.DRAFT && record\.status !== AssignmentStatus\.SCHEDULED && record\.status !== AssignmentStatus\.ACTIVE/);
+});
+
+test("Assignment service rejects duplicate targets and invalid schedules", async () => {
+  const source = await readFile(new URL("../src/services/assignment.service.ts", import.meta.url), "utf8");
+
+  assert.match(source, /if \(classIds\.length !== input\.classIds\.length \|\| studentIds\.length !== input\.studentIds\.length\) throw duplicateTarget\(\)/);
+  assert.match(source, /if \(input\.startAt && input\.dueAt && input\.dueAt < input\.startAt\) throw invalidSchedule\("Tarikh tamat mesti selepas tarikh mula\."\)/);
+  assert.match(source, /if \(input\.dueAt && input\.availableUntil && input\.availableUntil < input\.dueAt\) throw invalidSchedule\("Tarikh tutup mesti sama atau selepas tarikh tamat\."\)/);
+  assert.match(source, /if \(input\.startAt && input\.availableUntil && input\.availableUntil < input\.startAt\) throw invalidSchedule\("Tarikh tutup mesti selepas tarikh mula\."\)/);
+});

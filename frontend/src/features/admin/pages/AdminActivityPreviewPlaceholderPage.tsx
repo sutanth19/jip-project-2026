@@ -59,7 +59,7 @@ function PreviewMetaCard({
           <Link to={returnPath}>{returnLabel}</Link>
         </Button>
       </div>
-      <section aria-label="Kandungan aktiviti" className="min-h-0">
+      <section aria-label="Kandungan aktiviti" className="font-literacy min-h-0">
         <ActivityRenderer />
       </section>
     </div>

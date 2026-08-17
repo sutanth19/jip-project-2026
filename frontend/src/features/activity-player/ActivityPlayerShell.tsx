@@ -33,10 +33,12 @@ export function ActivityPlayerShell({ onExit }: ActivityPlayerShellProps) {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><ProgressBar value={progress.percentage} label={`Kemajuan: ${progress.completed} daripada ${progress.total} item selesai`} className="w-full" /><p className="shrink-0 text-sm font-semibold">Item {progress.current} / {progress.total}</p></div>
             <div className="mt-4 flex flex-wrap gap-2" aria-label="Lompat ke item">{items.map((item, index) => <Button key={item.id} type="button" size="icon" variant={index === currentIndex ? "default" : "outline"} className="size-10" aria-label={`Pergi ke item ${index + 1}`} aria-current={index === currentIndex ? "step" : undefined} onClick={() => goToItem(index)}>{index + 1}</Button>)}</div>
           </section>
-          <InstructionPanel instructions={activity.instructions} />
+          <div className="font-literacy">
+            <InstructionPanel instructions={activity.instructions} />
+          </div>
           {image ? <MediaViewer media={image} className="max-h-80 w-full rounded-2xl object-contain" /> : null}
           {audio ? <MediaViewer media={audio} /> : null}
-          <section aria-label="Kandungan aktiviti" className="min-h-0"><ActivityRenderer /></section>
+          <section aria-label="Kandungan aktiviti" className="font-literacy min-h-0"><ActivityRenderer /></section>
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><ListChecks className="size-4" aria-hidden="true" /> Navigasi menggunakan butang, nombor item, atau kekunci Tab dan Enter.</div>
         </>}
       </div>
